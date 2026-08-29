@@ -1,0 +1,6 @@
+{
+  "name": "Celebre - عبوات كاترنج المناسبات والأفراح",
+  "description": "الموقع الرسمي لـ Celebre لطلب وتنسيق عبوات الكاترنج الفاخرة للافراح، كتب الكتاب، الخطوبات، والمناسبات الاجتماعية المصرية",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
