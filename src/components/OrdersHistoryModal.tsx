@@ -9,7 +9,8 @@ import {
   Eye, 
   Phone, 
   MessageCircle,
-  PackageCheck
+  PackageCheck,
+  RotateCcw
 } from 'lucide-react';
 
 interface OrdersHistoryModalProps {
@@ -28,23 +29,45 @@ export const OrdersHistoryModal: React.FC<OrdersHistoryModalProps> = ({
   const [ordersList, setOrdersList] = useState<OrderSubmission[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
+  const [isResetting, setIsResetting] = useState(false);
+  const [resetMessage, setResetMessage] = useState<string | null>(null);
+
+  const fetchOrders = async () => {
+    try {
+      setLoading(true);
+      const res = await fetch('/api/orders');
+      const data = await res.json();
+      if (data.success && data.orders) {
+        setOrdersList(data.orders);
+      }
+    } catch (err) {
+      console.warn('Could not fetch orders:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchOrders = async () => {
-      try {
-        const res = await fetch('/api/orders');
-        const data = await res.json();
-        if (data.success && data.orders) {
-          setOrdersList(data.orders);
-        }
-      } catch (err) {
-        console.warn('Could not fetch orders:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchOrders();
   }, []);
+
+  const handleResetOrders = async () => {
+    try {
+      setIsResetting(true);
+      const res = await fetch('/api/orders/reset', { method: 'POST' });
+      const data = await res.json();
+      if (data.success && data.orders) {
+        setOrdersList(data.orders);
+        setSearchTerm('');
+        setResetMessage('تمت إعادة ضبط بيانات الطلبات بنجاح');
+        setTimeout(() => setResetMessage(null), 3000);
+      }
+    } catch (err) {
+      console.warn('Error resetting orders:', err);
+    } finally {
+      setIsResetting(false);
+    }
+  };
 
   const filteredOrders = ordersList.filter(o => 
     o.customerName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -77,9 +100,9 @@ export const OrdersHistoryModal: React.FC<OrdersHistoryModalProps> = ({
           </button>
         </div>
 
-        {/* Search Bar */}
-        <div className="p-4 sm:p-6 border-b border-[#E8DEC9] bg-[#FAF3E5]">
-          <div className="relative">
+        {/* Search & Action Bar */}
+        <div className="p-4 sm:p-6 border-b border-[#E8DEC9] bg-[#FAF3E5] flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="relative flex-1 w-full">
             <input
               type="text"
               value={searchTerm}
@@ -89,7 +112,25 @@ export const OrdersHistoryModal: React.FC<OrdersHistoryModalProps> = ({
             />
             <Search className="w-4 h-4 text-[#8C5E13] absolute left-3.5 top-3" />
           </div>
+
+          {/* Reset button */}
+          <button
+            onClick={handleResetOrders}
+            disabled={isResetting}
+            title="إعادة ضبط بيانات الطلبات الافتراضية لـ سيلبر"
+            className="w-full sm:w-auto px-3.5 py-2.5 rounded-xl bg-white hover:bg-[#F3E7D3] border border-[#C89B3C]/60 text-[#5C1027] text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs active:scale-95 disabled:opacity-50 flex-shrink-0"
+          >
+            <RotateCcw className={`w-3.5 h-3.5 text-[#C89B3C] ${isResetting ? 'animate-spin' : ''}`} />
+            <span>إعادة ضبط البيانات</span>
+          </button>
         </div>
+
+        {/* Reset Confirmation Banner */}
+        {resetMessage && (
+          <div className="mx-6 mt-3 px-3.5 py-2 rounded-xl bg-[#E8F5E9] border border-[#A5D6A7] text-[#1B5E20] text-xs font-semibold flex items-center justify-between animate-in fade-in duration-200">
+            <span>✓ {resetMessage}</span>
+          </div>
+        )}
 
         {/* Orders List */}
         <div className="p-4 sm:p-6 space-y-4">

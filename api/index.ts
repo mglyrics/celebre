@@ -31,7 +31,7 @@ interface CateringOrder {
   createdAt: string;
 }
 
-const orders: CateringOrder[] = [
+const DEFAULT_ORDERS: CateringOrder[] = [
   {
     id: "CEL-8491",
     customerName: "م. أحمد الشناوي",
@@ -90,6 +90,8 @@ const orders: CateringOrder[] = [
   }
 ];
 
+let orders: CateringOrder[] = [...DEFAULT_ORDERS];
+
 let aiClient: GoogleGenAI | null = null;
 function getGeminiClient(): GoogleGenAI | null {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -110,6 +112,17 @@ app.get("/api/health", (_req, res) => {
 // Orders
 app.get("/api/orders", (_req, res) => {
   res.json({ success: true, orders });
+});
+
+// Reset Orders to Default Celebre State
+app.post("/api/orders/reset", (_req, res) => {
+  orders = [...DEFAULT_ORDERS];
+  res.json({ success: true, message: "تمت إعادة ضبط بيانات الطلبات بنجاح", orders });
+});
+
+app.post("/api/reset", (_req, res) => {
+  orders = [...DEFAULT_ORDERS];
+  res.json({ success: true, message: "تمت إعادة ضبط بيانات مشروع سيلبر بنجاح", orders });
 });
 
 app.post("/api/orders", (req, res) => {

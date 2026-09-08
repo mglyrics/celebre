@@ -1,6 +1,7 @@
 import { CateringPackage, MenuItemOption, PackagingOption, Testimonial, FAQItem } from '../types';
 
 import heroImg from '../assets/images/celebre_hero_banner_1788037530778.jpg';
+import brandedBoxImg from '../assets/images/celebre_branded_box_1788040428186.jpg';
 import royalBoxImg from '../assets/images/celebre_royal_box_1788037545297.jpg';
 import sweetBoxImg from '../assets/images/celebre_sweet_box_1788037558417.jpg';
 import eventSetupImg from '../assets/images/celebre_event_setup_1788037572328.jpg';
@@ -15,7 +16,7 @@ export const CATERING_PACKAGES: CateringPackage[] = [
     pricePerBox: 145,
     originalPrice: 165,
     minOrder: 30,
-    image: royalBoxImg,
+    image: brandedBoxImg,
     badge: 'الأكثر مبيعاً ✨',
     isBestseller: true,
     isLuxury: true,
