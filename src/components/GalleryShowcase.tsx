@@ -12,6 +12,7 @@ import heroImg from '../assets/images/celebre_hero_banner_1788037530778.jpg';
 import royalBoxImg from '../assets/images/celebre_royal_box_1788037545297.jpg';
 import sweetBoxImg from '../assets/images/celebre_sweet_box_1788037558417.jpg';
 import eventSetupImg from '../assets/images/celebre_event_setup_1788037572328.jpg';
+import chocolateBoxImg from '../assets/images/celebre_custom_chocolate_box_1789036264927.jpg';
 
 const GALLERY_ITEMS = [
   {
@@ -30,10 +31,10 @@ const GALLERY_ITEMS = [
   },
   {
     id: 3,
-    title: 'علب الحلويات والضيافة الشرقية الملكية',
-    category: 'حلويات وضيافة',
-    image: sweetBoxImg,
-    tag: 'كنافة أساور فستق وبسبوسة سمن بلدي',
+    title: 'علبة شيكولاتة باسمك وتاريخ المناسبة',
+    category: 'شيكولاتة باسمك',
+    image: chocolateBoxImg,
+    tag: 'قطع بلجيكية فاخرة بطباعة الأسماء الذهبية',
   },
   {
     id: 4,

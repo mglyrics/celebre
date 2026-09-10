@@ -8,7 +8,6 @@ import {
   X, 
   MessageCircle, 
   Calculator, 
-  Layers, 
   Clock, 
   Flame,
   FileText
@@ -21,7 +20,6 @@ interface NavbarProps {
   onOpenCart: () => void;
   onOpenAdvisor: () => void;
   onOpenCalculator?: () => void;
-  onOpenCustomizer?: () => void;
   onOpenOrdersHistory?: () => void;
   onOpenHistory?: () => void;
 }
@@ -32,7 +30,6 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenCart,
   onOpenAdvisor,
   onOpenCalculator,
-  onOpenCustomizer,
   onOpenOrdersHistory,
   onOpenHistory,
 }) => {
@@ -61,7 +58,6 @@ export const Navbar: React.FC<NavbarProps> = ({
     }
   };
 
-  const handleCustomizer = onOpenCustomizer || (() => scrollToSection('custom-builder-section'));
   const handleCalculator = onOpenCalculator || (() => scrollToSection('calculator-section'));
 
   return (
@@ -123,15 +119,6 @@ export const Navbar: React.FC<NavbarProps> = ({
             >
               <Flame className="w-4 h-4 text-[#C89B3C]" />
               <span>باقات المناسبات</span>
-            </button>
-
-            <button 
-              onClick={handleCustomizer}
-              className="hover:text-[#721832] transition-colors flex items-center gap-1 py-1 text-[#721832] font-semibold cursor-pointer"
-            >
-              <Layers className="w-4 h-4 text-[#721832]" />
-              <span>صمم عبوتك بنفسك</span>
-              <span className="px-1.5 py-0.2 bg-[#FAF0E1] text-[#9A6715] text-[10px] rounded-full border border-[#D4AF37]/30">جديد</span>
             </button>
 
             <button 
@@ -230,17 +217,6 @@ export const Navbar: React.FC<NavbarProps> = ({
             >
               <Flame className="w-4 h-4 text-[#C89B3C]" />
               <span>باقات المناسبات الجاهزة</span>
-            </button>
-
-            <button
-              onClick={() => { setMobileMenuOpen(false); handleCustomizer(); }}
-              className="flex items-center justify-between p-2.5 rounded-lg bg-[#FAF0E1] text-[#721832] font-semibold text-right"
-            >
-              <span className="flex items-center gap-2">
-                <Layers className="w-4 h-4 text-[#721832]" />
-                <span>صمم عبوتك المخصصة بنفسك</span>
-              </span>
-              <span className="px-2 py-0.5 bg-[#721832] text-white text-xs rounded-md">جديد</span>
             </button>
 
             <button

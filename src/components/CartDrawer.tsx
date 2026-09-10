@@ -83,7 +83,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 </div>
                 <h4 className="font-bold text-base text-[#2C0A15] mb-1">لم تقم بإضافة أي باقات بعد</h4>
                 <p className="text-xs text-[#736456] leading-relaxed max-w-xs mb-4">
-                  تصفح باقات كتب الكتاب والزفاف الجاهزة أو صمم عبوتك بنفسك من الاستوديو التفاعلي.
+                  تصفح باقات كتب الكتاب والزفاف وعروض المنيو الجاهزة واطلب ضيافتك الآن.
                 </p>
                 <button
                   onClick={onClose}

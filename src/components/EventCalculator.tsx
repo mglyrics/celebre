@@ -33,24 +33,25 @@ export const EventCalculator: React.FC<EventCalculatorProps> = ({
   // Suggested Package Mapping
   const recommendedPackage: CateringPackage = useMemo(() => {
     if (occasionType === 'katb_ketab') {
-      return CATERING_PACKAGES.find(p => p.id === 'pkg-katb-ketab-royal') || CATERING_PACKAGES[0];
+      return CATERING_PACKAGES.find(p => p.id === 'pkg-meal-4') || CATERING_PACKAGES[3] || CATERING_PACKAGES[0];
     } else if (occasionType === 'wedding') {
-      return CATERING_PACKAGES.find(p => p.id === 'pkg-diamond-wedding') || CATERING_PACKAGES[1];
+      return CATERING_PACKAGES.find(p => p.id === 'pkg-meal-5') || CATERING_PACKAGES[4] || CATERING_PACKAGES[0];
     } else if (occasionType === 'engagement_henna') {
-      return CATERING_PACKAGES.find(p => p.id === 'pkg-henna-engagement') || CATERING_PACKAGES[2];
+      return CATERING_PACKAGES.find(p => p.id === 'pkg-meal-3') || CATERING_PACKAGES[2] || CATERING_PACKAGES[0];
     } else if (occasionType === 'aqiqa') {
-      return CATERING_PACKAGES.find(p => p.id === 'pkg-aqiqa-baby') || CATERING_PACKAGES[3];
+      return CATERING_PACKAGES.find(p => p.id === 'pkg-meal-1') || CATERING_PACKAGES[0];
     } else {
-      return CATERING_PACKAGES.find(p => p.id === 'pkg-vip-reception') || CATERING_PACKAGES[4];
+      return CATERING_PACKAGES.find(p => p.id === 'pkg-meal-5') || CATERING_PACKAGES[4] || CATERING_PACKAGES[0];
     }
   }, [occasionType]);
 
   // Adjust price based on tier & extras
   const unitPrice = useMemo(() => {
     let base = recommendedPackage.pricePerBox;
-    if (tier === 'standard') base -= 15;
-    if (tier === 'vip') base += 25;
-    return Math.max(80, base);
+    if (tier === 'standard') base = Math.min(base, 50);
+    if (tier === 'luxury') base = Math.max(base, 65);
+    if (tier === 'vip') base = 80;
+    return Math.max(50, base);
   }, [recommendedPackage, tier]);
 
   const recommendedBoxesCount = useMemo(() => {

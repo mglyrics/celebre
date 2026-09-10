@@ -62,7 +62,7 @@ export const Footer: React.FC = () => {
               </li>
               <li>
                 <a href="#packages-section" className="hover:text-[#FFDF9E] transition-colors">
-                  • علب الحلويات والضيافة الشرقية (Sweets Box)
+                  • علبة شيكولاتة باسمك (Custom Chocolate Box)
                 </a>
               </li>
             </ul>

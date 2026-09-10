@@ -15,22 +15,19 @@ import { PackageDetailModal } from './PackageDetailModal';
 
 interface PackagesSectionProps {
   onAddToCart: (item: OrderItem) => void;
-  onOpenCustomizer: () => void;
 }
 
 const CATEGORIES: { id: OccasionCategory; label: string; icon: string }[] = [
-  { id: 'all', label: 'جميع الباقات', icon: '✨' },
-  { id: 'katb_ketab', label: 'كتب الكتاب وعقد القران', icon: '💍' },
-  { id: 'wedding', label: 'حفلات الزفاف الفاخرة', icon: '👑' },
+  { id: 'all', label: 'جميع وجبات المنيو (50 - 80 ج)', icon: '✨' },
+  { id: 'katb_ketab', label: 'كتب الكتاب والمساجد', icon: '💍' },
+  { id: 'wedding', label: 'حفلات الزفاف والأفراح', icon: '👑' },
+  { id: 'vip_reception', label: 'عروض كبار الزوار VIP', icon: '⭐' },
   { id: 'engagement_henna', label: 'الخطوبة وليالي الحنة', icon: '🌺' },
-  { id: 'aqiqa_baby', label: 'السبوع والعقيقة', icon: '🍼' },
-  { id: 'vip_reception', label: 'كبار الزوار VIP', icon: '⭐' },
-  { id: 'sweets_hospitality', label: 'الحلويات والضيافة', icon: '🍬' },
+  { id: 'sweets_hospitality', label: 'علبة شيكولاتة باسمك', icon: '🍫' },
 ];
 
 export const PackagesSection: React.FC<PackagesSectionProps> = ({
   onAddToCart,
-  onOpenCustomizer,
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<OccasionCategory>('all');
   const [activeModalPackage, setActiveModalPackage] = useState<CateringPackage | null>(null);
@@ -44,20 +41,50 @@ export const PackagesSection: React.FC<PackagesSectionProps> = ({
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
         
         {/* Section Header */}
-        <div className="text-center max-w-3xl mx-auto mb-12">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#F3E7D3] border border-[#C89B3C]/40 text-[#5C1027] text-xs font-bold mb-3 shadow-xs">
-            <Crown className="w-3.5 h-3.5 text-[#C89B3C]" />
-            <span>باقات كاترنج جاهزة ومنسقة بعناية</span>
+        <div className="text-center max-w-3xl mx-auto mb-10">
+          <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#F3E7D3] border border-[#C89B3C]/40 text-[#5C1027] text-xs font-bold mb-3 shadow-xs">
+            <Crown className="w-4 h-4 text-[#C89B3C]" />
+            <span>منيو وجبات الكاترنج الرسمي المعتمد 2026</span>
           </div>
 
           <h2 className="text-3xl sm:text-4xl font-extrabold text-[#2C0A15] tracking-tight mb-3">
-            باقات ضيافة المناسبات والأفراح من{' '}
+            وجبات كاترنج فاخرة لجميع المناسبات من{' '}
             <span className="font-['Playfair_Display'] text-[#721832] font-black">Celebre</span>
           </h2>
           
-          <p className="text-sm sm:text-base text-[#66574A] leading-relaxed">
-            اختر الباقة الأنسب لمناسبتك السعيدة، مُعدة بأيدي أمهر الطهاة وتصلكم مغلفة بأرقى الخامات المخملية والأشرطة الذهبية مع كارت تهنئة باسمكم.
+          <p className="text-base sm:text-lg text-[#721832] font-bold mb-2">
+            « أكل مميز لكل مناسبة ♡ لأن مناسبتك تستحق الأفضل »
           </p>
+
+          <p className="text-sm sm:text-base text-[#66574A] leading-relaxed">
+            اختر وجبة ضيافتك المفضلة من المنيو الرسمي المعتمد، تبدأ من 50 جنيه فقط وتصلكم مغلفة بأرقى الخامات مع قطعة جاتوة مغلفة وعصير بخيرة وشوكة ومنديل معقم.
+          </p>
+        </div>
+
+        {/* Official Menu Highlights Banner */}
+        <div className="mb-12 p-6 rounded-3xl bg-white border border-[#E3D4BC] shadow-sm">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center divide-y md:divide-y-0 md:divide-x md:divide-x-reverse divide-[#E8DEC9]">
+            <div className="pt-2 md:pt-0 px-2 flex flex-col items-center">
+              <span className="text-2xl mb-1">⭐</span>
+              <span className="text-xs sm:text-sm font-bold text-[#2C0A15]">جودة عالية في المكونات</span>
+              <span className="text-[11px] text-[#7A6A5C]">لحوم وفراخ بلدي طازجة يومياً</span>
+            </div>
+            <div className="pt-2 md:pt-0 px-2 flex flex-col items-center">
+              <span className="text-2xl mb-1">🎁</span>
+              <span className="text-xs sm:text-sm font-bold text-[#2C0A15]">تغليف أنيق ومميز</span>
+              <span className="text-[11px] text-[#7A6A5C]">علبة كرتونية فاخرة مع شريط ستان</span>
+            </div>
+            <div className="pt-2 md:pt-0 px-2 flex flex-col items-center">
+              <span className="text-2xl mb-1">🎉</span>
+              <span className="text-xs sm:text-sm font-bold text-[#2C0A15]">مناسبة لكل الاحتفالات</span>
+              <span className="text-[11px] text-[#7A6A5C]">كتب كتاب، أفراح، خطوبات، سبوع</span>
+            </div>
+            <div className="pt-2 md:pt-0 px-2 flex flex-col items-center">
+              <span className="text-2xl mb-1">♡</span>
+              <span className="text-xs sm:text-sm font-bold text-[#2C0A15]">تُجهز لك بكل حب</span>
+              <span className="text-[11px] text-[#7A6A5C]">خدمة فورية وتوصيل معقم</span>
+            </div>
+          </div>
         </div>
 
         {/* Category Filters Bar */}
@@ -187,28 +214,6 @@ export const PackagesSection: React.FC<PackagesSectionProps> = ({
               </div>
             </div>
           ))}
-        </div>
-
-        {/* Customizer Callout Banner */}
-        <div className="mt-14 p-6 sm:p-8 rounded-3xl bg-gradient-to-r from-[#5C1027] via-[#4A0A1D] to-[#3B0715] text-white border border-[#C89B3C]/50 shadow-xl flex flex-col md:flex-row items-center justify-between gap-6 text-center md:text-right">
-          <div className="space-y-1.5 max-w-xl">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#D4AF37] text-[#2C0A15] text-xs font-black">
-              <Sparkles className="w-3.5 h-3.5 text-[#2C0A15]" />
-              <span>استوديو التخصيص الكامل</span>
-            </div>
-            <h3 className="text-xl sm:text-2xl font-bold">عايز تصمم منيو مخصص على ذوقك وبميزانيتك؟</h3>
-            <p className="text-xs sm:text-sm text-[#E5D5BC]">
-              استخدم صانع العبوات التفاعلي لاختيار أصناف الساندوتشات، المخبوزات، الحلويات، والمشروبات ونوع الصندوق ولون الستان بالتحديد.
-            </p>
-          </div>
-
-          <button
-            onClick={onOpenCustomizer}
-            className="px-6 py-3.5 rounded-2xl bg-[#D4AF37] hover:bg-[#E5C06E] text-[#2C0A15] font-extrabold text-sm sm:text-base transition-all shadow-lg flex items-center gap-2 flex-shrink-0 cursor-pointer active:scale-95"
-          >
-            <span>ابدأ بتصميم عبوتك الآن</span>
-            <ArrowLeft className="w-4 h-4" />
-          </button>
         </div>
 
       </div>

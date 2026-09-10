@@ -5,7 +5,6 @@ import { Navbar } from './components/Navbar';
 import { Hero } from './components/Hero';
 import { PackagesSection } from './components/PackagesSection';
 import { PackageDetailModal } from './components/PackageDetailModal';
-import { CustomBoxBuilder } from './components/CustomBoxBuilder';
 import { EventCalculator } from './components/EventCalculator';
 import { AiCateringAdvisor } from './components/AiCateringAdvisor';
 import { GalleryShowcase } from './components/GalleryShowcase';
@@ -139,22 +138,14 @@ export default function App() {
             const el = document.getElementById('packages-section');
             el?.scrollIntoView({ behavior: 'smooth' });
           }}
-          onOpenCustomBuilder={() => {
-            const el = document.getElementById('custom-builder-section');
-            el?.scrollIntoView({ behavior: 'smooth' });
-          }}
         />
 
         {/* 2. Packages Section */}
         <PackagesSection
-          onSelectPackage={handleSelectPackageFromList}
-          onDirectOrder={handleDirectOrderFromPackage}
+          onAddToCart={handleAddToCart}
         />
 
-        {/* 3. Interactive Custom Box Builder Studio */}
-        <CustomBoxBuilder onAddToCart={handleAddToCart} />
-
-        {/* 4. Smart Catering Guest & Budget Calculator */}
+        {/* 3. Smart Catering Guest & Budget Calculator */}
         <EventCalculator
           onAddToCart={handleAddToCart}
           onOpenAdvisor={() => setIsAdvisorOpen(true)}
