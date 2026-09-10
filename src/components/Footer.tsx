@@ -11,7 +11,11 @@ import {
   Mail
 } from 'lucide-react';
 
-export const Footer: React.FC = () => {
+interface FooterProps {
+  onOpenPrivacyPolicy?: () => void;
+}
+
+export const Footer: React.FC<FooterProps> = ({ onOpenPrivacyPolicy }) => {
   return (
     <footer className="bg-[#2C0A15] text-[#EAD8BD] border-t-2 border-[#C89B3C] text-right">
       
@@ -65,19 +69,37 @@ export const Footer: React.FC = () => {
                   • علبة شيكولاتة باسمك (Custom Chocolate Box)
                 </a>
               </li>
+              {onOpenPrivacyPolicy && (
+                <li className="pt-2 border-t border-[#4A0A1D]">
+                  <button
+                    onClick={onOpenPrivacyPolicy}
+                    className="text-[#FFDF9E] hover:underline transition-colors flex items-center gap-1.5 cursor-pointer font-bold"
+                  >
+                    <ShieldCheck className="w-3.5 h-3.5 text-[#C89B3C]" />
+                    <span>سياسة الخصوصية وشروط التعاقد</span>
+                  </button>
+                </li>
+              )}
             </ul>
           </div>
 
           {/* Column 3: Coverage Locations */}
           <div className="space-y-3">
             <h4 className="text-sm font-bold text-[#FFDF9E] border-b border-[#5C1027] pb-2">
-              مناطق التغطية والتوصيل
+              مناطق التغطية والتوصيل (بني سويف)
             </h4>
-            <div className="text-xs text-[#D1BFA8] space-y-1.5 leading-relaxed">
-              <div>📍 <strong>القاهرة الكبرى:</strong> التجمع، مصر الجديدة، مدينة نصر، المعادي، الشروق، مدينتي، العاصمة الإدارية.</div>
-              <div>📍 <strong>الجيزة:</strong> الشيخ زايد، 6 أكتوبر، المهندسين، الدقي، الهرم.</div>
-              <div>📍 <strong>الإسكندرية والساحل:</strong> توصيل منسق لجميع القاعات والفنادق.</div>
-              <div>📍 <strong>المحافظات:</strong> الدلتا والقناة بالحجز المسبق.</div>
+            <div className="text-xs text-[#D1BFA8] space-y-2 leading-relaxed">
+              <div className="text-[#FFDF9E] font-semibold text-[11px]">
+                🚗 التغطية الحالية متاحة حصرياً داخل نطاق بني سويف:
+              </div>
+              <div className="bg-[#2A0611] p-2.5 rounded-xl border border-[#C89B3C]/30">
+                <div className="text-white font-bold mb-0.5">📍 مدينة بني سويف:</div>
+                <div className="text-[#D1BFA8] text-[11px]">توصيل مباشر لكافة المساجد والقاعات والمنازل ونوادي المدينة.</div>
+              </div>
+              <div className="bg-[#2A0611] p-2.5 rounded-xl border border-[#C89B3C]/30">
+                <div className="text-white font-bold mb-0.5">📍 بني سويف شرق النيل:</div>
+                <div className="text-[#D1BFA8] text-[11px]">تغطية شاملة لقاعات وفنادق ومناطق شرق النيل وبني سويف الجديدة.</div>
+              </div>
             </div>
           </div>
 
@@ -125,13 +147,25 @@ export const Footer: React.FC = () => {
 
       {/* Bottom Bar */}
       <div className="bg-[#1C050D] py-4 border-t border-[#420A1A] text-center text-xs text-[#A89680]">
-        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
+        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div>
             جميع الحقوق محفوظة © {new Date().getFullYear()} لعلامة <strong className="text-[#FFDF9E] font-['Playfair_Display']">Celebre</strong> (سيلبر لكاترنج الأفراح والمناسبات).
           </div>
-          <div className="flex items-center gap-1 text-[11px]">
-            <span>صُنع بشغف لضيافة مصرية تليق بأفراحكم</span>
-            <Heart className="w-3.5 h-3.5 text-[#E5C06E] fill-[#E5C06E]" />
+          <div className="flex items-center gap-4 text-[11px]">
+            {onOpenPrivacyPolicy && (
+              <button
+                onClick={onOpenPrivacyPolicy}
+                className="text-[#E5C06E] hover:underline cursor-pointer flex items-center gap-1 font-semibold"
+              >
+                <ShieldCheck className="w-3.5 h-3.5" />
+                <span>سياسة الخصوصية والشروط</span>
+              </button>
+            )}
+            <span className="hidden sm:inline text-white/20">|</span>
+            <div className="flex items-center gap-1 text-[11px]">
+              <span>صُنع بشغف لضيافة مصرية تليق بأفراحكم</span>
+              <Heart className="w-3.5 h-3.5 text-[#E5C06E] fill-[#E5C06E]" />
+            </div>
           </div>
         </div>
       </div>

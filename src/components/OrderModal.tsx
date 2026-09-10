@@ -17,12 +17,14 @@ import {
   Loader2
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import officialLogoTransparent from '../assets/images/celebre_official_logo_transparent.png';
 
 interface OrderModalProps {
   isOpen: boolean;
   onClose: () => void;
   items: OrderItem[];
   onOrderSuccess: (order: OrderSubmission) => void;
+  onOpenPrivacyPolicy?: () => void;
 }
 
 export const OrderModal: React.FC<OrderModalProps> = ({
@@ -30,6 +32,7 @@ export const OrderModal: React.FC<OrderModalProps> = ({
   onClose,
   items = [],
   onOrderSuccess,
+  onOpenPrivacyPolicy,
 }) => {
   if (!isOpen) return null;
 
@@ -110,8 +113,13 @@ export const OrderModal: React.FC<OrderModalProps> = ({
           </button>
 
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-[#D4AF37] text-[#2C0A15] flex items-center justify-center font-bold shadow-md">
-              <CreditCard className="w-5 h-5" />
+            <div className="w-14 h-12 rounded-xl bg-white/10 backdrop-blur-md border border-[#C89B3C]/50 p-1 flex items-center justify-center flex-shrink-0 shadow-md">
+              <img
+                src={officialLogoTransparent}
+                alt="Celebre Official Logo"
+                className="w-full h-full object-contain filter drop-shadow-xs"
+                referrerPolicy="no-referrer"
+              />
             </div>
             <div>
               <h3 className="text-lg sm:text-xl font-bold">تأكيد حجز وبيانات مناسبة سيلبر</h3>
@@ -216,11 +224,11 @@ export const OrderModal: React.FC<OrderModalProps> = ({
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs text-[#4F4134] font-medium">المنطقة / المحافظة: *</label>
+                <label className="text-xs text-[#4F4134] font-medium">منطقة التوصيل (بني سويف): *</label>
                 <select
                   value={governorate}
                   onChange={(e) => setGovernorate(e.target.value)}
-                  className="w-full px-3.5 py-2.5 text-xs bg-white rounded-xl border border-[#D9C49C] focus:ring-2 focus:ring-[#721832] focus:outline-none"
+                  className="w-full px-3.5 py-2.5 text-xs bg-white rounded-xl border border-[#D9C49C] focus:ring-2 focus:ring-[#721832] focus:outline-none font-bold text-[#5C1027]"
                 >
                   {GOVERNORATES.map((gov, idx) => (
                     <option key={idx} value={gov}>{gov}</option>
@@ -229,13 +237,13 @@ export const OrderModal: React.FC<OrderModalProps> = ({
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs text-[#4F4134] font-medium">اسم المسجد أو القاعة أو الفيلا: *</label>
+                <label className="text-xs text-[#4F4134] font-medium">اسم المسجد أو القاعة أو العنوان: *</label>
                 <input
                   type="text"
                   required
                   value={venueName}
                   onChange={(e) => setVenueName(e.target.value)}
-                  placeholder="مثال: مسجد الشرطة بالتجمع الخامس - قاعة الصفا"
+                  placeholder="مثال: مسجد عمر بن عبد العزيز / قاعة على النيل"
                   className="w-full px-3.5 py-2.5 text-xs bg-white rounded-xl border border-[#D9C49C] focus:ring-2 focus:ring-[#721832] focus:outline-none"
                 />
               </div>
@@ -246,7 +254,7 @@ export const OrderModal: React.FC<OrderModalProps> = ({
                   type="text"
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
-                  placeholder="مثال: شارع التسعين الشمالي، بجوار المستشفى الجوي"
+                  placeholder="مثال: شارع عبد السلام عارف، أو كورنيش النيل، أو الحي الأول شرق النيل..."
                   className="w-full px-3.5 py-2.5 text-xs bg-white rounded-xl border border-[#D9C49C] focus:ring-2 focus:ring-[#721832] focus:outline-none"
                 />
               </div>
@@ -305,6 +313,36 @@ export const OrderModal: React.FC<OrderModalProps> = ({
               placeholder="مثال: يرجى التوصيل داخل أكياس حرارية معقمة ووضع الكروت بأعلى العبوات..."
               className="w-full px-3.5 py-2.5 text-xs bg-white rounded-xl border border-[#D9C49C] focus:ring-2 focus:ring-[#721832] focus:outline-none"
             />
+          </div>
+
+          {/* Contract & Privacy Policy Notice */}
+          <div className="bg-[#FFF9EB] p-3.5 rounded-2xl border border-[#E8C882] text-xs text-[#5C3D10] space-y-1.5 shadow-xs">
+            <div className="flex items-center justify-between">
+              <span className="font-extrabold text-[#8C5E13] flex items-center gap-1.5">
+                <ShieldCheck className="w-4 h-4 text-[#8C5E13]" />
+                <span>شروط التعاقد وسياسة الخصوصية الملزمة:</span>
+              </span>
+              {onOpenPrivacyPolicy && (
+                <button
+                  type="button"
+                  onClick={onOpenPrivacyPolicy}
+                  className="text-[11px] font-bold text-[#721832] underline hover:text-[#5C1027] cursor-pointer"
+                >
+                  قراءة الوثيقة كاملة ↗
+                </button>
+              )}
+            </div>
+            <ul className="text-[11px] text-[#694E27] space-y-1 list-disc list-inside pr-1 leading-relaxed">
+              <li>
+                <strong>لا يمكن إرجاع الأوردر:</strong> نظراً لأن المصنع يقوم بإنتاجه وتخصيص كروته ومكوناته خصوصاً للعميل.
+              </li>
+              <li>
+                <strong>تفعيل الطلب:</strong> لا يتم تحريك الطلب أو جدولته بالمصنع إلا بعد دفع 50% من قيمة التعاقد كعربون.
+              </li>
+              <li>
+                <strong>الشحن والتوصيل:</strong> غير مشمول في سعر العرض، والطلبات أكثر من 500 عبوة فقط تستحق الشحن المجاني (بني سويف أو الفيوم).
+              </li>
+            </ul>
           </div>
 
           {/* Action Buttons */}

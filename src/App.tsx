@@ -16,6 +16,7 @@ import { CartDrawer } from './components/CartDrawer';
 import { OrderModal } from './components/OrderModal';
 import { InvoiceModal } from './components/InvoiceModal';
 import { OrdersHistoryModal } from './components/OrdersHistoryModal';
+import { PrivacyPolicyModal } from './components/PrivacyPolicyModal';
 import { MessageCircle, Phone, ShoppingBag, Sparkles, Check } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -26,10 +27,23 @@ export default function App() {
   const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
   const [isAdvisorOpen, setIsAdvisorOpen] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [isPrivacyOpen, setIsPrivacyOpen] = useState(false);
   
   const [activePackageModal, setActivePackageModal] = useState<CateringPackage | null>(null);
   const [currentInvoiceOrder, setCurrentInvoiceOrder] = useState<OrderSubmission | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Check URL hash for direct navigation to privacy policy
+  React.useEffect(() => {
+    const handleHash = () => {
+      if (window.location.hash === '#privacy' || window.location.hash === '#terms') {
+        setIsPrivacyOpen(true);
+      }
+    };
+    handleHash();
+    window.addEventListener('hashchange', handleHash);
+    return () => window.removeEventListener('hashchange', handleHash);
+  }, []);
 
   // Cart total calculations
   const totalCartCount = cartItems.reduce((acc, item) => acc + item.quantity, 0);
@@ -127,6 +141,7 @@ export default function App() {
         onOpenCart={() => setIsCartOpen(true)}
         onOpenAdvisor={() => setIsAdvisorOpen(true)}
         onOpenHistory={() => setIsHistoryOpen(true)}
+        onOpenPrivacyPolicy={() => setIsPrivacyOpen(true)}
       />
 
       {/* Main Page Content */}
@@ -165,7 +180,7 @@ export default function App() {
       </main>
 
       {/* Footer */}
-      <Footer />
+      <Footer onOpenPrivacyPolicy={() => setIsPrivacyOpen(true)} />
 
       {/* Floating Action Buttons (WhatsApp & Quick Call) */}
       <div className="fixed bottom-6 right-6 z-40 flex flex-col gap-3">
@@ -233,6 +248,7 @@ export default function App() {
           setIsCartOpen(false);
           setIsOrderModalOpen(true);
         }}
+        onOpenPrivacyPolicy={() => setIsPrivacyOpen(true)}
       />
 
       {/* 3. Order Checkout Modal */}
@@ -241,6 +257,7 @@ export default function App() {
         onClose={() => setIsOrderModalOpen(false)}
         items={cartItems}
         onOrderSuccess={handleOrderSuccess}
+        onOpenPrivacyPolicy={() => setIsPrivacyOpen(true)}
       />
 
       {/* 4. Invoice Modal */}
@@ -261,6 +278,17 @@ export default function App() {
         isOpen={isHistoryOpen}
         onClose={() => setIsHistoryOpen(false)}
         onViewInvoice={handleOpenInvoiceFromHistory}
+      />
+
+      {/* 7. Privacy Policy & Terms Modal */}
+      <PrivacyPolicyModal
+        isOpen={isPrivacyOpen}
+        onClose={() => {
+          setIsPrivacyOpen(false);
+          if (window.location.hash === '#privacy' || window.location.hash === '#terms') {
+            history.replaceState(null, '', window.location.pathname);
+          }
+        }}
       />
 
     </div>

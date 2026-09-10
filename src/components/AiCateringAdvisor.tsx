@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { OrderItem } from '../types';
 import confetti from 'canvas-confetti';
+import officialLogoTransparent from '../assets/images/celebre_official_logo_transparent.png';
 
 interface AiCateringAdvisorProps {
   isOpen: boolean;
@@ -145,8 +146,13 @@ export const AiCateringAdvisor: React.FC<AiCateringAdvisorProps> = ({
           </button>
 
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-[#D4AF37] text-[#2C0A15] flex items-center justify-center shadow-md">
-              <Bot className="w-6 h-6" />
+            <div className="w-14 h-12 rounded-xl bg-white/10 backdrop-blur-md border border-[#C89B3C]/50 p-1 flex items-center justify-center flex-shrink-0 shadow-md">
+              <img
+                src={officialLogoTransparent}
+                alt="Celebre Logo"
+                className="w-full h-full object-contain filter drop-shadow-xs"
+                referrerPolicy="no-referrer"
+              />
             </div>
             <div>
               <div className="flex items-center gap-2">
@@ -175,7 +181,7 @@ export const AiCateringAdvisor: React.FC<AiCateringAdvisorProps> = ({
                     required
                     value={occasion}
                     onChange={(e) => setOccasion(e.target.value)}
-                    placeholder="مثال: كتب كتاب في مسجد الشرطة بالتجمع الخامس"
+                    placeholder="مثال: كتب كتاب بمسجد عمر بن عبد العزيز أو قاعة ببني سويف"
                     className="w-full px-3.5 py-2.5 text-xs bg-white rounded-xl border border-[#D9C49C] focus:ring-2 focus:ring-[#721832] focus:outline-none"
                   />
                 </div>

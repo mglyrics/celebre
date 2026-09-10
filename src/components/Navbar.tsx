@@ -10,7 +10,8 @@ import {
   Calculator, 
   Clock, 
   Flame,
-  FileText
+  FileText,
+  ShieldCheck
 } from 'lucide-react';
 import { OrderItem } from '../types';
 
@@ -22,6 +23,7 @@ interface NavbarProps {
   onOpenCalculator?: () => void;
   onOpenOrdersHistory?: () => void;
   onOpenHistory?: () => void;
+  onOpenPrivacyPolicy?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -32,6 +34,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenCalculator,
   onOpenOrdersHistory,
   onOpenHistory,
+  onOpenPrivacyPolicy,
 }) => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -70,7 +73,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#E5C06E] opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-[#D4AF37]"></span>
             </span>
-            <span>تجهيز وتوصيل عبوات الكاترنج الفاخرة للأفراح وكتب الكتاب في القاهرة وكافة المحافظات</span>
+            <span>تجهيز وتوصيل عبوات الكاترنج الفاخرة للأفراح وكتب الكتاب في بني سويف (مدينة بني سويف وشرق النيل)</span>
           </div>
 
           <div className="flex items-center gap-4 text-[11px] sm:text-xs">
@@ -157,6 +160,17 @@ export const Navbar: React.FC<NavbarProps> = ({
             >
               الأسئلة الشائعة
             </button>
+
+            {onOpenPrivacyPolicy && (
+              <button 
+                onClick={onOpenPrivacyPolicy}
+                className="hover:text-[#721832] transition-colors py-1 cursor-pointer flex items-center gap-1 text-[#5C1027]"
+                title="سياسة الخصوصية وشروط التعاقد"
+              >
+                <ShieldCheck className="w-3.5 h-3.5 text-[#C89B3C]" />
+                <span>سياسة الخصوصية</span>
+              </button>
+            )}
           </nav>
 
           {/* Right Action Icons & Cart */}
@@ -263,6 +277,16 @@ export const Navbar: React.FC<NavbarProps> = ({
               <FileText className="w-4 h-4 text-[#C89B3C]" />
               <span>سجل الحجوزات والفواتير</span>
             </button>
+
+            {onOpenPrivacyPolicy && (
+              <button
+                onClick={() => { setMobileMenuOpen(false); onOpenPrivacyPolicy(); }}
+                className="p-2.5 rounded-lg bg-[#FAF0E1] text-[#5C1027] font-semibold text-right flex items-center gap-2"
+              >
+                <ShieldCheck className="w-4 h-4 text-[#C89B3C]" />
+                <span>سياسة الخصوصية وشروط التعاقد</span>
+              </button>
+            )}
 
             <div className="pt-3 mt-2 border-t border-[#E3D7C1] flex flex-col gap-2">
               <a

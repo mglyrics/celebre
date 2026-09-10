@@ -17,15 +17,15 @@ import chocolateBoxImg from '../assets/images/celebre_custom_chocolate_box_17890
 const GALLERY_ITEMS = [
   {
     id: 1,
-    title: 'عبوات عقد القران بمسجد الشرطة بالتجمع',
+    title: 'عبوات عقد القران بمسجد عمر بن عبد العزيز ببني سويف',
     category: 'كتب كتاب',
     image: royalBoxImg,
     tag: 'تغليف مخملي نبيتي مع شريط ستان ذهبي',
   },
   {
     id: 2,
-    title: 'تجهيزات ضيافة حفل زفاف أوبن إير بالشيخ زايد',
-    category: 'أفراح وفيلات',
+    title: 'تجهيزات ضيافة حفل زفاف بقاعة على النيل (شرق النيل)',
+    category: 'أفراح وقاعات',
     image: heroImg,
     tag: 'بوكسات سواريه مشكلة ومقبلات ساخنة',
   },

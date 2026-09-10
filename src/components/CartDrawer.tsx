@@ -12,6 +12,7 @@ import {
   CreditCard,
   Crown
 } from 'lucide-react';
+import officialLogoTransparent from '../assets/images/celebre_official_logo_transparent.png';
 
 interface CartDrawerProps {
   isOpen: boolean;
@@ -20,6 +21,7 @@ interface CartDrawerProps {
   onUpdateQuantity: (id: string, newQty: number) => void;
   onRemoveItem: (id: string) => void;
   onCheckout: () => void;
+  onOpenPrivacyPolicy?: () => void;
 }
 
 export const CartDrawer: React.FC<CartDrawerProps> = ({
@@ -29,6 +31,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   onUpdateQuantity,
   onRemoveItem,
   onCheckout,
+  onOpenPrivacyPolicy,
 }) => {
   if (!isOpen) return null;
 
@@ -53,13 +56,18 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
         <div className="w-screen max-w-md bg-[#FAF7F2] border-r border-[#D9C49C] shadow-2xl flex flex-col justify-between">
           
           {/* Drawer Header */}
-          <div className="p-5 bg-gradient-to-r from-[#5C1027] to-[#450919] text-white flex items-center justify-between shadow-md">
+          <div className="p-4 sm:p-5 bg-gradient-to-r from-[#5C1027] to-[#450919] text-white flex items-center justify-between shadow-md">
             <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-[#D4AF37] text-[#2C0A15] flex items-center justify-center font-bold">
-                <ShoppingBag className="w-5 h-5" />
+              <div className="w-12 h-11 rounded-xl bg-white/10 backdrop-blur-md border border-[#C89B3C]/50 p-0.5 flex items-center justify-center flex-shrink-0 shadow-sm">
+                <img
+                  src={officialLogoTransparent}
+                  alt="Celebre Logo"
+                  className="w-full h-full object-contain filter drop-shadow-xs"
+                  referrerPolicy="no-referrer"
+                />
               </div>
               <div>
-                <h3 className="font-bold text-base">سلة طلبات الكاترنج</h3>
+                <h3 className="font-bold text-base">سلة طلبات سيلبر</h3>
                 <span className="text-xs text-[#FFDF9E]">
                   {totalBoxes > 0 ? `${totalBoxes} عبوة محددة للحجز` : 'السلة فارغة'}
                 </span>
@@ -184,7 +192,40 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 </div>
               </div>
 
-              <div className="space-y-2 pt-2">
+              {/* Free Shipping & Terms Alert */}
+              <div className={`p-2.5 rounded-xl border text-[11px] leading-tight space-y-1 ${
+                totalBoxes >= 500
+                  ? 'bg-[#E8F5E9] border-[#81C784] text-[#1B5E20]'
+                  : 'bg-[#FFF9EB] border-[#E8C882] text-[#694E27]'
+              }`}>
+                {totalBoxes >= 500 ? (
+                  <div className="font-bold flex items-center gap-1">
+                    <span>🎉</span>
+                    <span>طلبك ({totalBoxes} عبوة) مؤهل للشحن المجاني ببني سويف أو الفيوم!</span>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-0.5">
+                    <div className="font-bold flex items-center justify-between">
+                      <span>🚚 الشحن غير مشمول في سعر العرض:</span>
+                      {onOpenPrivacyPolicy && (
+                        <button
+                          type="button"
+                          onClick={() => { onClose(); onOpenPrivacyPolicy(); }}
+                          className="text-[#721832] underline hover:text-[#5C1027] font-bold cursor-pointer"
+                        >
+                          الشروط
+                        </button>
+                      )}
+                    </div>
+                    <span>مجاني فقط للطلبات فوق 500 عبوة (بني سويف أو الفيوم). باقي لك {500 - totalBoxes} عبوة للشحن المجاني.</span>
+                  </div>
+                )}
+                <div className="text-[10px] text-gray-500 pt-0.5 border-t border-black/5">
+                  * يُشترط سداد 50% عربون لبدء تحريك وتشغيل الطلب بالمصنع. (الأوردر غير قابل للإرجاع).
+                </div>
+              </div>
+
+              <div className="space-y-2 pt-1">
                 <button
                   onClick={() => {
                     onClose();

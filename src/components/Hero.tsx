@@ -12,7 +12,7 @@ import {
   CheckCircle2
 } from 'lucide-react';
 import brandedBoxImg from '../assets/images/celebre_branded_box_1788040428186.jpg';
-import brandEmblemImg from '../assets/images/celebre_brand_emblem_1788040412193.jpg';
+import officialLogoImg from '../assets/images/celebre_official_logo.png';
 import royalBoxImg from '../assets/images/celebre_royal_box_1788037545297.jpg';
 import vipBoxImg from '../assets/images/celebre_catering_box_1789035352545.jpg';
 
@@ -170,21 +170,21 @@ export const Hero: React.FC<HeroProps> = ({
 
               {/* Second floating mini-card with Official Brand Emblem */}
               <div className="mt-3 bg-white/95 backdrop-blur-md rounded-2xl p-3 border border-[#E3D4B8] shadow-md flex items-center gap-3">
-                <div className="w-14 h-14 rounded-xl overflow-hidden bg-white border border-[#C89B3C]/50 flex-shrink-0 flex items-center justify-center p-1">
+                <div className="w-16 h-14 rounded-xl overflow-hidden bg-white border border-[#C89B3C]/50 flex-shrink-0 flex items-center justify-center p-1 shadow-inner">
                   <img
-                    src={brandEmblemImg}
-                    alt="Celebre Official Emblem"
+                    src={officialLogoImg}
+                    alt="Celebre Official Logo"
                     className="w-full h-full object-contain"
                     referrerPolicy="no-referrer"
                   />
                 </div>
                 <div className="flex-1 text-right">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-extrabold text-[#5C1027]">سيلبر كاترنج (Celebre)</span>
+                    <span className="text-xs font-extrabold text-[#5C1027]">الشعار الرسمي المعتمد</span>
                     <span className="text-[11px] font-bold text-[#8C5E13] font-mono">01284484868</span>
                   </div>
                   <p className="text-[11px] text-[#6E6053] line-clamp-1 mt-0.5">
-                    الشعار الذهبي الملكي • فيونكة النبيتي • دقة التقديم
+                    التاج الذهبي الملكي • Celebre Catering Packages
                   </p>
                 </div>
               </div>
