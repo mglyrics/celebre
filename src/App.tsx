@@ -15,7 +15,6 @@ import { Footer } from './components/Footer';
 import { CartDrawer } from './components/CartDrawer';
 import { OrderModal } from './components/OrderModal';
 import { InvoiceModal } from './components/InvoiceModal';
-import { OrdersHistoryModal } from './components/OrdersHistoryModal';
 import { PrivacyPolicyModal } from './components/PrivacyPolicyModal';
 import { MessageCircle, Phone, ShoppingBag, Sparkles, Check } from 'lucide-react';
 import confetti from 'canvas-confetti';
@@ -26,7 +25,6 @@ export default function App() {
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
   const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
   const [isAdvisorOpen, setIsAdvisorOpen] = useState(false);
-  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isPrivacyOpen, setIsPrivacyOpen] = useState(false);
   
   const [activePackageModal, setActivePackageModal] = useState<CateringPackage | null>(null);
@@ -108,12 +106,6 @@ export default function App() {
     showToast(`تهانينا! تم تسجيل طلب الحجز بنجاح برقم ${order.id}`);
   };
 
-  const handleOpenInvoiceFromHistory = (order: OrderSubmission) => {
-    setCurrentInvoiceOrder(order);
-    setIsHistoryOpen(false);
-    setIsInvoiceModalOpen(true);
-  };
-
   const handleSelectPackageFromList = (pkg: CateringPackage) => {
     setActivePackageModal(pkg);
   };
@@ -140,7 +132,6 @@ export default function App() {
         cartCount={totalCartCount}
         onOpenCart={() => setIsCartOpen(true)}
         onOpenAdvisor={() => setIsAdvisorOpen(true)}
-        onOpenHistory={() => setIsHistoryOpen(true)}
         onOpenPrivacyPolicy={() => setIsPrivacyOpen(true)}
       />
 
@@ -273,14 +264,7 @@ export default function App() {
         onAddToCart={handleAddToCart}
       />
 
-      {/* 6. Order History Modal */}
-      <OrdersHistoryModal
-        isOpen={isHistoryOpen}
-        onClose={() => setIsHistoryOpen(false)}
-        onViewInvoice={handleOpenInvoiceFromHistory}
-      />
-
-      {/* 7. Privacy Policy & Terms Modal */}
+      {/* 6. Privacy Policy & Terms Modal */}
       <PrivacyPolicyModal
         isOpen={isPrivacyOpen}
         onClose={() => {

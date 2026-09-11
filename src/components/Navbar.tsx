@@ -8,9 +8,7 @@ import {
   X, 
   MessageCircle, 
   Calculator, 
-  Clock, 
   Flame,
-  FileText,
   ShieldCheck
 } from 'lucide-react';
 import { OrderItem } from '../types';
@@ -21,8 +19,6 @@ interface NavbarProps {
   onOpenCart: () => void;
   onOpenAdvisor: () => void;
   onOpenCalculator?: () => void;
-  onOpenOrdersHistory?: () => void;
-  onOpenHistory?: () => void;
   onOpenPrivacyPolicy?: () => void;
 }
 
@@ -32,8 +28,6 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenCart,
   onOpenAdvisor,
   onOpenCalculator,
-  onOpenOrdersHistory,
-  onOpenHistory,
   onOpenPrivacyPolicy,
 }) => {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -50,8 +44,6 @@ export const Navbar: React.FC<NavbarProps> = ({
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
-
-  const handleOrdersHistory = onOpenOrdersHistory || onOpenHistory || (() => {});
 
   const scrollToSection = (id: string) => {
     setMobileMenuOpen(false);
@@ -176,16 +168,6 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* Right Action Icons & Cart */}
           <div className="flex items-center gap-2 sm:gap-3">
             
-            {/* Orders History shortcut */}
-            <button
-              onClick={handleOrdersHistory}
-              title="متابعة الحجوزات والفواتير"
-              className="hidden sm:flex items-center gap-1 px-3 py-2 text-xs font-semibold text-[#5C1027] bg-[#F4ECDC] hover:bg-[#EBDDC4] rounded-xl border border-[#D9C8A8] transition-colors cursor-pointer"
-            >
-              <FileText className="w-4 h-4 text-[#C89B3C]" />
-              <span>طلباتي</span>
-            </button>
-
             {/* Shopping Bag / Order Drawer Button */}
             <button
               onClick={onOpenCart}
@@ -268,14 +250,6 @@ export const Navbar: React.FC<NavbarProps> = ({
               className="p-2.5 rounded-lg hover:bg-[#F2E8D7] text-right"
             >
               الأسئلة الشائعة
-            </button>
-
-            <button
-              onClick={() => { setMobileMenuOpen(false); handleOrdersHistory(); }}
-              className="p-2.5 rounded-lg bg-[#F0E6D2] text-[#5C1027] font-semibold text-right flex items-center gap-2"
-            >
-              <FileText className="w-4 h-4 text-[#C89B3C]" />
-              <span>سجل الحجوزات والفواتير</span>
             </button>
 
             {onOpenPrivacyPolicy && (

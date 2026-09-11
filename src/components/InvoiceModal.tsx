@@ -36,7 +36,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
       return `*${idx + 1}. ${it.name}*\n  • الكمية: ${it.quantity} عبوة\n  • سعر العبوة: ${it.pricePerBox} ج.م\n  • الإجمالي: ${it.totalPrice.toLocaleString()} ج.م`;
     }).join('\n');
 
-    const msg = `مرحباً سيلبر (Celebre) 🌸\nأرغب في تأكيد حجز الطلبية المسجلة برقم *${order.id}*:\n\n*الاسم:* ${order.customerName}\n*رقم الهاتف:* ${order.phone}\n*المناسبة:* ${order.occasion}\n*تاريخ ووقت الحفل:* ${order.eventDate} - ${order.eventTime}\n*المكان:* ${order.venueName} (${order.governorate})\n\n*تفاصيل الباقات:*\n${itemsText}\n\n*إجمالي العبوات:* ${order.totalBoxes} عبوة\n*المبلغ الإجمالي:* ${order.totalAmount.toLocaleString()} جنيه مصري\n*طريقة الدفع المختارة:* ${order.paymentMethod}\n${order.customCardText ? `*نص كارت التهنئة:* ${order.customCardText}\n` : ''}\nأرجو تزويدي برابط الدفع أو تأكيد استلام العربون.`;
+    const msg = `مرحباً سيلبر (Celebre) 🌸\nأرغب في تأكيد حجز الطلبية المسجلة برقم *${order.id}*:\n\n*الاسم:* ${order.customerName}\n*رقم الهاتف:* ${order.phone}\n*المناسبة:* ${order.occasion}\n*تاريخ ووقت الحفل:* ${order.eventDate} - ${order.eventTime}\n*المكان:* ${order.venueName} (${order.governorate})\n\n*تفاصيل الباقات:*\n${itemsText}\n\n*إجمالي العبوات:* ${order.totalBoxes} عبوة\n*المبلغ الإجمالي:* ${order.totalAmount.toLocaleString()} جنيه مصري\n*طريقة الدفع المختارة:* ${order.paymentMethod}\nأرجو تزويدي برابط الدفع أو تأكيد استلام العربون.`;
 
     window.open(`https://wa.me/201284484868?text=${encodeURIComponent(msg)}`, '_blank');
   };
@@ -142,9 +142,6 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
                 order.paymentMethod === 'cash_deposit' ? 'عربون كاش بالفرع' :
                 order.paymentMethod
               }</div>
-              {order.customCardText && (
-                <div>• <strong>كارت التهنئة:</strong> {order.customCardText}</div>
-              )}
             </div>
 
             <div className="text-left sm:text-right border-t sm:border-t-0 sm:border-r border-[#DFCBB0] pt-2 sm:pt-0 sm:pr-4">

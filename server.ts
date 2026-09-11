@@ -37,64 +37,9 @@ interface CateringOrder {
   createdAt: string;
 }
 
-const DEFAULT_ORDERS: CateringOrder[] = [
-  {
-    id: "CEL-8491",
-    customerName: "م. أحمد الشناوي",
-    phone: "01001234567",
-    occasion: "كتب كتاب ومسجد الشرطة",
-    eventDate: "2026-09-15",
-    location: "قاعة الصفا - مسجد الشرطة بالتجمع الخامس",
-    governorate: "القاهرة",
-    packages: [
-      {
-        id: "pkg-katb-ketab-royal",
-        name: "باقة كتب الكتاب الملكية (Royal Katb Ketab Box)",
-        quantity: 150,
-        pricePerUnit: 145,
-        packagingType: "علبة مخملية نبيتي فاخرة جاهزة للتقديم"
-      }
-    ],
-    totalPrice: 21750,
-    totalBoxes: 150,
-    notes: "التوصيل لقاعة الصفا بمدينة بني سويف والتسليم لمسؤول القاعة",
-    paymentMethod: "instapay",
-    status: "confirmed",
-    createdAt: new Date(Date.now() - 3600000 * 24).toISOString()
-  },
-  {
-    id: "CEL-8492",
-    customerName: "د. سارة المنشاوي",
-    phone: "01119876543",
-    occasion: "حفل خطوبة فيلا",
-    eventDate: "2026-09-20",
-    location: "فيلا النخيل - الشيخ زايد",
-    governorate: "الجيزة",
-    packages: [
-      {
-        id: "pkg-diamond-wedding",
-        name: "باقة الزفاف والخطوبة الفاخرة (Diamond Box)",
-        quantity: 80,
-        pricePerUnit: 195,
-        packagingType: "صندوق كرافت جولد فاخر"
-      },
-      {
-        id: "pkg-royal-sweets",
-        name: "علبة الحلويات والضيافة الشرقية (Royal Sweets Box)",
-        quantity: 80,
-        pricePerUnit: 75
-      }
-    ],
-    totalPrice: 21600,
-    totalBoxes: 160,
-    notes: "التوصيل والتسليم الساعة 6 مساءً بشرق النيل مع أكياس حرارية لحفظ السخونة",
-    paymentMethod: "cash_deposit",
-    status: "in_preparation",
-    createdAt: new Date(Date.now() - 3600000 * 8).toISOString()
-  }
-];
+const DEFAULT_ORDERS: CateringOrder[] = [];
 
-let orders: CateringOrder[] = [...DEFAULT_ORDERS];
+let orders: CateringOrder[] = [];
 
 // Lazy Gemini client helper
 let aiClient: GoogleGenAI | null = null;
