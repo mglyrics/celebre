@@ -97,7 +97,7 @@ export const PrivacyPolicyModal: React.FC<PrivacyPolicyModalProps> = ({
             </div>
             <div className="flex items-center gap-1.5 bg-black/25 px-2.5 py-1.5 rounded-lg">
               <span className="text-[#64B5F6]">🚚</span>
-              <span><strong>شحن مجاني:</strong> للطلبات فوق 500 عبوة (بني سويف / الفيوم)</span>
+              <span><strong>شحن مجاني:</strong> للطلبات فوق 500 عبوة (مدينة بني سويف وشرق النيل فقط)</span>
             </div>
           </div>
         </div>
@@ -163,7 +163,7 @@ export const PrivacyPolicyModal: React.FC<PrivacyPolicyModalProps> = ({
                         <strong>الإنتاج المخصص الفوري:</strong> يقوم المصنع والمطبخ المركزي بإنتاج وتجهيز وطهي الوجبات والمخبوزات والحلويات خصيصاً وفورياً لكل عميل بناءً على اختياراته وتاريخ وساعة مناسبته.
                       </li>
                       <li>
-                        <strong>تخصيص الهوية والطباعة:</strong> يتم طباعة وتخصيص كروت التهنئة، وأشرطة الستان، وعلب الشوكولاتة بأسماء العروسين أو أصحاب المناسبة بصورة فردية لا تقبل إعادة الاستخدام مع أي عميل آخر.
+                        <strong>تخصيص وتجهيز العبوات الفاخرة:</strong> يتم تعبئة وإعداد العلب الفاخرة للوجبات بالمواصفات والأعداد المطلوبة للمناسبة بصورة فورية ومباشرة لا تقبل إعادة الاستخدام مع أي عميل آخر.
                       </li>
                       <li>
                         <strong>معايير السلامة والصحة الغذائية:</strong> حرصاً على صحة ضيوفكم الكرام، تمنع اللوائح الصحية استرجاع أو إعادة تداول أي أغذية تم تجهيزها وتغليفها وخروجها من المطبخ المركزي.
@@ -203,7 +203,7 @@ export const PrivacyPolicyModal: React.FC<PrivacyPolicyModalProps> = ({
                     <div className="bg-[#FAF7F2] p-3 rounded-xl border border-[#E8DEC9]">
                       <div className="font-bold text-xs text-[#5C1027] mb-1">📌 دور العربون (50%):</div>
                       <p className="text-[11px] text-[#55473B] leading-relaxed">
-                        يُعد بمثابة تأكيد نهائي لتثبيت تاريخ وموعد المناسبة، وبناءً عليه يتم حجز خط الإنتاج وشراء الخامات الطازجة وتخصيص المواد الدعائية وطباعة الكروت.
+                        يُعد بمثابة تأكيد نهائي لتثبيت تاريخ وموعد المناسبة، وبناءً عليه يتم حجز خط الإنتاج وشراء الخامات الطازجة وتجهيز التعبئة الفاخرة للوجبات.
                       </p>
                     </div>
 
@@ -217,22 +217,18 @@ export const PrivacyPolicyModal: React.FC<PrivacyPolicyModalProps> = ({
 
                   <div className="bg-[#FAF0E1] p-3 rounded-xl border border-[#D9C49C] text-xs space-y-1">
                     <span className="font-bold text-[#5C1027]">💳 قنوات السداد الرسمية المعتمدة لتحويل العربون:</span>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 font-mono text-[11px]">
-                      <div className="bg-white p-2 rounded-lg border border-[#D9C49C] text-center font-sans">
-                        <div className="font-bold text-[#5C1027]">⚡ إنستاباي</div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 font-mono text-[11px]">
+                      <div className="bg-white p-2.5 rounded-lg border border-[#D9C49C] text-center font-sans">
+                        <div className="font-bold text-[#5C1027]">⚡ إنستاباي (InstaPay)</div>
                         <div className="text-[10px] text-gray-500 font-mono">01284484868</div>
                       </div>
-                      <div className="bg-white p-2 rounded-lg border border-[#D9C49C] text-center font-sans">
-                        <div className="font-bold text-[#5C1027]">📱 فودافون كاش</div>
-                        <div className="text-[10px] text-gray-500 font-mono">01284484868</div>
+                      <div className="bg-white p-2.5 rounded-lg border border-[#D9C49C] text-center font-sans">
+                        <div className="font-bold text-[#5C1027]">🏦 حساب بنكي معتمد</div>
+                        <div className="text-[10px] text-gray-500">البنك الأهلي المصري / CIB</div>
                       </div>
-                      <div className="bg-white p-2 rounded-lg border border-[#D9C49C] text-center font-sans">
-                        <div className="font-bold text-[#5C1027]">🏦 حساب بنكي</div>
-                        <div className="text-[10px] text-gray-500">البنك الأهلي / CIB</div>
-                      </div>
-                      <div className="bg-white p-2 rounded-lg border border-[#D9C49C] text-center font-sans">
-                        <div className="font-bold text-[#5C1027]">💵 إيداع نقدي</div>
-                        <div className="text-[10px] text-gray-500">بالفرع المعتمد</div>
+                      <div className="bg-white p-2.5 rounded-lg border border-[#D9C49C] text-center font-sans">
+                        <div className="font-bold text-[#5C1027]">💵 إيداع نقدي / كاش</div>
+                        <div className="text-[10px] text-gray-500">بالفرع المعتمد أو للمندوب</div>
                       </div>
                     </div>
                   </div>
@@ -272,17 +268,17 @@ export const PrivacyPolicyModal: React.FC<PrivacyPolicyModalProps> = ({
                     <div className="p-3.5 bg-[#E8F5E9] border-2 border-[#81C784] rounded-xl text-xs">
                       <div className="flex items-center gap-1.5 text-[#2E7D32] font-black text-sm mb-1">
                         <CheckCircle2 className="w-4 h-4 text-[#2E7D32]" />
-                        <span>شرط الشحن المجاني الحصري:</span>
+                        <span>شرط الشحن المجاني ونطاق التوصيل الحصري:</span>
                       </div>
                       <p className="text-[#1B5E20] leading-relaxed">
-                        <strong>الطلبات التي تتجاوز أكثر من 500 عبوة فقط هي التي تستحق وتستفيد من الشحن المجاني بالكامل، وذلك حصرياً داخل نطاق (محافظة بني سويف أو محافظة الفيوم).</strong>
+                        <strong>الطلبات التي تتجاوز أكثر من 500 عبوة فقط هي التي تستحق وتستفيد من الشحن المجاني بالكامل، وذلك مقتصر حصرياً داخل نطاق (مدينة بني سويف وشرق النيل ببني سويف فقط).</strong>
                       </p>
-                      <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] text-[#2E7D32] font-semibold">
-                        <div className="flex items-center gap-1 bg-white/70 p-2 rounded-lg border border-[#A5D6A7]">
-                          <span>📍 بني سويف (مدينة بني سويف وشرق النيل)</span>
+                      <div className="mt-2 p-2.5 bg-white/85 rounded-xl border border-[#A5D6A7] text-[11px] text-[#2E7D32] font-semibold space-y-1">
+                        <div className="flex items-center gap-1 font-bold">
+                          <span>📍 النطاق الحصري المعتمد للتوصيل والشحن المجاني:</span>
                         </div>
-                        <div className="flex items-center gap-1 bg-white/70 p-2 rounded-lg border border-[#A5D6A7]">
-                          <span>📍 محافظة الفيوم (كافة المراكز والقاعات)</span>
+                        <div className="text-[11px] text-[#1B5E20] leading-relaxed">
+                          مدينة بني سويف + شرق النيل ببني سويف فقط (يُستثنى تماماً ولا يشمل قرى أو مراكز بني سويف أو محافظة الفيوم).
                         </div>
                       </div>
                     </div>
@@ -324,7 +320,7 @@ export const PrivacyPolicyModal: React.FC<PrivacyPolicyModalProps> = ({
                     <div className="p-2.5 bg-[#FAF7F2] rounded-xl border border-[#E8DEC9]">
                       <span className="font-bold text-[#5C1027]">📁 ما هي البيانات التي نجمعها؟</span>
                       <p className="text-[#55473B] mt-0.5">
-                        نجمع فقط البيانات الضرورية لتنفيذ وتوصيل الطلب: (اسم صاحب الحجز، أرقام الهاتف والواتساب، اسم ومكان المسجد أو القاعة، تاريخ وساعة المناسبة، الأسماء المطلوب طباعتها على كروت التهنئة، وإيصال تحويل العربون).
+                        نجمع فقط البيانات الضرورية لتنفيذ وتوصيل الطلب: (اسم صاحب الحجز، أرقام الهاتف والواتساب، اسم ومكان المسجد أو القاعة، تاريخ وساعة المناسبة، وإيصال تحويل العربون).
                       </p>
                     </div>
 

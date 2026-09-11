@@ -62,7 +62,7 @@ export const PackageDetailModal: React.FC<PackageDetailModalProps> = ({
   };
 
   const handleQuickWhatsApp = () => {
-    const text = `مرحباً سيلبر (Celebre) 🌸\nأرغب في حجز:\n*${activePkg.name}*\nالكمية: ${quantity} عبوة\nالسعر الإجمالي: ${totalPrice.toLocaleString()} جنيه مصري\n${customCardText ? `نص الكارت المخصص: ${customCardText}\n` : ''}أرجو إفادتي بإمكانية الحجز وتفاصيل التوصيل.`;
+    const text = `مرحباً سيلبر (Celebre) 🌸\nأرغب في حجز:\n*${activePkg.name}*\nالكمية: ${quantity} عبوة\nالسعر الإجمالي: ${totalPrice.toLocaleString()} جنيه مصري\nأرجو إفادتي بإمكانية الحجز وتفاصيل التوصيل (مدينة بني سويف / شرق النيل).`;
     window.open(`https://wa.me/201284484868?text=${encodeURIComponent(text)}`, '_blank');
   };
 
@@ -169,25 +169,10 @@ export const PackageDetailModal: React.FC<PackageDetailModalProps> = ({
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
               <div>• <strong>نوع الصندوق:</strong> {activePkg.packaging?.type || 'علبة فاخرة'}</div>
-              <div>• <strong>الشريط والفيونكة:</strong> {activePkg.packaging?.ribbon || 'ستان مذهب'}</div>
+              <div>• <strong>التصميم:</strong> تصميم سيلبر الأنيق المعتمد للتقديم المباشر</div>
               <div>• <strong>المستلزمات:</strong> تشمل شوكة / ملعقة ومناديل معطرة فاخرة ومغلفة</div>
               <div>• <strong>الحفظ:</strong> أكياس حرارية لنقل الطعام طازجاً وساخناً</div>
             </div>
-          </div>
-
-          {/* Custom Card Ribbon Text (Optional) */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-bold text-[#5C1027] flex items-center gap-1.5">
-              <Heart className="w-3.5 h-3.5 text-[#C89B3C]" />
-              <span>طباعة كارت إهداء أو نص على الشريط (مجاناً للمناسبات):</span>
-            </label>
-            <input
-              type="text"
-              placeholder="مثال: بارك الله للعروسين (أحمد & مريم) - 15 سبتمبر 2026"
-              value={customCardText}
-              onChange={(e) => setCustomCardText(e.target.value)}
-              className="w-full px-3.5 py-2.5 text-xs bg-white rounded-xl border border-[#D9C8A8] focus:outline-none focus:ring-2 focus:ring-[#721832]"
-            />
           </div>
 
           {/* Quantity Selector & Total Calculation */}

@@ -42,7 +42,7 @@ export const AiCateringAdvisor: React.FC<AiCateringAdvisorProps> = ({
   const [guestCount, setGuestCount] = useState(120);
   const [budget, setBudget] = useState('18000');
   const [preferredStyle, setPreferredStyle] = useState('ميكس متوازن بين الموالح الساخنة والحلويات الشرقية');
-  const [notes, setNotes] = useState('يرجى مراعاة وجود حلويات خفيفة بالسمن البلدي وكارت تهنئة للعروسين');
+  const [notes, setNotes] = useState('يرجى مراعاة وجود حلويات خفيفة بالسمن البلدي وعصائر فريش طازجة');
 
   const [isLoading, setIsLoading] = useState(false);
   const [plan, setPlan] = useState<PlanResult | null>(null);
@@ -95,8 +95,8 @@ export const AiCateringAdvisor: React.FC<AiCateringAdvisorProps> = ({
           "منديل معطّر فاخر وشوكة سيلفر ذهبية داخل مغلف سيلبر الأنيق"
         ],
         presentationTips: [
-          "التغليف باللون العنابي وشريط الستان الذهبي يمنح فخامة لصور الحفل",
-          "إضافة كارت إهداء يحمل أسماء أصحاب المناسبة وتاريخ اليوم",
+          "التغليف باللون العنابي والتصميم الفاخر يمنح فخامة لصور الحفل والتوزيع الفوري",
+          "العبوات محكمة ومجهزة بشوكة ومنديل معطر لتوزيع فوري وسهل دون أي فوضى",
           "توزيع العبوات في أكياس سيلبر الحرارية يضمن بقاء المخبوزات طازجة ومقرمشة"
         ],
         advice: `بناءً على عدد المعازيم (${guestCount} فرد) والميزانية المقترحة، هذه التشكيلة توفر أعلى قيمة وأفضل انطباع لضيوفكم الكرام دون أي هدر في المصاريف.`
@@ -114,11 +114,10 @@ export const AiCateringAdvisor: React.FC<AiCateringAdvisorProps> = ({
       type: 'custom',
       name: `باقة مقترحة من المستشار الذكي (${plan.suggestedPackage})`,
       details: plan.boxContents,
-      packagingName: 'صندوق سيلبر المخملي الملكي مع شريط ستان ذهبي',
+      packagingName: 'صندوق سيلبر المخملي الملكي المخصص للمناسبات',
       quantity: guestCount,
       pricePerBox: plan.estimatedCostPerBox,
       totalPrice: plan.totalEstimatedCost,
-      customCardText: `مناسبة: ${occasion} - احتفال سيلبر`,
     };
 
     onAddToCart(item);

@@ -49,8 +49,8 @@ export const OrderModal: React.FC<OrderModalProps> = ({
   const [governorate, setGovernorate] = useState(GOVERNORATES[0]);
   const [venueName, setVenueName] = useState('');
   const [address, setAddress] = useState('');
-  const [customCardText, setCustomCardText] = useState('بارك الله للعروسين وجمع بينهما في خير');
-  const [paymentMethod, setPaymentMethod] = useState<'instapay' | 'vodafone_cash' | 'cash_deposit' | 'bank_transfer'>('instapay');
+  const [customCardText, setCustomCardText] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState<'instapay' | 'cash_deposit' | 'bank_transfer'>('instapay');
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -261,28 +261,12 @@ export const OrderModal: React.FC<OrderModalProps> = ({
             </div>
           </div>
 
-          {/* Section 3: Custom Card & Ribbon */}
-          <div className="space-y-1.5 pt-2">
-            <label className="text-xs font-bold text-[#5C1027] flex items-center gap-1.5">
-              <Heart className="w-4 h-4 text-[#C89B3C]" />
-              <span>نص كارت التهنئة المطبوع مجاناً مع العبوات:</span>
-            </label>
-            <input
-              type="text"
-              value={customCardText}
-              onChange={(e) => setCustomCardText(e.target.value)}
-              placeholder="مثال: ألف مبروك للعروسين (سارة & كريم)"
-              className="w-full px-3.5 py-2.5 text-xs bg-white rounded-xl border border-[#D9C49C] focus:ring-2 focus:ring-[#721832] focus:outline-none"
-            />
-          </div>
-
-          {/* Section 4: Payment Method */}
+          {/* Section 3: Payment Method */}
           <div className="space-y-2 pt-2">
             <label className="text-xs font-bold text-[#5C1027]">3. طريقة سداد العربون وتأكيد الحجز:</label>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
               {[
                 { id: 'instapay', label: 'إنستاباي (InstaPay)', icon: '⚡' },
-                { id: 'vodafone_cash', label: 'فودافون كاش', icon: '📱' },
                 { id: 'cash_deposit', label: 'عربون كاش بالفرع', icon: '💵' },
                 { id: 'bank_transfer', label: 'تحويل بنكي CIB / الأهلي', icon: '🏦' },
               ].map((p) => (
@@ -303,14 +287,14 @@ export const OrderModal: React.FC<OrderModalProps> = ({
             </div>
           </div>
 
-          {/* Section 5: Notes */}
+          {/* Section 4: Notes */}
           <div className="space-y-1.5 pt-2">
             <label className="text-xs font-bold text-[#5C1027]">ملاحظات خاصة بفريق التجهيز والتوصيل:</label>
             <textarea
               rows={2}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="مثال: يرجى التوصيل داخل أكياس حرارية معقمة ووضع الكروت بأعلى العبوات..."
+              placeholder="مثال: يرجى التوصيل داخل أكياس حرارية معقمة والتسليم لمسؤول القاعة..."
               className="w-full px-3.5 py-2.5 text-xs bg-white rounded-xl border border-[#D9C49C] focus:ring-2 focus:ring-[#721832] focus:outline-none"
             />
           </div>
@@ -334,13 +318,13 @@ export const OrderModal: React.FC<OrderModalProps> = ({
             </div>
             <ul className="text-[11px] text-[#694E27] space-y-1 list-disc list-inside pr-1 leading-relaxed">
               <li>
-                <strong>لا يمكن إرجاع الأوردر:</strong> نظراً لأن المصنع يقوم بإنتاجه وتخصيص كروته ومكوناته خصوصاً للعميل.
+                <strong>لا يمكن إرجاع الأوردر:</strong> نظراً لأن المصنع يقوم بإنتاجه وتجهيز مكوناته الطازجة وعبواته الفاخرة خصيصاً للعميل.
               </li>
               <li>
                 <strong>تفعيل الطلب:</strong> لا يتم تحريك الطلب أو جدولته بالمصنع إلا بعد دفع 50% من قيمة التعاقد كعربون.
               </li>
               <li>
-                <strong>الشحن والتوصيل:</strong> غير مشمول في سعر العرض، والطلبات أكثر من 500 عبوة فقط تستحق الشحن المجاني (بني سويف أو الفيوم).
+                <strong>الشحن والتوصيل:</strong> غير مشمول في سعر العرض، والطلبات أكثر من 500 عبوة فقط تستحق الشحن المجاني (داخل مدينة بني سويف وشرق النيل فقط - ولا يشمل القرى أو المراكز أو الفيوم).
               </li>
             </ul>
           </div>

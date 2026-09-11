@@ -72,7 +72,7 @@ export const PackagesSection: React.FC<PackagesSectionProps> = ({
             <div className="pt-2 md:pt-0 px-2 flex flex-col items-center">
               <span className="text-2xl mb-1">🎁</span>
               <span className="text-xs sm:text-sm font-bold text-[#2C0A15]">تغليف أنيق ومميز</span>
-              <span className="text-[11px] text-[#7A6A5C]">علبة كرتونية فاخرة مع شريط ستان</span>
+              <span className="text-[11px] text-[#7A6A5C]">علبة فاخرة جاهزة للتقديم المباشر</span>
             </div>
             <div className="pt-2 md:pt-0 px-2 flex flex-col items-center">
               <span className="text-2xl mb-1">🎉</span>

@@ -201,7 +201,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 {totalBoxes >= 500 ? (
                   <div className="font-bold flex items-center gap-1">
                     <span>🎉</span>
-                    <span>طلبك ({totalBoxes} عبوة) مؤهل للشحن المجاني ببني سويف أو الفيوم!</span>
+                    <span>طلبك ({totalBoxes} عبوة) مؤهل للشحن المجاني (بمدينة بني سويف وشرق النيل فقط)!</span>
                   </div>
                 ) : (
                   <div className="flex flex-col gap-0.5">
@@ -217,7 +217,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                         </button>
                       )}
                     </div>
-                    <span>مجاني فقط للطلبات فوق 500 عبوة (بني سويف أو الفيوم). باقي لك {500 - totalBoxes} عبوة للشحن المجاني.</span>
+                    <span>مجاني فقط للطلبات فوق 500 عبوة (مدينة بني سويف وشرق النيل فقط). باقي لك {500 - totalBoxes} عبوة للشحن المجاني.</span>
                   </div>
                 )}
                 <div className="text-[10px] text-gray-500 pt-0.5 border-t border-black/5">

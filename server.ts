@@ -52,13 +52,12 @@ const DEFAULT_ORDERS: CateringOrder[] = [
         name: "باقة كتب الكتاب الملكية (Royal Katb Ketab Box)",
         quantity: 150,
         pricePerUnit: 145,
-        packagingType: "علبة مخملية نبيتي مع شريط ستان ذهبي"
+        packagingType: "علبة مخملية نبيتي فاخرة جاهزة للتقديم"
       }
     ],
     totalPrice: 21750,
     totalBoxes: 150,
-    notes: "يرجى كتابة أسماء العروسين (أحمد & مريم) على كارت التهنئة المرفق بالعبوة",
-    customRibbonText: "أحمد & مريم - بارك الله لهما",
+    notes: "التوصيل لقاعة الصفا بمدينة بني سويف والتسليم لمسؤول القاعة",
     paymentMethod: "instapay",
     status: "confirmed",
     createdAt: new Date(Date.now() - 3600000 * 24).toISOString()
@@ -88,9 +87,8 @@ const DEFAULT_ORDERS: CateringOrder[] = [
     ],
     totalPrice: 21600,
     totalBoxes: 160,
-    notes: "التوصيل والتسليم الساعة 6 مساءً مع أكياس حرارية لحفظ السخونة",
-    customRibbonText: "خطوبة سارة & كريم",
-    paymentMethod: "deposit_cash",
+    notes: "التوصيل والتسليم الساعة 6 مساءً بشرق النيل مع أكياس حرارية لحفظ السخونة",
+    paymentMethod: "cash_deposit",
     status: "in_preparation",
     createdAt: new Date(Date.now() - 3600000 * 8).toISOString()
   }
@@ -141,14 +139,13 @@ app.post("/api/orders", (req, res) => {
       phone: data.phone || "01284484868",
       occasion: data.occasion || "مناسبة سعيدة",
       eventDate: data.eventDate || new Date().toISOString().split("T")[0],
-      location: data.location || "القاهرة",
-      governorate: data.governorate || "القاهرة",
+      location: data.location || "بني سويف",
+      governorate: data.governorate || "بني سويف - مدينة بني سويف",
       packages: data.packages || [],
       totalPrice: data.totalPrice || 0,
       totalBoxes: data.totalBoxes || 0,
       notes: data.notes || "",
-      customRibbonText: data.customRibbonText || "",
-      paymentMethod: data.paymentMethod || "whatsapp",
+      paymentMethod: data.paymentMethod || "instapay",
       status: "pending",
       createdAt: new Date().toISOString()
     };
@@ -186,8 +183,8 @@ app.post("/api/ai-catering-advisor", async (req, res) => {
           "منديل معطّر فاخر وشوكة سيلفر ذهبية داخل مغلف سيلبر الأنيق"
         ],
         presentationTips: [
-          "التغليف باللون العنابي (Burgundy) وشريط الستان الذهبي يمنح فخامة استثنائية لصور الحفل",
-          "يُفضل إضافة كارت إهداء يحمل أسماء أصحاب المناسبة وتاريخ اليوم",
+          "التغليف باللون العنابي (Burgundy) والتصميم الملكي يمنح فخامة استثنائية لصور الحفل والتوزيع المباشر",
+          "العبوات محكمة ومجهزة بشوكة ومنديل معطر فاخر لتوزيع فوري وسلس دون فوضى للمعازيم",
           "توزيع العبوات في أكياس سيلبر الحرارية يضمن بقاء المخبوزات طازجة ومقرمشة طوال فترة الحفل"
         ],
         advice: `بناءً على عدد المعازيم (${guestCount || 100} فرد)، ننصح بحجز كمية إضافية بنسبة 5% (حوالي ${Math.ceil((guestCount || 100) * 0.05)} عبوة احتياطية) لتفادي أي زيادة غير متوقعة في عدد الضيوف.`
@@ -195,8 +192,8 @@ app.post("/api/ai-catering-advisor", async (req, res) => {
       return res.json({ success: true, plan: defaultSuggestions });
     }
 
-    const prompt = `أنت خبير كاترنج وتنظيم ضيافة أفراح ومناسبات مصرية راقية لعلامة "Celebre" (سيلبر).
-المطلوب تقديم اقتراح منيو عبوات كاترنج راقية وشهية ومناسبة للعادات المصرية للمناسبة التالية:
+    const prompt = `أنت خبير كاترنج وتنظيم ضيافة أفراح ومناسبات مصرية راقية لعلامة "Celebre" (سيلبر) في بني سويف (مدينة بني سويف وشرق النيل).
+المطلوب تقديم اقتراح منيو عبوات كاترنج فردية فاخرة وشهية ومناسبة للعادات المصرية للمناسبة التالية (علماً بأن سيلبر لا تقدم كروت مطبوعة أو شرائط ستان، بل عبوات راقية مجهزة بالكامل للتقديم):
 - نوع المناسبة: ${occasion}
 - عدد الضيوف: ${guestCount} فرد
 - الميزانية التقريبية: ${budget ? budget + " جنيه" : "غير محددة"}
@@ -205,7 +202,7 @@ app.post("/api/ai-catering-advisor", async (req, res) => {
 
 أجب بصيغة JSON حصراً فقط بالحقول التالية بدون أي كود ماركداون آخر:
 {
-  "recommendationTitle": "عنوان الخطة والباستجابة",
+  "recommendationTitle": "عنوان الخطة والاستجابة",
   "suggestedPackage": "اسم الباقة المقترحة",
   "estimatedCostPerBox": رقم سعر العبوة بالجنيه المصري (مثلا 140),
   "totalEstimatedCost": رقم التكلفة الإجمالية بالجنيه المصري,

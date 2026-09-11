@@ -90,7 +90,7 @@ export const Footer: React.FC<FooterProps> = ({ onOpenPrivacyPolicy }) => {
             </h4>
             <div className="text-xs text-[#D1BFA8] space-y-2 leading-relaxed">
               <div className="text-[#FFDF9E] font-semibold text-[11px]">
-                🚗 التغطية الحالية متاحة حصرياً داخل نطاق بني سويف:
+                🚗 التغطية مقتصرة حصرياً على: (مدينة بني سويف وشرق النيل فقط - بدون القرى والمراكز أو الفيوم)
               </div>
               <div className="bg-[#2A0611] p-2.5 rounded-xl border border-[#C89B3C]/30">
                 <div className="text-white font-bold mb-0.5">📍 مدينة بني سويف:</div>

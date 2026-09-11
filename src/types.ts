@@ -93,7 +93,7 @@ export interface OrderSubmission {
   totalBoxes: number;
   totalAmount: number;
   notes?: string;
-  paymentMethod: 'instapay' | 'vodafone_cash' | 'cash_deposit' | 'bank_transfer';
+  paymentMethod: 'instapay' | 'cash_deposit' | 'bank_transfer' | string;
   customCardText?: string;
 }
 

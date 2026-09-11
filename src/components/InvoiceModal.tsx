@@ -136,7 +136,12 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
           <div className="p-4 rounded-2xl bg-[#FAF0E1] border border-[#DFCBB0] flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="text-xs space-y-1">
               <div>• <strong>إجمالي العبوات:</strong> {order.totalBoxes} عبوة فردية</div>
-              <div>• <strong>طريقة الدفع:</strong> {order.paymentMethod}</div>
+              <div>• <strong>طريقة الدفع:</strong> {
+                order.paymentMethod === 'instapay' ? 'إنستاباي (InstaPay)' :
+                order.paymentMethod === 'bank_transfer' ? 'تحويل بنكي (الأهلي / CIB)' :
+                order.paymentMethod === 'cash_deposit' ? 'عربون كاش بالفرع' :
+                order.paymentMethod
+              }</div>
               {order.customCardText && (
                 <div>• <strong>كارت التهنئة:</strong> {order.customCardText}</div>
               )}
@@ -158,8 +163,8 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <div>⚡ <strong>إنستاباي (InstaPay):</strong> عبر رقم الهاتف 01284484868</div>
-              <div>📱 <strong>فودافون كاش:</strong> 01284484868 (يرجى إرسال صورة التحويل)</div>
-              <div>💵 <strong>عربون كاش:</strong> يتم التنسيق مع المندوب أو بمقر الشركة</div>
+              <div>🏦 <strong>تحويل بنكي معتمد:</strong> البنك الأهلي المصري / CIB</div>
+              <div>💵 <strong>عربون كاش:</strong> يتم التنسيق مع المندوب أو بمقر الفرع</div>
               <div>📞 <strong>خدمة العملاء:</strong> 01284484868 متواجدون على مدار الساعة</div>
             </div>
           </div>
