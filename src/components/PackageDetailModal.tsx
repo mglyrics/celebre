@@ -31,7 +31,10 @@ export const PackageDetailModal: React.FC<PackageDetailModalProps> = ({
   const activePkg = packageItem || pkg;
   if (!activePkg) return null;
 
-  const [quantity, setQuantity] = useState(activePkg.minOrder || 30);
+  const isCustomChocolate = activePkg.id === 'pkg-custom-chocolate' || activePkg.id.includes('chocolate');
+  const stepAmount = isCustomChocolate ? 1 : 10;
+
+  const [quantity, setQuantity] = useState(activePkg.minOrder || (isCustomChocolate ? 1 : 30));
   const [customCardText, setCustomCardText] = useState('');
   const [selectedDrink, setSelectedDrink] = useState('عصير مانجو فريش طبيعي');
 
@@ -62,7 +65,9 @@ export const PackageDetailModal: React.FC<PackageDetailModalProps> = ({
   };
 
   const handleQuickWhatsApp = () => {
-    const text = `مرحباً سيلبر (Celebre) 🌸\nأرغب في حجز:\n*${activePkg.name}*\nالكمية: ${quantity} عبوة\nالسعر الإجمالي: ${totalPrice.toLocaleString()} جنيه مصري\nأرجو إفادتي بإمكانية الحجز وتفاصيل التوصيل (مدينة بني سويف / شرق النيل).`;
+    const customNameNotice = customCardText.trim() ? `\nالاسم المطبوع: ${customCardText.trim()}` : '';
+    const advanceNotice = isCustomChocolate ? '\n(علماً بأن الطلب قبل المناسبة بـ 5 أيام على الأقل)' : '';
+    const text = `مرحباً سيلبر (Celebre) 🌸\nأرغب في حجز:\n*${activePkg.name}*\nالكمية: ${quantity} علبة\nالسعر الإجمالي: ${totalPrice.toLocaleString()} جنيه مصري${customNameNotice}${advanceNotice}\nأرجو إفادتي بإمكانية الحجز وتفاصيل التوصيل (مدينة بني سويف / شرق النيل).`;
     window.open(`https://wa.me/201284484868?text=${encodeURIComponent(text)}`, '_blank');
   };
 
@@ -169,26 +174,51 @@ export const PackageDetailModal: React.FC<PackageDetailModalProps> = ({
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
               <div>• <strong>نوع الصندوق:</strong> {activePkg.packaging?.type || 'علبة فاخرة'}</div>
-              <div>• <strong>التصميم:</strong> تصميم سيلبر الأنيق المعتمد للتقديم المباشر</div>
-              <div>• <strong>المستلزمات:</strong> تشمل شوكة / ملعقة ومناديل معطرة فاخرة ومغلفة</div>
-              <div>• <strong>الحفظ:</strong> أكياس حرارية لنقل الطعام طازجاً وساخناً</div>
+              <div>• <strong>التصميم:</strong> {isCustomChocolate ? 'تصميم مخصص بطباعة الاسم وشريط ستان ذهبي' : 'تصميم سيلبر الأنيق المعتمد للتقديم المباشر'}</div>
+              <div>• <strong>المستلزمات:</strong> {isCustomChocolate ? 'شريط ستان حريري ذهبي أنيق مع كارت إهداء خاص' : 'تشمل شوكة / ملعقة ومناديل معطرة فاخرة ومغلفة'}</div>
+              <div>• <strong>الحفظ:</strong> {isCustomChocolate ? 'قوالب مقسمة ومذهبة لحماية القطع والحفاظ على بريقها' : 'أكياس حرارية لنقل الطعام طازجاً وساخناً'}</div>
             </div>
           </div>
+
+          {/* Custom Chocolate Special Notice & Name Customization */}
+          {isCustomChocolate && (
+            <div className="p-4 rounded-2xl bg-[#FFF9EE] border-2 border-[#D4AF37] text-right space-y-2.5 shadow-sm">
+              <div className="flex items-center gap-2 text-[#5C1027] font-bold text-xs sm:text-sm">
+                <Sparkles className="w-4 h-4 text-[#D4AF37]" />
+                <span>علبة شيكولاتة 40 قطعة باسم صاحب المناسبة (800 ج بدلاً من 850 ج)</span>
+              </div>
+              <p className="text-xs text-[#6B5738] leading-relaxed">
+                ✨ <strong>تنبيه مواعيد الحجز:</strong> تطلب هذه العلبة قبل موعد المناسبة بـ <strong className="text-[#5C1027]">5 أيام على الأقل</strong> لضمان حفر وتجهيز قوالب الشوكولاتة والطباعة المخصصة بأعلى جودة.
+              </p>
+              <div className="pt-2 border-t border-[#F0DFBE]">
+                <label className="block text-xs font-bold text-[#5C1027] mb-1.5">
+                  الاسم أو التهنئة المراد طباعتها على العلبة والقطع:
+                </label>
+                <input
+                  type="text"
+                  value={customCardText}
+                  onChange={(e) => setCustomCardText(e.target.value)}
+                  placeholder="مثال: م. أحمد & د. سارة - كتب كتاب مبارك"
+                  className="w-full px-3 py-2 rounded-xl bg-white border border-[#D4AF37] text-xs text-[#2C0A15] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#D4AF37]"
+                />
+              </div>
+            </div>
+          )}
 
           {/* Quantity Selector & Total Calculation */}
           <div className="p-5 rounded-2xl bg-[#5C1027] text-white space-y-4 shadow-lg">
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
               <div>
                 <span className="text-xs text-[#E5C06E] font-medium">اختر عدد العبوات المطلوبة</span>
-                <div className="text-xs text-[#EAD8BD]">الحد الأدنى: {activePkg.minOrder} عبوة</div>
+                <div className="text-xs text-[#EAD8BD]">الحد الأدنى: {activePkg.minOrder} {isCustomChocolate ? 'علبة' : 'عبوة'}</div>
               </div>
 
               {/* Quantity Controls */}
               <div className="flex items-center gap-3 bg-[#420A1A] px-3 py-1.5 rounded-xl border border-[#C89B3C]/40">
                 <button
-                  onClick={() => setQuantity(Math.max(activePkg.minOrder, quantity - 10))}
+                  onClick={() => setQuantity(Math.max(activePkg.minOrder, quantity - stepAmount))}
                   className="p-1.5 rounded-lg bg-[#5C1027] hover:bg-[#721832] text-white cursor-pointer"
-                  title="إنقاص 10 عبوات"
+                  title={`إنقاص ${stepAmount}`}
                 >
                   <Minus className="w-4 h-4" />
                 </button>
@@ -202,9 +232,9 @@ export const PackageDetailModal: React.FC<PackageDetailModalProps> = ({
                 />
 
                 <button
-                  onClick={() => setQuantity(quantity + 10)}
+                  onClick={() => setQuantity(quantity + stepAmount)}
                   className="p-1.5 rounded-lg bg-[#5C1027] hover:bg-[#721832] text-white cursor-pointer"
-                  title="زيادة 10 عبوات"
+                  title={`زيادة ${stepAmount}`}
                 >
                   <Plus className="w-4 h-4" />
                 </button>

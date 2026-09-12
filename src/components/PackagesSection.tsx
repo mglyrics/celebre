@@ -23,7 +23,7 @@ const CATEGORIES: { id: OccasionCategory; label: string; icon: string }[] = [
   { id: 'wedding', label: 'حفلات الزفاف والأفراح', icon: '👑' },
   { id: 'vip_reception', label: 'عروض كبار الزوار VIP', icon: '⭐' },
   { id: 'engagement_henna', label: 'الخطوبة وليالي الحنة', icon: '🌺' },
-  { id: 'sweets_hospitality', label: 'علبة شيكولاتة باسمك', icon: '🍫' },
+  { id: 'sweets_hospitality', label: 'علبة شيكولاتة باسمك (40 قطعة)', icon: '🍫' },
 ];
 
 export const PackagesSection: React.FC<PackagesSectionProps> = ({
@@ -134,7 +134,7 @@ export const PackagesSection: React.FC<PackagesSectionProps> = ({
 
                 {/* Min Order Tag */}
                 <div className="absolute top-3 left-3 px-2.5 py-1 rounded-lg bg-black/60 backdrop-blur-sm text-[#F7ECD5] text-[10px] font-semibold border border-white/20">
-                  الحد الأدنى: {pkg.minOrder} عبوة
+                  الحد الأدنى: {pkg.minOrder} {pkg.id.includes('chocolate') ? 'علبة' : 'عبوة'}
                 </div>
 
                 {/* English Name & Tagline at bottom of image */}
@@ -149,6 +149,26 @@ export const PackagesSection: React.FC<PackagesSectionProps> = ({
               {/* Card Content */}
               <div className="p-5 flex-1 flex flex-col justify-between text-right">
                 
+                {/* Bread & Standard Items Badge */}
+                {!pkg.id.includes('chocolate') && (
+                  <div className="mb-3 flex flex-wrap items-center gap-1.5 text-[11px]">
+                    {pkg.tagline.includes('فرنساوى') ? (
+                      <span className="px-2.5 py-1 rounded-lg bg-[#FAF0E1] text-[#721832] font-extrabold border border-[#DFCBB0] flex items-center gap-1">
+                        <span>🥖</span>
+                        <span>سندوتش فرنساوى وسط (أكبر حجماً وممتد)</span>
+                      </span>
+                    ) : (
+                      <span className="px-2.5 py-1 rounded-lg bg-[#FAF0E1] text-[#8C5E13] font-extrabold border border-[#DFCBB0] flex items-center gap-1">
+                        <span>🥐</span>
+                        <span>سندوتش بتي بان ميني طازج</span>
+                      </span>
+                    )}
+                    <span className="px-2 py-0.5 rounded-md bg-[#F4EEDB] text-[#634F3A] font-semibold text-[10px]">
+                      مثلث جاتوة مغلف + عصير بخيرة
+                    </span>
+                  </div>
+                )}
+
                 {/* Description & highlights */}
                 <div className="mb-4">
                   <p className="text-xs text-[#5C5045] leading-relaxed mb-3 line-clamp-2">
@@ -157,13 +177,16 @@ export const PackagesSection: React.FC<PackagesSectionProps> = ({
 
                   {/* Highlights Bullet List */}
                   <div className="space-y-1.5 py-2 border-t border-b border-[#F0E6D5]">
-                    {pkg.sections.flatMap(s => s.items).slice(0, 4).map((item, idx) => (
+                    {(pkg.id.includes('chocolate')
+                      ? pkg.sections.flatMap(s => s.items).slice(0, 5)
+                      : pkg.sections.flatMap(s => s.items).slice(0, 4)
+                    ).map((item, idx) => (
                       <div key={idx} className="flex items-center gap-2 text-xs text-[#3D332A]">
                         <Check className="w-3.5 h-3.5 text-[#C89B3C] flex-shrink-0" />
                         <span className="truncate">{item}</span>
                       </div>
                     ))}
-                    {pkg.sections.flatMap(s => s.items).length > 4 && (
+                    {!pkg.id.includes('chocolate') && pkg.sections.flatMap(s => s.items).length > 4 && (
                       <div className="text-[11px] text-[#8C5E13] font-semibold pt-1">
                         + {pkg.sections.flatMap(s => s.items).length - 4} أصناف إضافية ومشروب وتغليف
                       </div>
@@ -180,7 +203,9 @@ export const PackagesSection: React.FC<PackagesSectionProps> = ({
                 {/* Pricing & CTA Buttons */}
                 <div className="pt-2 border-t border-[#F0E6D5] flex items-center justify-between gap-3">
                   <div>
-                    <div className="text-[10px] text-[#7A6A5C] font-semibold">سعر العبوة</div>
+                    <div className="text-[10px] text-[#7A6A5C] font-semibold">
+                      {pkg.id.includes('chocolate') ? 'سعر العلبة (40 قطعة)' : 'سعر العبوة'}
+                    </div>
                     <div className="flex items-baseline gap-1.5">
                       <span className="text-xl font-black text-[#5C1027] font-mono">{pkg.pricePerBox}</span>
                       <span className="text-xs font-bold text-[#5C1027]">ج.م</span>

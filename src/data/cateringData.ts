@@ -9,6 +9,11 @@ import vipBoxImg from '../assets/images/celebre_catering_box_1789035352545.jpg';
 import petitPainBoxImg from '../assets/images/celebre_petit_pain_box_1789035374258.jpg';
 import frenchBoxImg from '../assets/images/celebre_french_sandwich_box_1789035424883.jpg';
 import chocolateBoxImg from '../assets/images/celebre_custom_chocolate_box_1789036264927.jpg';
+import meal1BoxImg from '../assets/images/celebre_box_meal1_1789211893922.jpg';
+import meal2BoxImg from '../assets/images/celebre_box_meal2_1789211910273.jpg';
+import meal3BoxImg from '../assets/images/celebre_box_meal3_1789211925289.jpg';
+import meal4BoxImg from '../assets/images/celebre_box_meal4_fixed_1789213130863.jpg';
+import meal5VipBoxImg from '../assets/images/celebre_box_meal5_1789211955221.jpg';
 
 export const CATERING_PACKAGES: CateringPackage[] = [
   {
@@ -20,7 +25,7 @@ export const CATERING_PACKAGES: CateringPackage[] = [
     pricePerBox: 50,
     originalPrice: 60,
     minOrder: 25,
-    image: petitPainBoxImg,
+    image: meal1BoxImg,
     badge: '50 جنيه ✨ اقتصادي مميز',
     isBestseller: false,
     isLuxury: false,
@@ -65,7 +70,7 @@ export const CATERING_PACKAGES: CateringPackage[] = [
     pricePerBox: 55,
     originalPrice: 65,
     minOrder: 25,
-    image: frenchBoxImg,
+    image: meal2BoxImg,
     badge: '55 جنيه 🍗 فراخ بانية بلدي',
     isBestseller: false,
     isLuxury: false,
@@ -109,7 +114,7 @@ export const CATERING_PACKAGES: CateringPackage[] = [
     pricePerBox: 60,
     originalPrice: 70,
     minOrder: 25,
-    image: frenchBoxImg,
+    image: meal3BoxImg,
     badge: '60 جنيه 🥪 تركي ورومي فرنسي',
     isBestseller: false,
     isLuxury: false,
@@ -154,7 +159,7 @@ export const CATERING_PACKAGES: CateringPackage[] = [
     pricePerBox: 65,
     originalPrice: 75,
     minOrder: 25,
-    image: petitPainBoxImg,
+    image: meal4BoxImg,
     badge: '65 جنيه 🔥 الأكثر مبيعاً',
     isBestseller: true,
     isLuxury: false,
@@ -199,7 +204,7 @@ export const CATERING_PACKAGES: CateringPackage[] = [
     pricePerBox: 80,
     originalPrice: 95,
     minOrder: 25,
-    image: vipBoxImg,
+    image: meal5VipBoxImg,
     badge: '80 جنيه 👑 عرض VIP',
     isBestseller: true,
     isLuxury: true,
@@ -238,39 +243,40 @@ export const CATERING_PACKAGES: CateringPackage[] = [
   },
   {
     id: 'pkg-custom-chocolate',
-    name: 'علبة شيكولاتة باسمك',
-    nameEn: 'Celebre Personalized Name Chocolate Box',
-    tagline: 'قطع شيكولاتة بلجيكية فاخرة مطبوعة ومخصصة باسمك أو أسماء العروسين وتاريخ المناسبة',
+    name: 'علبة شيكولاتة باسمك (40 قطعة)',
+    nameEn: 'Celebre 40-Piece Personalized Name Chocolate Box',
+    tagline: 'علبة فاخرة 40 قطعة باسم صاحب المناسبة | تطلب قبل موعد المناسبة بـ 5 أيام على الأقل',
     category: 'sweets_hospitality',
-    pricePerBox: 55,
-    originalPrice: 70,
-    minOrder: 25,
+    pricePerBox: 800,
+    originalPrice: 850,
+    minOrder: 1,
     image: chocolateBoxImg,
-    badge: '🍫 شيكولاتة باسمك',
+    badge: '🍫 40 قطعة باسمك | 800 ج',
     isBestseller: true,
     isLuxury: true,
-    recommendedFor: ['توزيعات كتب الكتاب والأفراح الفاخرة', 'هدايا وتذكارات المعازيم الراقية', 'حفلات الخطوبة والسبوع والمناسبات الخاصة'],
-    description: 'علبة شيكولاتة فاخرة مخصصة بالكامل باسم صاحب المناسبة أو العروسين: شيكولاتة بلجيكية فاخرة بطباعة أنيقة وغلاف ذهبي راقي، مع كارت إهداء مخصص وتغليف أنيق يترك أثراً استثنائياً لدى ضيوفك.',
+    recommendedFor: ['توزيعات كتب الكتاب والأفراح الفاخرة', 'هدايا وتذكارات المعازيم الراقية', 'حفلات الخطوبة والسبوع والمناسبات الخاصة', 'هدية فاخرة خاصة للعروسين وأصحاب الحفل'],
+    description: 'علبة شيكولاتة فاخرة مكونة من 40 قطعة مخصصة بالكامل باسم صاحب المناسبة أو أسماء العروسين: شيكولاتة سيلبر الفاخرة بقوالب ملكية وتشكيلة حشوات ونكهات غنية مع طباعة الاسم وتاريخ المناسبة. تطلب قبل موعد المناسبة بـ 5 أيام على الأقل.',
     sections: [
       {
-        title: 'محتويات علبة الشيكولاتة المخصصة',
+        title: 'محتويات علبة الشيكولاتة المخصصة (40 قطعة)',
         items: [
-          'قطع شيكولاتة بلجيكية فاخرة بطباعة مخصصة بالاسم والتهنئة',
-          'تشكيلة نكهات سويسرية غنية (بندق مكرمل، لوتس، كراميل مملح، شوكولاتة داكنة)',
-          'قوالب داخلية فاخرة تحافظ على جودة وشكل كل قطعة'
+          '40 قطعة شيكولاتة فاخرة بطباعة مخصصة باسم صاحب المناسبة أو العروسين',
+          'تشكيلة نكهات وحشوات غنية (كراميل مملح، بندق مكرمل، لوتس، دارك وشوكولاتة بيضاء مقرمشة)',
+          'قوالب مقسمة ومذهبة تحافظ على بريق وجودة كل قطعة وتمنحها مظهراً ملكياً'
         ]
       },
       {
-        title: 'التخصيص والتغليف',
+        title: 'التخصيص وموعد الطلب المسبق',
         items: [
-          'طباعة أسماء العروسين أو صاحب المناسبة وتاريخ الاحتفال مجاناً',
-          'علبة سيلبر المذهبة بشريط ستان وكارت إهداء خاص'
+          'طباعة اسم صاحب المناسبة أو العروسين وتاريخ الاحتفال على العلبة والقطع مجاناً',
+          'علبة سيلبر المذهبة بشريط ستان وكارت إهداء خاص جاهزة للتقديم والإهداء',
+          '⚠️ تنبيه هام: تطلب العلبة قبل موعد المناسبة بـ 5 أيام على الأقل لضمان دقة التجهيز والطباعة'
         ]
       }
     ],
     packaging: {
-      type: 'علبة سيلبر الذهبية المخصصة للشيكولاتة مع تقسيم داخلي فاخر',
-      ribbon: 'شريط ستان حريري أنيق مع كارت إهداء',
+      type: 'علبة سيلبر المذهبة الفاخرة 40 قطعة مع تقسيم داخلي ملكي وشريط ستان ذهبي',
+      ribbon: 'شريط ستان حريري ذهبي أنيق مع كارت إهداء فاخر',
       includesCard: true,
       includesCutlery: false
     }
@@ -285,7 +291,7 @@ export const CATERING_PACKAGES: CateringPackage[] = [
     pricePerBox: 65,
     originalPrice: 75,
     minOrder: 25,
-    image: petitPainBoxImg,
+    image: meal4BoxImg,
     badge: 'الأكثر مبيعاً ✨',
     isBestseller: true,
     isLuxury: false,
@@ -323,7 +329,7 @@ export const CATERING_PACKAGES: CateringPackage[] = [
     pricePerBox: 80,
     originalPrice: 95,
     minOrder: 25,
-    image: vipBoxImg,
+    image: meal5VipBoxImg,
     badge: 'باقة الـ VIP ⭐',
     isLuxury: true,
     isBestseller: true,
@@ -540,7 +546,7 @@ export const MENU_ITEMS_CUSTOMIZER: MenuItemOption[] = [
     category: 'french_pastry',
     categoryLabel: 'الحلويات والشيكولاتة المخصصة',
     priceDelta: 18,
-    description: 'قطع شيكولاتة سويسرية فاخرة مطبوعة ومخصصة بالاسم وتاريخ الحفل',
+    description: 'قطع شيكولاتة فاخرة مطبوعة ومخصصة باسم صاحب المناسبة وتاريخ الحفل',
     badge: 'شيكولاتة باسمك 🍫'
   },
   {
@@ -561,7 +567,7 @@ export const MENU_ITEMS_CUSTOMIZER: MenuItemOption[] = [
   },
   {
     id: 'item-mini-eclair',
-    name: 'ميني إكلير شوكولاتة بلجيكية فاخرة',
+    name: 'ميني إكلير شوكولاتة فاخرة',
     category: 'french_pastry',
     categoryLabel: 'الحلويات الشرقية والغربية',
     priceDelta: 16,

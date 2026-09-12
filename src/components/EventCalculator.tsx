@@ -248,9 +248,25 @@ export const EventCalculator: React.FC<EventCalculatorProps> = ({
               <div className="text-lg sm:text-xl font-black text-white mt-0.5">
                 {recommendedPackage.name}
               </div>
-              <p className="text-xs text-[#E6D4B8] mt-1 line-clamp-2">
+              <p className="text-xs text-[#E6D4B8] mt-1 line-clamp-2 mb-3">
                 {recommendedPackage.tagline}
               </p>
+
+              {/* Photo preview of the meal box */}
+              {recommendedPackage.image && (
+                <div className="relative rounded-2xl overflow-hidden aspect-[16/9] border border-[#C89B3C]/50 shadow-md">
+                  <img
+                    src={recommendedPackage.image}
+                    alt={recommendedPackage.name}
+                    className="w-full h-full object-cover"
+                    referrerPolicy="no-referrer"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                  <div className="absolute bottom-2 right-3 text-[11px] font-bold text-[#FFDF9E]">
+                    {recommendedPackage.name}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Quantities & Price Breakdown */}
