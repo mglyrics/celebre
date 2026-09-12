@@ -2,13 +2,14 @@ import { CateringPackage, MenuItemOption, PackagingOption, Testimonial, FAQItem 
 
 import heroImg from '../assets/images/celebre_hero_banner_1788037530778.jpg';
 import brandedBoxImg from '../assets/images/celebre_branded_box_1788040428186.jpg';
-import royalBoxImg from '../assets/images/celebre_royal_box_1788037545297.jpg';
-import sweetBoxImg from '../assets/images/celebre_sweet_box_1788037558417.jpg';
+import royalBoxImg from '../assets/images/celebre_mosque_katb_ketab_1789223553405.jpg';
+import sweetBoxImg from '../assets/images/celebre_chocolate_gift_box_1789223450390.jpg';
 import eventSetupImg from '../assets/images/celebre_event_setup_1788037572328.jpg';
 import vipBoxImg from '../assets/images/celebre_catering_box_1789035352545.jpg';
 import petitPainBoxImg from '../assets/images/celebre_petit_pain_box_1789035374258.jpg';
 import frenchBoxImg from '../assets/images/celebre_french_sandwich_box_1789035424883.jpg';
-import chocolateBoxImg from '../assets/images/celebre_custom_chocolate_box_1789036264927.jpg';
+import chocolateBoxImg from '../assets/images/celebre_chocolate_gift_box_1789223450390.jpg';
+import mosqueKatbKetabImg from '../assets/images/celebre_mosque_katb_ketab_1789223553405.jpg';
 import meal1BoxImg from '../assets/images/celebre_box_meal1_1789211893922.jpg';
 import meal2BoxImg from '../assets/images/celebre_box_meal2_1789211910273.jpg';
 import meal3BoxImg from '../assets/images/celebre_box_meal3_1789211925289.jpg';
@@ -55,8 +56,8 @@ export const CATERING_PACKAGES: CateringPackage[] = [
       }
     ],
     packaging: {
-      type: 'صندوق سيلبر الكرتوني المطبوع بشعار المناسبات مع غلق محكم',
-      ribbon: 'شريط ستان ذهبي أنيق مع كارت إهداء',
+      type: 'صندوق سيلبر الكرتوني المذهب المعتمد لكافة الوجبات (غلق محكم)',
+      ribbon: 'غلق ذاتي محكم بدون أشرطة (توزيع مباشر سريع ونظيف)',
       includesCard: true,
       includesCutlery: true
     }
@@ -99,8 +100,8 @@ export const CATERING_PACKAGES: CateringPackage[] = [
       }
     ],
     packaging: {
-      type: 'صندوق سيلبر الأنيق المحكم لضمان القرمشة والسخونة',
-      ribbon: 'شريط ستان ذهبي فاخر',
+      type: 'صندوق سيلبر الكرتوني المذهب المعتمد والمحكم الإغلاق',
+      ribbon: 'غلق ذاتي محكم بدون أشرطة (توزيع مباشر سريع ونظيف)',
       includesCard: true,
       includesCutlery: true
     }
@@ -144,8 +145,8 @@ export const CATERING_PACKAGES: CateringPackage[] = [
       }
     ],
     packaging: {
-      type: 'علبة سيلبر باللون الأبيض والذهبي الملكي',
-      ribbon: 'شريط ستان حريري مميز',
+      type: 'علبة سيلبر باللون الأبيض والذهبي الملكي المعتمد',
+      ribbon: 'غلق ذاتي محكم بدون أشرطة (توزيع سريع ونظيف)',
       includesCard: true,
       includesCutlery: true
     }
@@ -189,8 +190,8 @@ export const CATERING_PACKAGES: CateringPackage[] = [
       }
     ],
     packaging: {
-      type: 'صندوق سيلبر الكرتوني المذهب بحفظ حراري متميز',
-      ribbon: 'شريط ستان عريض ذهبي مع فيونكة أنيقة',
+      type: 'صندوق سيلبر الكرتوني المذهب بحفظ حراري متميز وغلق محكم',
+      ribbon: 'غلق ذاتي محكم بدون أشرطة (توزيع سريع ونظيف بالمساجد والقاعات)',
       includesCard: true,
       includesCutlery: true
     }
@@ -235,8 +236,8 @@ export const CATERING_PACKAGES: CateringPackage[] = [
       }
     ],
     packaging: {
-      type: 'صندوق سيلبر VIP الفاخر بطباعة ذهبية بارزة وشريط حريري',
-      ribbon: 'شريط مخملي / ستان ذهبي عريض مع ختم سيلبر المعتمد',
+      type: 'صندوق سيلبر VIP الفاخر بطباعة ذهبية بارزة وغلق محكم',
+      ribbon: 'غلق ذاتي محكم بدون أشرطة (تغليف كرتوني مقوى مذهب محكم)',
       includesCard: true,
       includesCutlery: true
     }
@@ -269,14 +270,14 @@ export const CATERING_PACKAGES: CateringPackage[] = [
         title: 'التخصيص وموعد الطلب المسبق',
         items: [
           'طباعة اسم صاحب المناسبة أو العروسين وتاريخ الاحتفال على العلبة والقطع مجاناً',
-          'علبة سيلبر المذهبة بشريط ستان وكارت إهداء خاص جاهزة للتقديم والإهداء',
+          'علبة شوكولاتة سيلبر المذهبة الرسمية الفاخرة مع كارت إهداء خاص جاهزة للتقديم المباشر',
           '⚠️ تنبيه هام: تطلب العلبة قبل موعد المناسبة بـ 5 أيام على الأقل لضمان دقة التجهيز والطباعة'
         ]
       }
     ],
     packaging: {
-      type: 'علبة سيلبر المذهبة الفاخرة 40 قطعة مع تقسيم داخلي ملكي وشريط ستان ذهبي',
-      ribbon: 'شريط ستان حريري ذهبي أنيق مع كارت إهداء فاخر',
+      type: 'علبة شوكولاتة سيلبر المذهبة الفاخرة 40 قطعة بتقسيم داخلي ملكي وكارت إهداء',
+      ribbon: 'علبة صلبة فاخرة مع كارت إهداء وطباعة مخصصة للاسم',
       includesCard: true,
       includesCutlery: false
     }
@@ -314,8 +315,8 @@ export const CATERING_PACKAGES: CateringPackage[] = [
       }
     ],
     packaging: {
-      type: 'صندوق سيلبر الفاخر مع شريط ستان ذهبي',
-      ribbon: 'شريط ستان جولد عريض',
+      type: 'صندوق سيلبر الكرتوني المذهب الفاخر المعتمد لكتب الكتاب',
+      ribbon: 'غلق ذاتي محكم بدون أشرطة لسرعة وسهولة التوزيع',
       includesCard: true,
       includesCutlery: true
     }
@@ -352,8 +353,8 @@ export const CATERING_PACKAGES: CateringPackage[] = [
       }
     ],
     packaging: {
-      type: 'علبة سيلبر الماسية VIP مع طباعة ذهبية',
-      ribbon: 'شريط برغندي ملوكي مع بطاقة المناسبة',
+      type: 'علبة سيلبر الماسية VIP مع طباعة ذهبية بارزة',
+      ribbon: 'غلق ذاتي محكم فاخر بدون أشرطة',
       includesCard: true,
       includesCutlery: true
     }
@@ -544,32 +545,16 @@ export const MENU_ITEMS_CUSTOMIZER: MenuItemOption[] = [
     id: 'item-custom-chocolate',
     name: 'شيكولاتة مخصصة باسمك وتاريخ المناسبة',
     category: 'french_pastry',
-    categoryLabel: 'الحلويات والشيكولاتة المخصصة',
+    categoryLabel: 'الجاتوة والحلويات المخصصة',
     priceDelta: 18,
     description: 'قطع شيكولاتة فاخرة مطبوعة ومخصصة باسم صاحب المناسبة وتاريخ الحفل',
     badge: 'شيكولاتة باسمك 🍫'
   },
   {
-    id: 'item-kunafa-asawer',
-    name: 'كنافة أساور بالفستق الحلبي المقرمش',
-    category: 'oriental_sweets',
-    categoryLabel: 'الحلويات الشرقية والغربية',
-    priceDelta: 16,
-    description: 'كنافة ذهبية محشوة فستق حلبي مفروم ومسقية بشربات الورد الخفيف'
-  },
-  {
-    id: 'item-basbousa-nuts',
-    name: 'بسبوسة بالسمن البلدي والمكسرات',
-    category: 'oriental_sweets',
-    categoryLabel: 'الحلويات الشرقية والغربية',
-    priceDelta: 14,
-    description: 'بسبوسة مرملة دايبة بالسمن الفلاحي ولوز محمص'
-  },
-  {
     id: 'item-mini-eclair',
     name: 'ميني إكلير شوكولاتة فاخرة',
     category: 'french_pastry',
-    categoryLabel: 'الحلويات الشرقية والغربية',
+    categoryLabel: 'الجاتوة والحلويات المخصصة',
     priceDelta: 16,
     description: 'إكلير فرنسي بحشوة كريم باتيسيير الغنية وجناش شوكولاتة داكنة'
   },
@@ -577,7 +562,7 @@ export const MENU_ITEMS_CUSTOMIZER: MenuItemOption[] = [
     id: 'item-fruit-tart',
     name: 'ميني تارت فواكه الموسم الطازجة',
     category: 'french_pastry',
-    categoryLabel: 'الحلويات الشرقية والغربية',
+    categoryLabel: 'الجاتوة والحلويات المخصصة',
     priceDelta: 15,
     description: 'قاعدة بسكويت مقرمشة مع كريمة فانيليا وقطع كيوي وفراولة ومانجو'
   },
@@ -585,7 +570,7 @@ export const MENU_ITEMS_CUSTOMIZER: MenuItemOption[] = [
     id: 'item-custom-cookie',
     name: 'كوكيز التهنئة المخصص باسم العروسين / المولود',
     category: 'french_pastry',
-    categoryLabel: 'الحلويات الشرقية والغربية',
+    categoryLabel: 'الجاتوة والحلويات المخصصة',
     priceDelta: 18,
     description: 'قطعة كوكيز سكر زبدة مصممة ومطبوعة بأشكال المناسبة'
   },
@@ -636,40 +621,31 @@ export const MENU_ITEMS_CUSTOMIZER: MenuItemOption[] = [
 
 export const PACKAGING_OPTIONS: PackagingOption[] = [
   {
-    id: 'pack-burgundy-velvet',
-    name: 'صندوق سيلبر المخملي العنابي الملكي',
-    description: 'العلبة التوقيع لعلامة سيلبر، لون عنابي فخم مع إطار ذهبي وفيونكة ستان عريضة',
-    priceExtra: 15,
-    color: '#5C1027',
-    texture: 'مخملي فاخر',
-    ribbonColor: 'ذهبي ملوكي'
+    id: 'pack-official-gold',
+    name: 'صندوق سيلبر الكرتوني المذهب المعتمد',
+    description: 'الكرتون المقوى الأبيض والمذهب الرسمي لكافة الوجبات، تقسيم داخلي صحي وغلق محكم بدون أشرطة لسرعة التوزيع والنظافة',
+    priceExtra: 0,
+    color: '#FAF7F2',
+    texture: 'كرتون مقوى مذهب',
+    ribbonColor: 'بدون أشرطة (قفل محكم)'
   },
   {
     id: 'pack-black-gold',
-    name: 'صندوق الماسي أسود جولد VIP',
-    description: 'كرتون مقوى أسود مطفي مع طباعة شعار سيلبر برقائق الذهب البارزة',
-    priceExtra: 18,
+    name: 'صندوق سيلبر الملكي المذهب الأسود VIP',
+    description: 'كرتون صلب مقوى باللون الأسود الملكي مع طباعة شعار سيلبر برقائق الذهب البارزة',
+    priceExtra: 15,
     color: '#1C1B1F',
-    texture: 'مطفي ذهبي',
-    ribbonColor: 'عنابي برغندي'
+    texture: 'كرتون مقوى مذهب',
+    ribbonColor: 'بدون أشرطة (قفل محكم)'
   },
   {
-    id: 'pack-classic-craft-window',
-    name: 'صندوق كرافت كلاسيكي بنافذة عرض شفافة',
-    description: 'تصميم أوروبي جذاب وشفاف يُظهر روعة الألوان والمأكولات بالداخل',
-    priceExtra: 10,
-    color: '#D4B996',
-    texture: 'كرافت طبيعي',
-    ribbonColor: 'ذهبي كلاسيك'
-  },
-  {
-    id: 'pack-pastel-celebration',
-    name: 'صندوق الباستيل الوردي / السماوي للمناسبات',
-    description: 'مناسب لليالي الحنة والسبوع وتوزيعات الخطوبة الرقيقة',
-    priceExtra: 12,
-    color: '#E8C7CD',
-    texture: 'ساتان باستيل',
-    ribbonColor: 'أبيض لؤلؤي'
+    id: 'pack-chocolate-box',
+    name: 'علبة شوكولاتة سيلبر المذهبة الفاخرة (40 قطعة)',
+    description: 'علبة كرتونية صلبة مذهبة مع تقسيم داخلي ملكي وكارت إهداء وطباعة الاسم',
+    priceExtra: 0,
+    color: '#FAF5EB',
+    texture: 'علبة مذهبة صلبة',
+    ribbonColor: 'بدون أشرطة (كارت إهداء)'
   }
 ];
 
@@ -681,7 +657,7 @@ export const TESTIMONIALS: Testimonial[] = [
     occasion: 'كتب كتاب (150 عبوة)',
     eventDate: 'سبتمبر 2026',
     rating: 5,
-    comment: 'بجد سيلبر شرفونا قدام كل المعازيم في بني سويف! البوكس شكله راقي جداً والحلويات والساندوتشات وصلت سخنة وطازة، وشريط الستان وكارت التهنئة باسمنا كان لمسة استثنائية. شكراً لفريق Celebre المحترف.',
+    comment: 'بجد سيلبر شرفونا قدام كل المعازيم في بني سويف! البوكس شكله راقي جداً والساندوتشات وصلت طازة ومحكمة الغلق، والتوزيع كان سريع ومنظم جداً بالمسجد. شكراً لفريق Celebre المحترف.',
     verified: true,
     avatarText: 'أن'
   },
@@ -733,7 +709,7 @@ export const FAQS: FAQItem[] = [
   },
   {
     question: 'كيف يتم تقديم وتغليف العبوات؟',
-    answer: 'تأتي عبوات سيلبر بتصميمها الفاخر الخاص بالبراند وبأعلى معايير الأناقة والنظافة المحكمة الجاهزة للتقديم المباشر لضيوفكم، ولا نوفر كروت إهداء أو أشرطة ستان حرصاً على التقديم السريع والعملي والمنظم.',
+    answer: 'تأتي عبوات سيلبر بتصميمها الكرتوني المذهب الفاخر المعتمد لكافة الوجبات، وبأعلى معايير الأناقة والنظافة المحكمة الجاهزة للتقديم المباشر لضيوفكم، مع غلق ذاتي محكم وبدون أشرطة حرصاً على التقديم السريع والعملي والمنظم والمعقم داخل المساجد والقاعات.',
     category: 'التخصيص والتغليف'
   },
   {

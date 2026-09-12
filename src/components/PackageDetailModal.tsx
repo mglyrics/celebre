@@ -174,8 +174,8 @@ export const PackageDetailModal: React.FC<PackageDetailModalProps> = ({
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
               <div>• <strong>نوع الصندوق:</strong> {activePkg.packaging?.type || 'علبة فاخرة'}</div>
-              <div>• <strong>التصميم:</strong> {isCustomChocolate ? 'تصميم مخصص بطباعة الاسم وشريط ستان ذهبي' : 'تصميم سيلبر الأنيق المعتمد للتقديم المباشر'}</div>
-              <div>• <strong>المستلزمات:</strong> {isCustomChocolate ? 'شريط ستان حريري ذهبي أنيق مع كارت إهداء خاص' : 'تشمل شوكة / ملعقة ومناديل معطرة فاخرة ومغلفة'}</div>
+              <div>• <strong>التصميم:</strong> {isCustomChocolate ? 'علبة سيلبر المذهبة الرسمية الفاخرة بطباعة الاسم' : 'تصميم سيلبر الكرتوني المذهب المعتمد والمحكم الإغلاق'}</div>
+              <div>• <strong>المستلزمات:</strong> {isCustomChocolate ? 'علبة كرتونية صلبة مذهبة مع كارت إهداء خاص وطباعة مخصصة' : 'تشمل شوكة ومنديل معقم في غلاف منفصل وعصير بخيرة'}</div>
               <div>• <strong>الحفظ:</strong> {isCustomChocolate ? 'قوالب مقسمة ومذهبة لحماية القطع والحفاظ على بريقها' : 'أكياس حرارية لنقل الطعام طازجاً وساخناً'}</div>
             </div>
           </div>

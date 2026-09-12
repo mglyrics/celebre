@@ -180,9 +180,9 @@ export const EventCalculator: React.FC<EventCalculatorProps> = ({
               <label className="text-xs font-bold text-[#5C1027]">3. مستوى التجهيز والضيافة:</label>
               <div className="grid grid-cols-3 gap-2.5">
                 {[
-                  { id: 'standard', label: 'اقتصادي راقي', desc: 'ساندوتشات ومقبلات وعصير' },
-                  { id: 'luxury', label: 'ملكي فاخر (الأكثر طلباً)', desc: 'مشويات وسواريه وحلويات وعصير' },
-                  { id: 'vip', label: 'VIP ملكي استثنائي', desc: 'لحوم فاخرة وكانابيهات وماكرون' },
+                  { id: 'standard', label: 'الوجبة 1 و 2', desc: 'بتي بان أو فرنساوى مع جاتوة وعصير' },
+                  { id: 'luxury', label: 'الوجبة 4 (الأكثر طلباً)', desc: 'ميكس كفتة مشوية وبانية وجاتوة وعصير' },
+                  { id: 'vip', label: 'عرض VIP الوجبة 5', desc: 'ساندوتشين فرنساوى كفتة وبانية وجاتوة' },
                 ].map((t) => (
                   <button
                     key={t.id}

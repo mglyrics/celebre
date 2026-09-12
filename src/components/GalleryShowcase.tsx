@@ -9,18 +9,17 @@ import {
   Crown
 } from 'lucide-react';
 import heroImg from '../assets/images/celebre_hero_banner_1788037530778.jpg';
-import royalBoxImg from '../assets/images/celebre_royal_box_1788037545297.jpg';
-import sweetBoxImg from '../assets/images/celebre_sweet_box_1788037558417.jpg';
+import mosqueKatbKetabImg from '../assets/images/celebre_mosque_katb_ketab_1789223553405.jpg';
 import eventSetupImg from '../assets/images/celebre_event_setup_1788037572328.jpg';
-import chocolateBoxImg from '../assets/images/celebre_custom_chocolate_box_1789036264927.jpg';
+import chocolateBoxImg from '../assets/images/celebre_chocolate_gift_box_1789223450390.jpg';
 
 const GALLERY_ITEMS = [
   {
     id: 1,
-    title: 'عبوات عقد القران بمسجد عمر بن عبد العزيز ببني سويف',
-    category: 'كتب كتاب',
-    image: royalBoxImg,
-    tag: 'تغليف مخملي نبيتي مع شريط ستان ذهبي',
+    title: 'توزيعات عبوات كتب الكتاب وعقد القران بالمساجد (بني سويف)',
+    category: 'كتب كتاب بالمساجد',
+    image: mosqueKatbKetabImg,
+    tag: 'علب سيلبر الكرتونية المذهبة الرسمية المحكمة - سهلة وسريعة التوزيع بالمساجد',
   },
   {
     id: 2,
@@ -31,14 +30,14 @@ const GALLERY_ITEMS = [
   },
   {
     id: 3,
-    title: 'علبة شيكولاتة باسمك (40 قطعة فاخرة)',
+    title: 'علبة شيكولاتة سيلبر المرفقة باسم صاحب المناسبة (40 قطعة)',
     category: 'شيكولاتة باسمك',
     image: chocolateBoxImg,
-    tag: '40 قطعة فاخرة بطباعة الأسماء الذهبية وتطلب مسبقاً بـ 5 أيام (800 ج)',
+    tag: 'علبة سيلبر المذهبة الرسمية مع كارت الإهداء والخط الساخن 01284484868 (800 ج)',
   },
   {
     id: 4,
-    title: 'تنسيق طاولات المعازيم مع باقات سيلبر الماسية',
+    title: 'تنسيق طاولات المعازيم مع باقات سيلبر الرسمية',
     category: 'تنظيم قاعات',
     image: eventSetupImg,
     tag: 'توزيع منظم مع كروت إهداء شخصية',

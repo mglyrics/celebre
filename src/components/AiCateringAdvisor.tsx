@@ -41,8 +41,8 @@ export const AiCateringAdvisor: React.FC<AiCateringAdvisorProps> = ({
   const [occasion, setOccasion] = useState('كتب كتاب في قاعة ملحقة بمسجد');
   const [guestCount, setGuestCount] = useState(120);
   const [budget, setBudget] = useState('18000');
-  const [preferredStyle, setPreferredStyle] = useState('ميكس متوازن بين الموالح الساخنة والحلويات الشرقية');
-  const [notes, setNotes] = useState('يرجى مراعاة وجود حلويات خفيفة بالسمن البلدي وعصائر فريش طازجة');
+  const [preferredStyle, setPreferredStyle] = useState('ساندوتشات كفتة وبانية فاخرة مع جاتوة مثلّث وعصير بخيرة');
+  const [notes, setNotes] = useState('يرجى مراعاة علب سيلبر الكرتونية المذهبة الرسمية المحكمة وسرعة التوزيع');
 
   const [isLoading, setIsLoading] = useState(false);
   const [plan, setPlan] = useState<PlanResult | null>(null);
@@ -81,23 +81,21 @@ export const AiCateringAdvisor: React.FC<AiCateringAdvisorProps> = ({
       // Fallback Egyptian catering recommendation
       setPlan({
         recommendationTitle: `خطة الضيافة المخصصة لـ ${occasion} (${guestCount} فرد)`,
-        suggestedPackage: "باقة كتب الكتاب والزفاف الملكية المطورة (Royal Celebre Mix)",
-        estimatedCostPerBox: Math.round(Number(budget) / guestCount) || 145,
-        totalEstimatedCost: Number(budget) || guestCount * 145,
+        suggestedPackage: "باقة كتب الكتاب والزفاف الرسمية (Royal Celebre Mix)",
+        estimatedCostPerBox: Math.round(Number(budget) / guestCount) || 65,
+        totalEstimatedCost: Number(budget) || guestCount * 65,
         boxContents: [
-          "ميني ساندوتش كوردن بلو فاخر بصوص الشيدر",
-          "سيخ شيش طاووق متبل على الطريقة التركية في خبز تورتيلا",
-          "قطعتين سمبوسك مكس جبن كيري ولحمة مفرومة بلدي",
-          "حبة كبيبة شامي بالصنوبر واللحم البلدي",
-          "تارت جبنة الريكوتا والزعتر البري مع طماطم مجففة",
-          "علبة ميني حلويات شرقية فاخرة (كنافة أساور فستق + بسبوسة سمن بلدي)",
-          "زجاجة عصير مانجو طبيعي 100% بدون سكر مع مياه معدنية",
-          "منديل معطّر فاخر وشوكة سيلفر ذهبية داخل مغلف سيلبر الأنيق"
+          "سندوتش بتي بان كفتة بلدي مشوية ع الفحم",
+          "سندوتش بتي بان فراخ بانية مقرمشة ومتبلة",
+          "قطعة جاتوة شوكولاتة مثلثة مغلفة فاخرة",
+          "عصير بخيرة طازج (جوافة / مانجو)",
+          "باكت شوكة ومنديل معقم عالي الجودة",
+          "صندوق سيلبر الكرتوني المذهب المعتمد والمحكم الإغلاق"
         ],
         presentationTips: [
-          "التغليف باللون العنابي والتصميم الفاخر يمنح فخامة لصور الحفل والتوزيع الفوري",
-          "العبوات محكمة ومجهزة بشوكة ومنديل معطر لتوزيع فوري وسهل دون أي فوضى",
-          "توزيع العبوات في أكياس سيلبر الحرارية يضمن بقاء المخبوزات طازجة ومقرمشة"
+          "العلب الكرتونية المذهبة الرسمية المحكمة تمنح توزيعاً فورياً وسهلاً دون فوضى داخل المساجد",
+          "تغليف آمن ومحكم بدون أشرطة لضمان أعلى معايير النظافة والسرعة",
+          "توزيع العبوات في حقائب سيلبر الحرارية يضمن بقاء المخبوزات طازجة ولذيذة"
         ],
         advice: `بناءً على عدد المعازيم (${guestCount} فرد) والميزانية المقترحة، هذه التشكيلة توفر أعلى قيمة وأفضل انطباع لضيوفكم الكرام دون أي هدر في المصاريف.`
       });
@@ -114,7 +112,7 @@ export const AiCateringAdvisor: React.FC<AiCateringAdvisorProps> = ({
       type: 'custom',
       name: `باقة مقترحة من المستشار الذكي (${plan.suggestedPackage})`,
       details: plan.boxContents,
-      packagingName: 'صندوق سيلبر المخملي الملكي المخصص للمناسبات',
+      packagingName: 'صندوق سيلبر الكرتوني المذهب المعتمد لكافة المناسبات',
       quantity: guestCount,
       pricePerBox: plan.estimatedCostPerBox,
       totalPrice: plan.totalEstimatedCost,
@@ -216,7 +214,7 @@ export const AiCateringAdvisor: React.FC<AiCateringAdvisorProps> = ({
                     type="text"
                     value={preferredStyle}
                     onChange={(e) => setPreferredStyle(e.target.value)}
-                    placeholder="مثال: ساندوتشات كوردن بلو، مشويات، حلويات شرقية وغربية"
+                    placeholder="مثال: ساندوتشات كفتة مشوية وبانية، مثلث جاتوة مغلف، عصير بخيرة"
                     className="w-full px-3.5 py-2.5 text-xs bg-white rounded-xl border border-[#D9C49C] focus:ring-2 focus:ring-[#721832] focus:outline-none"
                   />
                 </div>
