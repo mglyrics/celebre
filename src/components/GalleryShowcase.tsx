@@ -1,133 +1,69 @@
-import React, { useState } from 'react';
-import { 
-  Sparkles, 
-  Eye, 
-  Heart, 
-  Camera, 
-  Check, 
-  Award,
-  Crown
-} from 'lucide-react';
-import heroImg from '../assets/images/celebre_hero_banner_1788037530778.jpg';
-import mosqueKatbKetabImg from '../assets/images/celebre_mosque_katb_ketab_1789223553405.jpg';
-import eventSetupImg from '../assets/images/celebre_event_setup_1788037572328.jpg';
-import meal5VipBoxImg from '../assets/images/celebre_box_meal5_1789211955221.jpg';
-
-const GALLERY_ITEMS = [
-  {
-    id: 1,
-    title: 'توزيعات عبوات كتب الكتاب وعقد القران بالمساجد (بني سويف)',
-    category: 'كتب كتاب بالمساجد',
-    image: mosqueKatbKetabImg,
-    tag: 'علبة سيلبر الكرتون الفاخرة باللون الذهبي والنبيتي - سهلة وسريعة التوزيع بالمساجد',
-  },
-  {
-    id: 2,
-    title: 'تجهيزات ضيافة حفل زفاف بقاعة على النيل (شرق النيل)',
-    category: 'أفراح وقاعات',
-    image: heroImg,
-    tag: 'بوكسات سواريه مشكلة ومقبلات ساخنة',
-  },
-  {
-    id: 3,
-    title: 'علبة سيلبر الكرتون الفاخرة باللون الذهبي والنبيتي (وجبات VIP)',
-    category: 'وجبات VIP',
-    image: meal5VipBoxImg,
-    tag: 'علبة سيلبر الكرتون الفاخرة باللون الذهبي والنبيتي مع ساندوتشات كفتة وبانية وجاتوه',
-  },
-  {
-    id: 4,
-    title: 'تنسيق طاولات المعازيم مع باقات سيلبر الرسمية',
-    category: 'تنظيم قاعات',
-    image: eventSetupImg,
-    tag: 'توزيع منظم مع كروت إهداء شخصية',
-  },
-];
+import React from "react";
+import mosqueImg from "../assets/images/celebre_mosque_katb_ketab_1789223553405.jpg";
+import boxImg from "../assets/images/celebre_branded_box_1788040428186.jpg";
+import setupImg from "../assets/images/celebre_event_setup_1788037572328.jpg";
+import heroImg from "../assets/images/celebre_hero_banner_1788037530778.jpg";
 
 export const GalleryShowcase: React.FC = () => {
-  const [activeImage, setActiveImage] = useState<string | null>(null);
+  const images = [
+    {
+      src: mosqueImg,
+      title: "توزيع كتب الكتاب بالمساجد الكبرى",
+      desc: "توزيع فوري منظم ونظيف بالمسجد بدون أي هدر أو تأخير"
+    },
+    {
+      src: boxImg,
+      title: "العلبة الكرتونية المذهبة الرسمية",
+      desc: "تصميم ملكي فاخر باللونين الذهبي والنبيتي مع غلق ذاتي محكم"
+    },
+    {
+      src: setupImg,
+      title: "تجهيز حفلات واستقبالات القاعات",
+      desc: "طاقة استيعابية مفتوحة وتوصيل مبرد يحافظ على نضارة وسخونة الوجبات"
+    },
+    {
+      src: heroImg,
+      title: "تشكيلة ساندوتشات بتي بان وفرنساوي طازجة",
+      desc: "كفتة ع الفحم، بانيه بلدي مقرمش، رومي، مع قطع الجاتوه المغلفة"
+    }
+  ];
 
   return (
-    <section id="gallery-section" className="py-16 sm:py-20 bg-[#FAF7F2] text-right">
+    <section className="py-12 sm:py-16 bg-white border-y border-[#E8DFD1]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
-        
-        {/* Header */}
-        <div className="text-center max-w-3xl mx-auto mb-12">
-          <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#FAF0E1] border border-[#C89B3C]/40 text-[#5C1027] text-xs font-bold mb-3 shadow-xs">
-            <Camera className="w-4 h-4 text-[#C89B3C]" />
-            <span>معرض الصور والفعاليات الحية</span>
-          </div>
-
-          <h2 className="text-3xl sm:text-4xl font-extrabold text-[#2C0A15] tracking-tight mb-3">
-            لمسات الفخامة في مناسبات وأفراح عملائنا
+        <div className="text-center max-w-2xl mx-auto mb-10">
+          <span className="text-xs font-bold text-[#C89B3C] bg-[#F4EEDB] px-3.5 py-1.5 rounded-full inline-block mb-3">
+            معرض التوزيع الحي • تصوير واقعي
+          </span>
+          <h2 className="text-2xl sm:text-3xl font-black text-[#221B17]">
+            شاهد عبوات سيلبر في قلب المناسبات
           </h2>
-          
-          <p className="text-sm sm:text-base text-[#66574A] leading-relaxed">
-            شاهد كيف تضفي عبوات <span className="font-bold text-[#5C1027]">Celebre</span> طابعاً ملوكياً وشياكة استثنائية على طاولات المعازيم وفي صور الحفل التذكارية.
+          <p className="text-xs sm:text-sm text-[#7A6E65] mt-2">
+            دقة في التغليف، نظافة متناهية، وسرعة فائقة في التوزيع تليق بأهم أيام حياتك.
           </p>
         </div>
 
-        {/* Gallery Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {GALLERY_ITEMS.map((item) => (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          {images.map((item, idx) => (
             <div
-              key={item.id}
-              onClick={() => setActiveImage(item.image)}
-              className="group relative rounded-3xl overflow-hidden bg-[#2C0A15] border border-[#E0D3BD] shadow-md hover:shadow-2xl transition-all duration-500 cursor-pointer flex flex-col justify-end aspect-[4/5]"
+              key={idx}
+              className="group relative rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 border border-[#E8DFD1] bg-[#FAF7F2]"
             >
-              <img
-                src={item.image}
-                alt={item.title}
-                className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 opacity-90 group-hover:opacity-100"
-                referrerPolicy="no-referrer"
-              />
-              
-              {/* Dark Gradient Overlay */}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
-
-              {/* Top Floating Badge */}
-              <div className="absolute top-3.5 right-3.5 px-2.5 py-1 rounded-full bg-[#5C1027]/90 backdrop-blur-md border border-[#D4AF37]/40 text-[#FFDF9E] text-[10px] font-bold">
-                {item.category}
+              <div className="h-60 overflow-hidden">
+                <img
+                  src={item.src}
+                  alt={item.title}
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                />
               </div>
-
-              {/* Bottom Card Caption */}
-              <div className="relative z-10 p-4 text-white">
-                <span className="text-[11px] text-[#E5C06E] font-medium block mb-1">
-                  {item.tag}
-                </span>
-                <h3 className="font-bold text-sm leading-snug group-hover:text-[#FFDF9E] transition-colors">
-                  {item.title}
-                </h3>
-              </div>
-
-              {/* Eye Preview Icon Hover */}
-              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/30 backdrop-blur-xs">
-                <div className="w-12 h-12 rounded-full bg-[#D4AF37] text-[#2C0A15] flex items-center justify-center shadow-lg transform scale-75 group-hover:scale-100 transition-transform">
-                  <Eye className="w-6 h-6" />
-                </div>
+              <div className="p-4 bg-white">
+                <h4 className="font-bold text-sm text-[#221B17]">{item.title}</h4>
+                <p className="text-xs text-[#7A6E65] mt-1 line-clamp-2">{item.desc}</p>
               </div>
             </div>
           ))}
         </div>
-
       </div>
-
-      {/* Lightbox Modal */}
-      {activeImage && (
-        <div
-          onClick={() => setActiveImage(null)}
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200 cursor-pointer"
-        >
-          <div className="relative max-w-4xl max-h-[90vh] rounded-3xl overflow-hidden border-2 border-[#C89B3C] shadow-2xl">
-            <img
-              src={activeImage}
-              alt="Celebre Catering Preview"
-              className="w-full h-full object-contain max-h-[85vh]"
-              referrerPolicy="no-referrer"
-            />
-          </div>
-        </div>
-      )}
     </section>
   );
 };

@@ -1,252 +1,296 @@
-import React, { useState } from 'react';
-import { CateringPackage, OrderItem } from '../types';
-import { 
-  X, 
-  Check, 
-  Sparkles, 
-  Gift, 
-  ShieldCheck, 
-  Plus, 
-  Minus, 
-  ShoppingBag, 
-  MessageCircle, 
-  Layers,
-  Heart
-} from 'lucide-react';
-import confetti from 'canvas-confetti';
+import React, { useState } from "react";
+import { X, Sparkles, CheckCircle2, ShieldCheck, ShoppingBag, Zap, Minus, Plus } from "lucide-react";
+import { CateringPackage, DrinkModificationId } from "../types";
+import { DRINK_MODIFICATION_OPTIONS } from "../data/cateringData";
 
 interface PackageDetailModalProps {
-  pkg?: CateringPackage | null;
-  packageItem?: CateringPackage | null;
+  packageItem: CateringPackage | null;
   onClose: () => void;
-  onAddToCart: (item: OrderItem) => void;
+  onAddToCart: (pkg: CateringPackage, quantity: number, selectedDrink: DrinkModificationId) => void;
+  onDirectOrder: (pkg: CateringPackage, quantity: number, selectedDrink: DrinkModificationId) => void;
 }
 
 export const PackageDetailModal: React.FC<PackageDetailModalProps> = ({
-  pkg,
   packageItem,
   onClose,
   onAddToCart,
+  onDirectOrder
 }) => {
-  const activePkg = packageItem || pkg;
-  if (!activePkg) return null;
+  if (!packageItem) return null;
 
-  const stepAmount = 10;
+  const [quantity, setQuantity] = useState<number>(packageItem.minOrder || 50);
+  const [selectedDrink, setSelectedDrink] = useState<DrinkModificationId>("default_juice");
+  const [isCustomCount, setIsCustomCount] = useState<boolean>(false);
 
-  const [quantity, setQuantity] = useState(activePkg.minOrder || 30);
-  const [customCardText, setCustomCardText] = useState('');
-  const [selectedDrink, setSelectedDrink] = useState('عصير مانجو فريش طبيعي');
+  const drinkDelta = DRINK_MODIFICATION_OPTIONS.find(d => d.id === selectedDrink)?.priceDelta || 0;
+  const unitPrice = packageItem.pricePerBox + drinkDelta;
+  const totalPrice = quantity * unitPrice;
+  const deposit = Math.round(totalPrice * 0.5);
 
-  const totalPrice = quantity * activePkg.pricePerBox;
-
-  const handleAdd = () => {
-    confetti({
-      particleCount: 50,
-      spread: 60,
-      origin: { y: 0.8 },
-      colors: ['#5C1027', '#D4AF37', '#FAF7F2']
-    });
-
-    const orderItem: OrderItem = {
-      id: `pkg-${activePkg.id}-${Date.now()}`,
-      type: 'preset',
-      name: activePkg.name,
-      details: (activePkg.sections || []).flatMap(s => s.items || []),
-      packagingName: activePkg.packaging?.type || 'علبة سيلبر الكرتون الفاخرة باللون الذهبي والنبيتي',
-      quantity: quantity,
-      pricePerBox: activePkg.pricePerBox,
-      totalPrice: totalPrice,
-      customCardText: customCardText.trim() ? customCardText : undefined,
-    };
-
-    onAddToCart(orderItem);
-    onClose();
-  };
-
-  const handleQuickWhatsApp = () => {
-    const customNameNotice = customCardText.trim() ? `\nالاسم المطبوع: ${customCardText.trim()}` : '';
-    const text = `مرحباً سيلبر (Celebre) 🌸\nأرغب في حجز:\n*${activePkg.name}*\nالكمية: ${quantity} علبة\nالسعر الإجمالي: ${totalPrice.toLocaleString()} جنيه مصري${customNameNotice}\nأرجو إفادتي بإمكانية الحجز وتفاصيل التوصيل (مدينة بني سويف / شرق النيل).`;
-    window.open(`https://wa.me/201284484868?text=${encodeURIComponent(text)}`, '_blank');
+  const handleCustomCountChange = (val: string) => {
+    const num = parseInt(val, 10);
+    if (isNaN(num)) {
+      setQuantity(0);
+    } else {
+      setQuantity(Math.max(1, num));
+    }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="relative w-full max-w-3xl max-h-[90vh] overflow-y-auto bg-[#FAF7F2] rounded-3xl border border-[#D9C49C] shadow-2xl text-right">
-        
-        {/* Close Button */}
-        <button
-          onClick={onClose}
-          className="absolute top-4 left-4 z-10 p-2 rounded-full bg-white/80 hover:bg-white text-[#5C1027] shadow-md transition-colors cursor-pointer"
-        >
-          <X className="w-5 h-5" />
-        </button>
-
-        {/* Modal Header with Image */}
-        <div className="relative h-64 sm:h-72 w-full overflow-hidden bg-[#2C0A15]">
-          <img
-            src={activePkg.image}
-            alt={activePkg.name}
-            className="w-full h-full object-cover"
-            referrerPolicy="no-referrer"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#2C0A15] via-[#2C0A15]/40 to-transparent" />
-
-          {/* Badges and titles inside cover */}
-          <div className="absolute bottom-4 right-6 left-6 text-white">
-            <div className="flex items-center gap-2 mb-1.5">
-              {activePkg.badge && (
-                <span className="px-3 py-0.5 rounded-full bg-[#D4AF37] text-[#2C0A15] text-xs font-black">
-                  {activePkg.badge}
-                </span>
-              )}
-              <span className="text-xs text-[#E5C06E] font-['Playfair_Display'] font-semibold">
-                {activePkg.nameEn}
-              </span>
-            </div>
-            <h2 className="text-2xl sm:text-3xl font-extrabold">{activePkg.name}</h2>
-            <p className="text-xs sm:text-sm text-[#E6DCBC] mt-1 line-clamp-1">{activePkg.tagline}</p>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fadeIn overflow-y-auto">
+      <div className="relative w-full max-w-3xl bg-white rounded-3xl shadow-2xl border border-[#E8DFD1] overflow-hidden my-8 max-h-[90vh] flex flex-col">
+        {/* Modal Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[#F0EAE1] bg-[#FAF7F2]">
+          <div className="flex items-center gap-2">
+            <span className="bg-[#5C1027] text-white text-xs font-black px-2.5 py-1 rounded-lg">
+              {packageItem.saleCode}
+            </span>
+            <h3 className="font-black text-lg sm:text-xl text-[#221B17]">
+              {packageItem.name}
+            </h3>
           </div>
+          <button
+            onClick={onClose}
+            className="w-9 h-9 rounded-full bg-white hover:bg-[#EFE8DD] border border-[#E8DFD1] flex items-center justify-center text-[#221B17] transition-colors"
+            aria-label="إغلاق"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
 
         {/* Modal Body */}
-        <div className="p-6 sm:p-8 space-y-6">
-          
-          {/* Price & Min Order Bar */}
-          <div className="flex flex-wrap items-center justify-between gap-4 p-4 rounded-2xl bg-[#F2E8D7] border border-[#DFCBB0]">
-            <div>
-              <div className="text-xs text-[#7A5B2E] font-semibold">سعر العبوة الفردية</div>
-              <div className="flex items-baseline gap-2">
-                <span className="text-2xl font-black text-[#5C1027] font-mono">{activePkg.pricePerBox}</span>
-                <span className="text-sm font-bold text-[#5C1027]">ج.م / العبوة</span>
-                {activePkg.originalPrice && (
-                  <span className="text-xs text-[#8C7B6C] line-through font-mono">
-                    {activePkg.originalPrice} ج.م
-                  </span>
-                )}
+        <div className="overflow-y-auto p-6 space-y-6">
+          {/* Main Visual & Key Highlights */}
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
+            <div className="md:col-span-6 relative rounded-2xl overflow-hidden shadow-md border border-[#E8DFD1] bg-[#EAE2D5] h-64 sm:h-72">
+              <img
+                src={packageItem.image}
+                alt={packageItem.name}
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute top-3 right-3 bg-white/95 backdrop-blur-xs text-[#5C1027] font-black text-xs px-3 py-1.5 rounded-xl shadow-xs">
+                {unitPrice} جنيه / علبة
               </div>
             </div>
 
-            <div className="text-left sm:text-right">
-              <div className="text-xs text-[#7A5B2E] font-semibold">الحد الأدنى للطلب</div>
-              <div className="text-sm font-bold text-[#2C0A15]">{activePkg.minOrder} عبوة فأكثر</div>
+            <div className="md:col-span-6 space-y-3">
+              <span className="inline-flex items-center gap-1.5 text-xs font-bold text-[#C89B3C] bg-[#F4EEDB] px-3 py-1 rounded-full">
+                <Sparkles className="w-3.5 h-3.5 text-[#C89B3C]" />
+                <span>ضيافة كاترنج سيلبر الرسمية</span>
+              </span>
+
+              <h4 className="text-xl font-black text-[#221B17] leading-snug">
+                {packageItem.tagline}
+              </h4>
+
+              <p className="text-xs sm:text-sm text-[#4A3E38] leading-relaxed">
+                {packageItem.description}
+              </p>
+
+              {/* Recommended For Badges */}
+              <div className="pt-2">
+                <span className="text-xs font-bold text-[#7A6E65] block mb-1.5">
+                  مثالية ومناسبة لـ:
+                </span>
+                <div className="flex flex-wrap gap-1.5">
+                  {packageItem.recommendedFor.map((rec, i) => (
+                    <span
+                      key={i}
+                      className="text-[11px] bg-[#FAF7F2] border border-[#E8DFD1] px-2.5 py-1 rounded-lg text-[#221B17] font-semibold"
+                    >
+                      ✓ {rec}
+                    </span>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* Description */}
-          <p className="text-sm text-[#4E443B] leading-relaxed">
-            {activePkg.description}
-          </p>
-
-          {/* Menu Sections Breakdown */}
-          <div className="space-y-4">
-            <h3 className="text-base font-bold text-[#5C1027] flex items-center gap-2 border-b border-[#E3D6BE] pb-2">
-              <Sparkles className="w-4 h-4 text-[#C89B3C]" />
-              <span>محتويات العبوة الكاملة بالتفصيل</span>
-            </h3>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {(activePkg.sections || []).map((section, idx) => (
-                <div key={idx} className="p-4 rounded-2xl bg-white border border-[#E5DAC8] shadow-xs">
-                  <h4 className="text-xs font-bold text-[#8C5E13] mb-2.5 flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-[#C89B3C]" />
-                    <span>{section.title}</span>
-                  </h4>
-                  <ul className="space-y-1.5">
-                    {(section.items || []).map((item, itemIdx) => (
-                      <li key={itemIdx} className="text-xs text-[#423932] flex items-start gap-2">
-                        <Check className="w-3.5 h-3.5 text-[#2E7D32] flex-shrink-0 mt-0.5" />
-                        <span>{item}</span>
+          {/* Detailed Box Contents */}
+          <div className="bg-[#FAF7F2] rounded-2xl p-5 border border-[#E8DFD1]">
+            <h5 className="font-black text-sm text-[#221B17] mb-3 flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 text-[#5C1027]" />
+              <span>محتويات ومكونات العلبة الكرتونية المعتمدة:</span>
+            </h5>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {packageItem.sections.map((sec, idx) => (
+                <div key={idx} className="bg-white p-3.5 rounded-xl border border-[#E8DFD1]">
+                  <span className="text-xs font-black text-[#C89B3C] block mb-2">{sec.title}</span>
+                  <ul className="space-y-1.5 text-xs text-[#4A3E38]">
+                    {sec.items.map((it, i) => (
+                      <li key={i} className="flex items-center gap-2">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-[#25D366] shrink-0" />
+                        <span>{it}</span>
                       </li>
                     ))}
                   </ul>
                 </div>
               ))}
             </div>
-          </div>
 
-          {/* Packaging & Hygiene Highlights */}
-          <div className="p-4 rounded-2xl bg-gradient-to-r from-[#FAF0E1] to-[#F4E4CE] border border-[#D9C49C] text-xs text-[#524438] space-y-2">
-            <div className="font-bold text-[#5C1027] flex items-center gap-1.5">
-              <Gift className="w-4 h-4 text-[#C89B3C]" />
-              <span>مواصفات التغليف والتقديم:</span>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
-              <div>• <strong>نوع العلبة:</strong> {activePkg.packaging?.type || 'علبة سيلبر الكرتون الفاخرة باللون الذهبي والنبيتي'}</div>
-              <div>• <strong>التصميم:</strong> علبة سيلبر الكرتون الفاخرة باللون الذهبي والنبيتي مع غلق محكم</div>
-              <div>• <strong>المستلزمات:</strong> تشمل شوكة ومنديل معقم في غلاف منفصل وعصير بخيرة</div>
-              <div>• <strong>الحفظ:</strong> أكياس وحقائب حرارية لنقل الطعام طازجاً وساخناً</div>
-            </div>
-          </div>
-
-          {/* Quantity Selector & Total Calculation */}
-          <div className="p-5 rounded-2xl bg-[#5C1027] text-white space-y-4 shadow-lg">
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            {/* Packaging Highlights */}
+            <div className="mt-4 p-3 bg-white/80 rounded-xl border border-[#E8DFD1] flex flex-col sm:flex-row items-center justify-between text-xs text-[#7A6E65] gap-2">
               <div>
-                <span className="text-xs text-[#E5C06E] font-medium">اختر عدد العبوات المطلوبة</span>
-                <div className="text-xs text-[#EAD8BD]">الحد الأدنى: {activePkg.minOrder} عبوة</div>
+                <strong className="text-[#221B17]">نوع التغليف:</strong> {packageItem.packaging.type}
               </div>
+              <div className="text-emerald-700 font-bold">
+                ✓ توزيع فوري سريع ونظيف بالمساجد والقاعات
+              </div>
+            </div>
+          </div>
 
-              {/* Quantity Controls */}
-              <div className="flex items-center gap-3 bg-[#420A1A] px-3 py-1.5 rounded-xl border border-[#C89B3C]/40">
+          {/* Drink Options Selection */}
+          <div className="space-y-2">
+            <label className="block text-xs font-bold text-[#4A3E38]">
+              تخصيص المشروب المرفق بالعلبة:
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+              {DRINK_MODIFICATION_OPTIONS.map((opt) => (
                 <button
-                  onClick={() => setQuantity(Math.max(activePkg.minOrder, quantity - stepAmount))}
-                  className="p-1.5 rounded-lg bg-[#5C1027] hover:bg-[#721832] text-white cursor-pointer"
-                  title={`إنقاص ${stepAmount}`}
+                  key={opt.id}
+                  type="button"
+                  onClick={() => setSelectedDrink(opt.id)}
+                  className={`text-right p-3 rounded-xl border text-xs font-semibold transition-all ${
+                    selectedDrink === opt.id
+                      ? "border-[#5C1027] bg-[#5C1027] text-white shadow-xs"
+                      : "border-[#E8DFD1] bg-[#FAF7F2] text-[#221B17] hover:bg-[#F3E7D3]"
+                  }`}
                 >
-                  <Minus className="w-4 h-4" />
+                  <div className="font-bold">{opt.label}</div>
+                  <div className={`text-[11px] mt-0.5 ${selectedDrink === opt.id ? "text-[#F4EEDB]" : "text-[#7A6E65]"}`}>
+                    {opt.sublabel}
+                  </div>
                 </button>
-                
+              ))}
+            </div>
+          </div>
+
+          {/* Meal Quantity Selection with Flexible Input (> 300 allowed) */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-[#4A3E38]">
+                الكمية المطلوبة (الحد الأدنى 50 علبة):
+              </label>
+              <span className="text-xs font-black text-[#5C1027]">
+                {quantity} علبة
+              </span>
+            </div>
+
+            {/* Presets */}
+            <div className="grid grid-cols-5 gap-2">
+              {[50, 100, 150, 200, 300].map((preset) => (
+                <button
+                  key={preset}
+                  type="button"
+                  onClick={() => {
+                    setQuantity(preset);
+                    setIsCustomCount(false);
+                  }}
+                  className={`py-2 rounded-xl text-xs font-bold transition-all text-center ${
+                    !isCustomCount && quantity === preset
+                      ? "bg-[#C89B3C] text-white shadow-xs"
+                      : "bg-[#FAF7F2] text-[#4A3E38] hover:bg-[#F3E7D3] border border-[#E8DFD1]"
+                  }`}
+                >
+                  {preset} علبة
+                </button>
+              ))}
+            </div>
+
+            {/* Custom Input (> 300 flexible) */}
+            <div className="flex items-center gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setQuantity(Math.max(50, quantity - 10));
+                  setIsCustomCount(false);
+                }}
+                className="w-10 h-10 rounded-xl bg-[#FAF7F2] border border-[#E8DFD1] flex items-center justify-center font-bold text-[#5C1027] hover:bg-[#EFE8DD]"
+              >
+                <Minus className="w-4 h-4" />
+              </button>
+
+              <div className="relative flex-1">
                 <input
                   type="number"
-                  min={activePkg.minOrder}
-                  value={quantity}
-                  onChange={(e) => setQuantity(Math.max(activePkg.minOrder, parseInt(e.target.value) || activePkg.minOrder))}
-                  className="w-16 text-center font-mono font-bold text-base bg-transparent text-[#FFDF9E] focus:outline-none"
+                  min="50"
+                  step="10"
+                  placeholder="أو اكتب أي عدد أكبر من 300 (مثل 400، 500، 1000...)"
+                  value={quantity || ""}
+                  onChange={(e) => {
+                    setIsCustomCount(true);
+                    handleCustomCountChange(e.target.value);
+                  }}
+                  className="w-full text-center py-2.5 px-3 bg-[#FAF7F2] border-2 border-[#C89B3C]/50 focus:border-[#5C1027] rounded-xl text-sm font-black text-[#221B17]"
                 />
-
-                <button
-                  onClick={() => setQuantity(quantity + stepAmount)}
-                  className="p-1.5 rounded-lg bg-[#5C1027] hover:bg-[#721832] text-white cursor-pointer"
-                  title={`زيادة ${stepAmount}`}
-                >
-                  <Plus className="w-4 h-4" />
-                </button>
+                <span className="absolute left-3 top-2.5 text-xs text-[#7A6E65] font-bold pointer-events-none">
+                  علبة
+                </span>
               </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setQuantity(quantity + 10);
+                  setIsCustomCount(false);
+                }}
+                className="w-10 h-10 rounded-xl bg-[#FAF7F2] border border-[#E8DFD1] flex items-center justify-center font-bold text-[#5C1027] hover:bg-[#EFE8DD]"
+              >
+                <Plus className="w-4 h-4" />
+              </button>
             </div>
 
-            {/* Total summary */}
-            <div className="pt-3 border-t border-[#82213D] flex items-center justify-between">
-              <div>
-                <span className="text-xs text-[#EAD8BD]">الإجمالي التقديري لـ ({quantity} عبوة):</span>
-                <div className="text-2xl font-black text-[#FFDF9E] font-mono">
-                  {totalPrice.toLocaleString()} <span className="text-xs font-normal text-white">جنيه مصري</span>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={handleQuickWhatsApp}
-                  className="px-3.5 py-2.5 rounded-xl bg-[#25D366] hover:bg-[#1EBE5D] text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer shadow-md"
-                  title="طلب مباشر عبر واتساب"
-                >
-                  <MessageCircle className="w-4 h-4" />
-                  <span className="hidden sm:inline">واتساب سريع</span>
-                </button>
-
-                <button
-                  onClick={handleAdd}
-                  className="px-5 py-2.5 rounded-xl bg-[#D4AF37] hover:bg-[#E5C06E] text-[#3B0715] font-black text-xs sm:text-sm flex items-center gap-1.5 transition-transform active:scale-95 cursor-pointer shadow-md"
-                >
-                  <ShoppingBag className="w-4 h-4" />
-                  <span>إضافة إلى سلة الحجز</span>
-                </button>
-              </div>
-            </div>
-
+            {quantity < 50 && (
+              <p className="text-xs text-amber-700 font-bold">
+                * تنبيه: الحد الأدنى المعتمد للطلب هو 50 وجبة
+              </p>
+            )}
           </div>
-
         </div>
 
+        {/* Modal Footer with Live Totals & Action Buttons */}
+        <div className="px-6 py-4 bg-[#FAF7F2] border-t border-[#F0EAE1] flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-start">
+            <div>
+              <div className="text-[11px] text-[#7A6E65]">الإجمالي الكلي:</div>
+              <div className="text-xl font-black text-[#5C1027]">
+                {totalPrice.toLocaleString()} جنيه
+              </div>
+            </div>
+            <div className="border-r pr-4 border-[#E8DFD1]">
+              <div className="text-[11px] text-[#7A6E65]">العربون (50%):</div>
+              <div className="text-base font-black text-[#C89B3C]">
+                {deposit.toLocaleString()} جنيه
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 w-full sm:w-auto">
+            <button
+              type="button"
+              onClick={() => {
+                onAddToCart(packageItem, quantity, selectedDrink);
+                onClose();
+              }}
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 py-3 px-5 bg-white hover:bg-[#F3E7D3] border border-[#5C1027] text-[#5C1027] font-bold rounded-xl text-sm transition-all shadow-xs"
+            >
+              <ShoppingBag className="w-4 h-4" />
+              <span>إضافة للسلة</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                onDirectOrder(packageItem, quantity, selectedDrink);
+              }}
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 py-3 px-6 bg-[#5C1027] hover:bg-[#721832] text-white font-bold rounded-xl text-sm transition-all shadow-md active:scale-95"
+            >
+              <Zap className="w-4 h-4 text-[#C89B3C]" />
+              <span>طلب مباشر وفوري</span>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -1,192 +1,128 @@
-import React, { useState, useEffect } from 'react';
-import { CelebreLogo } from './CelebreLogo';
-import { 
-  Phone, 
-  ShoppingBag, 
-  Sparkles, 
-  Menu, 
-  X, 
-  MessageCircle, 
-  Calculator, 
-  Flame,
-  ShieldCheck
-} from 'lucide-react';
-import { OrderItem } from '../types';
+import React, { useState } from "react";
+import { Phone, MessageCircle, ShoppingBag, Sparkles, Menu, X, Calculator, ShieldCheck } from "lucide-react";
+import { CelebreLogo } from "./CelebreLogo";
 
 interface NavbarProps {
-  cartItems?: OrderItem[];
-  cartCount?: number;
+  cartCount: number;
   onOpenCart: () => void;
   onOpenAdvisor: () => void;
-  onOpenCalculator?: () => void;
-  onOpenPrivacyPolicy?: () => void;
+  onOpenCalculator: () => void;
+  onScrollToPackages: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
-  cartItems,
   cartCount,
   onOpenCart,
   onOpenAdvisor,
   onOpenCalculator,
-  onOpenPrivacyPolicy,
+  onScrollToPackages
 }) => {
-  const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const totalItemsCount = typeof cartCount === 'number'
-    ? cartCount
-    : (cartItems?.reduce((sum, item) => sum + item.quantity, 0) || 0);
-
-  useEffect(() => {
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 20);
-    };
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
-
-  const scrollToSection = (id: string) => {
-    setMobileMenuOpen(false);
-    const element = document.getElementById(id);
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth' });
-    }
+  const handleWhatsApp = () => {
+    window.open("https://wa.me/201284484868?text=السلام%20عليكم،%20أود%20الاستفسار%20عن%20عبوات%20كاترنج%20سيلبر%20للمناسبات", "_blank");
   };
 
-  const handleCalculator = onOpenCalculator || (() => scrollToSection('calculator-section'));
-
   return (
-    <header className="sticky top-0 z-40 w-full transition-all duration-300">
-      {/* Top Luxury Gold & Burgundy Ribbon Bar */}
-      <div className="bg-gradient-to-r from-[#420A1A] via-[#5C1027] to-[#420A1A] text-[#F9EBD2] text-xs py-1.5 px-4 border-b border-[#C89B3C]/30 shadow-inner">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-1.5 text-center sm:text-right font-medium">
+    <header className="sticky top-0 z-40 bg-[#FAF7F2]/95 backdrop-blur-md border-b border-[#E8DFD1] shadow-xs transition-all">
+      {/* Top golden announcement bar */}
+      <div className="bg-gradient-to-r from-[#5C1027] via-[#721832] to-[#5C1027] text-white py-1.5 px-4 text-xs sm:text-sm font-medium">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="flex h-2 w-2 relative">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#E5C06E] opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-[#D4AF37]"></span>
+            <span className="inline-block w-2 h-2 rounded-full bg-[#C89B3C] animate-ping" />
+            <span className="font-semibold text-[#F4EEDB]">
+              سيلبر شريك مؤسس لمناساباتك السعيدة
             </span>
-            <span>تجهيز وتوصيل عبوات الكاترنج الفاخرة للأفراح وكتب الكتاب في بني سويف (مدينة بني سويف وشرق النيل)</span>
+            <span className="hidden md:inline text-xs text-[#E8DFD1]/80">
+              | جودة وضيافة تشرفك أمام ضيوفك في بني سويف ومصر
+            </span>
           </div>
 
-          <div className="flex items-center gap-4 text-[11px] sm:text-xs">
-            <a 
-              href="tel:01284484868" 
-              className="flex items-center gap-1.5 hover:text-[#FFDF9E] transition-colors font-mono font-bold"
+          <div className="flex items-center gap-4 text-xs font-semibold">
+            <a
+              href="tel:01284484868"
+              className="flex items-center gap-1 text-[#F4EEDB] hover:text-white transition-colors"
             >
-              <Phone className="w-3.5 h-3.5 text-[#E5C06E]" />
+              <Phone className="w-3.5 h-3.5 text-[#C89B3C]" />
               <span dir="ltr">01284484868</span>
             </a>
-            <span className="text-[#C89B3C]/50">|</span>
-            <a 
-              href="https://wa.me/201284484868?text=مرحباً%20سيلبر%2C%20أود%20الاستفسار%20عن%20باقات%20عبوات%20الكاترنج%20للمناسبات" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="flex items-center gap-1 text-[#54E38E] hover:text-white transition-colors"
-            >
-              <MessageCircle className="w-3.5 h-3.5" />
-              <span>واتساب مباشر</span>
-            </a>
+            <span className="hidden sm:inline text-white/40">|</span>
+            <span className="hidden sm:inline-flex items-center gap-1 text-[#C89B3C]">
+              <ShieldCheck className="w-3.5 h-3.5" />
+              علب كرتونية مذهبة محكمة الإغلاق
+            </span>
           </div>
         </div>
       </div>
 
-      {/* Main Glassmorphic Navbar */}
-      <div className={`backdrop-blur-md transition-all duration-300 ${
-        isScrolled 
-          ? 'bg-[#FAF7F2]/95 shadow-md border-b border-[#E8DFC9] py-2' 
-          : 'bg-[#FAF7F2]/80 border-b border-[#EDE4D3] py-3'
-      }`}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between">
-          
-          {/* Brand Logo Link */}
-          <button 
-            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-            className="text-right focus:outline-none flex items-center gap-2 group cursor-pointer"
-          >
-            <CelebreLogo variant="compact" />
-          </button>
+      {/* Main Navbar */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6">
+        <div className="flex items-center justify-between h-20">
+          {/* Logo & Slogan */}
+          <div className="flex items-center gap-3">
+            <CelebreLogo size="md" showSlogan={true} sloganText="سيلبر شريك مؤسس لمناساباتك السعيدة" />
+          </div>
 
           {/* Desktop Nav Links */}
-          <nav className="hidden lg:flex items-center gap-6 font-medium text-sm text-[#3D352E]">
-            <button 
-              onClick={() => scrollToSection('packages-section')}
-              className="hover:text-[#721832] transition-colors flex items-center gap-1 py-1 cursor-pointer"
+          <nav className="hidden lg:flex items-center gap-7 text-[#221B17] font-semibold text-sm">
+            <button
+              onClick={onScrollToPackages}
+              className="hover:text-[#5C1027] transition-colors py-2 flex items-center gap-1.5"
             >
-              <Flame className="w-4 h-4 text-[#C89B3C]" />
-              <span>باقات المناسبات</span>
+              <span>قائمة الوجبات والعبوات</span>
+              <span className="text-[10px] bg-[#5C1027]/10 text-[#5C1027] px-2 py-0.5 rounded-full font-bold">12 وجبة</span>
             </button>
-
-            <button 
-              onClick={handleCalculator}
-              className="hover:text-[#721832] transition-colors flex items-center gap-1 py-1 cursor-pointer"
+            <button
+              onClick={onOpenCalculator}
+              className="hover:text-[#5C1027] transition-colors py-2 flex items-center gap-1 text-[#4A3E38]"
             >
               <Calculator className="w-4 h-4 text-[#C89B3C]" />
-              <span>حاسبة المعازيم والميزانية</span>
+              <span>حاسبة ميزانية المناسبة</span>
             </button>
-
-            <button 
+            <button
               onClick={onOpenAdvisor}
-              className="hover:text-[#721832] transition-colors flex items-center gap-1 py-1 text-[#8C5E13] cursor-pointer"
+              className="hover:text-[#5C1027] transition-colors py-2 flex items-center gap-1.5 text-[#5C1027] bg-[#5C1027]/5 px-3 py-1.5 rounded-lg border border-[#5C1027]/15"
             >
-              <Sparkles className="w-4 h-4 text-[#D4AF37] animate-pulse" />
-              <span>المستشار الذكي</span>
+              <Sparkles className="w-4 h-4 text-[#C89B3C]" />
+              <span>خبير الضيافة الذكي</span>
             </button>
-
-            <button 
-              onClick={() => scrollToSection('gallery-section')}
-              className="hover:text-[#721832] transition-colors py-1 cursor-pointer"
-            >
-              معرض الصور
-            </button>
-
-            <button 
-              onClick={() => scrollToSection('testimonials-section')}
-              className="hover:text-[#721832] transition-colors py-1 cursor-pointer"
+            <a
+              href="#testimonials"
+              className="hover:text-[#5C1027] transition-colors py-2 text-[#4A3E38]"
             >
               آراء العملاء
-            </button>
-
-            <button 
-              onClick={() => scrollToSection('faq-section')}
-              className="hover:text-[#721832] transition-colors py-1 cursor-pointer"
-            >
-              الأسئلة الشائعة
-            </button>
-
-            {onOpenPrivacyPolicy && (
-              <button 
-                onClick={onOpenPrivacyPolicy}
-                className="hover:text-[#721832] transition-colors py-1 cursor-pointer flex items-center gap-1 text-[#5C1027]"
-                title="سياسة الخصوصية وشروط التعاقد"
-              >
-                <ShieldCheck className="w-3.5 h-3.5 text-[#C89B3C]" />
-                <span>سياسة الخصوصية</span>
-              </button>
-            )}
+            </a>
           </nav>
 
-          {/* Right Action Icons & Cart */}
-          <div className="flex items-center gap-2 sm:gap-3">
-            
-            {/* Shopping Bag / Order Drawer Button */}
+          {/* Action Buttons */}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleWhatsApp}
+              className="hidden sm:inline-flex items-center gap-1.5 bg-[#25D366] hover:bg-[#20ba59] text-white text-xs sm:text-sm font-bold px-3.5 py-2 rounded-xl shadow-xs transition-all active:scale-95"
+            >
+              <MessageCircle className="w-4 h-4 fill-white" />
+              <span>واتساب سريع</span>
+            </button>
+
             <button
               onClick={onOpenCart}
-              className="relative flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl bg-[#5C1027] text-white hover:bg-[#721832] transition-all shadow-sm active:scale-95 cursor-pointer"
+              className="relative flex items-center gap-2 bg-[#5C1027] hover:bg-[#721832] text-white px-4 py-2.5 rounded-xl font-bold text-sm shadow-md transition-all active:scale-95"
+              aria-label="سلة الطلبات"
             >
-              <ShoppingBag className="w-4 h-4 text-[#E5C06E]" />
-              <span className="font-semibold text-xs sm:text-sm">طلبك</span>
-              {totalItemsCount > 0 && (
-                <span className="flex items-center justify-center min-w-[20px] h-5 px-1 bg-[#D4AF37] text-[#3B0715] font-black text-xs rounded-full">
-                  {totalItemsCount}
+              <ShoppingBag className="w-4 h-4 text-[#C89B3C]" />
+              <span className="hidden sm:inline">سلة الطلب</span>
+              {cartCount > 0 && (
+                <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-black bg-[#C89B3C] text-[#221B17] rounded-full shadow-xs">
+                  {cartCount}
                 </span>
               )}
             </button>
 
-            {/* Mobile Hamburger Toggle */}
+            {/* Mobile menu toggle */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="lg:hidden p-2 rounded-lg text-[#5C1027] hover:bg-[#EFE8DA] transition-colors focus:outline-none cursor-pointer"
-              aria-label="القائمة الرئيسية"
+              className="lg:hidden p-2 rounded-lg bg-[#EFE8DD] text-[#221B17] hover:bg-[#E5DBCB]"
+              aria-label="القائمة"
             >
               {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </button>
@@ -194,92 +130,57 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
       </div>
 
-      {/* Mobile Slide-down Menu */}
+      {/* Mobile Menu Dropdown */}
       {mobileMenuOpen && (
-        <div className="lg:hidden bg-[#FAF7F2] border-b border-[#E3D7C1] shadow-xl px-4 pt-3 pb-6 animate-in slide-in-from-top duration-200">
-          {/* Brand header inside mobile menu */}
-          <div className="mb-4 pb-3 border-b border-[#E8DEC9] flex items-center justify-between">
-            <CelebreLogo variant="compact" />
-            <div className="text-left text-[11px] font-bold text-[#5C1027]">
-              <span>الخط الساخن: </span>
-              <a href="tel:01284484868" className="font-mono text-[#8C5E13] underline" dir="ltr">01284484868</a>
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-2.5 font-medium text-sm text-[#2C241E]">
+        <div className="lg:hidden bg-[#FAF7F2] border-b border-[#E8DFD1] px-4 py-4 space-y-3">
+          <button
+            onClick={() => {
+              onScrollToPackages();
+              setMobileMenuOpen(false);
+            }}
+            className="w-full text-right font-bold text-[#221B17] py-2 px-3 rounded-lg hover:bg-[#EFE8DD] flex items-center justify-between"
+          >
+            <span>قائمة الوجبات والعبوات المعتمدة (12 وجبة)</span>
+            <span className="text-xs bg-[#5C1027] text-white px-2 py-0.5 rounded-full">المنيو</span>
+          </button>
+          <button
+            onClick={() => {
+              onOpenCalculator();
+              setMobileMenuOpen(false);
+            }}
+            className="w-full text-right font-bold text-[#4A3E38] py-2 px-3 rounded-lg hover:bg-[#EFE8DD] flex items-center gap-2"
+          >
+            <Calculator className="w-4 h-4 text-[#C89B3C]" />
+            <span>حاسبة تكاليف وميزانية المناسبة</span>
+          </button>
+          <button
+            onClick={() => {
+              onOpenAdvisor();
+              setMobileMenuOpen(false);
+            }}
+            className="w-full text-right font-bold text-[#5C1027] py-2 px-3 rounded-lg bg-[#5C1027]/10 flex items-center gap-2"
+          >
+            <Sparkles className="w-4 h-4 text-[#C89B3C]" />
+            <span>مستشار الضيافة الذكي (اقتراح باقة فورية)</span>
+          </button>
+          <div className="pt-2 border-t border-[#E8DFD1] flex gap-2">
             <button
-              onClick={() => scrollToSection('packages-section')}
-              className="flex items-center gap-2 p-2.5 rounded-lg hover:bg-[#F2E8D7] text-right"
+              onClick={() => {
+                handleWhatsApp();
+                setMobileMenuOpen(false);
+              }}
+              className="flex-1 flex items-center justify-center gap-2 bg-[#25D366] text-white font-bold py-2.5 rounded-xl text-sm"
             >
-              <Flame className="w-4 h-4 text-[#C89B3C]" />
-              <span>باقات المناسبات الجاهزة</span>
+              <MessageCircle className="w-4 h-4" />
+              <span>محادثة واتساب</span>
             </button>
-
-            <button
-              onClick={() => { setMobileMenuOpen(false); handleCalculator(); }}
-              className="flex items-center gap-2 p-2.5 rounded-lg hover:bg-[#F2E8D7] text-right"
+            <a
+              href="tel:01284484868"
+              className="flex-1 flex items-center justify-center gap-2 bg-[#5C1027] text-white font-bold py-2.5 rounded-xl text-sm"
             >
-              <Calculator className="w-4 h-4 text-[#C89B3C]" />
-              <span>حاسبة المعازيم والميزانية</span>
-            </button>
-
-            <button
-              onClick={() => { setMobileMenuOpen(false); onOpenAdvisor(); }}
-              className="flex items-center gap-2 p-2.5 rounded-lg hover:bg-[#F2E8D7] text-[#8C5E13] text-right"
-            >
-              <Sparkles className="w-4 h-4 text-[#D4AF37]" />
-              <span>مستشار سيلبر الذكي (AI)</span>
-            </button>
-
-            <button
-              onClick={() => scrollToSection('gallery-section')}
-              className="p-2.5 rounded-lg hover:bg-[#F2E8D7] text-right"
-            >
-              معرض الصور والتغليف
-            </button>
-
-            <button
-              onClick={() => scrollToSection('testimonials-section')}
-              className="p-2.5 rounded-lg hover:bg-[#F2E8D7] text-right"
-            >
-              آراء وتجارب العملاء
-            </button>
-
-            <button
-              onClick={() => scrollToSection('faq-section')}
-              className="p-2.5 rounded-lg hover:bg-[#F2E8D7] text-right"
-            >
-              الأسئلة الشائعة
-            </button>
-
-            {onOpenPrivacyPolicy && (
-              <button
-                onClick={() => { setMobileMenuOpen(false); onOpenPrivacyPolicy(); }}
-                className="p-2.5 rounded-lg bg-[#FAF0E1] text-[#5C1027] font-semibold text-right flex items-center gap-2"
-              >
-                <ShieldCheck className="w-4 h-4 text-[#C89B3C]" />
-                <span>سياسة الخصوصية وشروط التعاقد</span>
-              </button>
-            )}
-
-            <div className="pt-3 mt-2 border-t border-[#E3D7C1] flex flex-col gap-2">
-              <a
-                href="tel:01284484868"
-                className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-[#5C1027] text-white font-bold text-sm shadow-sm"
-              >
-                <Phone className="w-4 h-4 text-[#E5C06E]" />
-                <span>اتصل بنا فوراً: 01284484868</span>
-              </a>
-              <a
-                href="https://wa.me/201284484868?text=مرحباً%20سيلبر%2C%20أود%20الاستفسار%20عن%20باقات%20عبوات%20الكاترنج%20للمناسبات"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-[#25D366] text-white font-bold text-sm shadow-sm"
-              >
-                <MessageCircle className="w-4 h-4" />
-                <span>محادثة واتساب سريعة</span>
-              </a>
-            </div>
+              <Phone className="w-4 h-4 text-[#C89B3C]" />
+              <span>اتصال مباشر</span>
+            </a>
           </div>
         </div>
       )}

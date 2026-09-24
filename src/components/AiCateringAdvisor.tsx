@@ -1,319 +1,260 @@
-import React, { useState } from 'react';
-import { 
-  Sparkles, 
-  X, 
-  Bot, 
-  Check, 
-  ShoppingBag, 
-  MessageCircle, 
-  Lightbulb, 
-  ArrowLeft,
-  Loader2,
-  RefreshCw
-} from 'lucide-react';
-import { OrderItem } from '../types';
-import confetti from 'canvas-confetti';
-import officialLogoTransparent from '../assets/images/celebre_official_logo_transparent.png';
+import React, { useState } from "react";
+import { X, Sparkles, Send, CheckCircle2, AlertCircle, ArrowRight } from "lucide-react";
+import { CateringPackage } from "../types";
 
 interface AiCateringAdvisorProps {
   isOpen: boolean;
   onClose: () => void;
-  onAddToCart: (item: OrderItem) => void;
-}
-
-interface PlanResult {
-  recommendationTitle: string;
-  suggestedPackage: string;
-  estimatedCostPerBox: number;
-  totalEstimatedCost: number;
-  boxContents: string[];
-  presentationTips: string[];
-  advice: string;
+  packages: CateringPackage[];
+  onSelectSuggestedPackage?: (pkg: CateringPackage, quantity: number) => void;
 }
 
 export const AiCateringAdvisor: React.FC<AiCateringAdvisorProps> = ({
   isOpen,
   onClose,
-  onAddToCart,
+  packages,
+  onSelectSuggestedPackage
 }) => {
   if (!isOpen) return null;
 
-  const [occasion, setOccasion] = useState('كتب كتاب في قاعة ملحقة بمسجد');
-  const [guestCount, setGuestCount] = useState(120);
-  const [budget, setBudget] = useState('18000');
-  const [preferredStyle, setPreferredStyle] = useState('ساندوتشات كفتة وبانية فاخرة مع جاتوة مثلّث وعصير بخيرة');
-  const [notes, setNotes] = useState('يرجى مراعاة علبة سيلبر الكرتون الفاخرة باللون الذهبي والنبيتي وسرعة التوزيع');
-
+  const [occasion, setOccasion] = useState("كتب كتاب وعقد قران بالمسجد");
+  const [guestCount, setGuestCount] = useState<number>(100);
+  const [budget, setBudget] = useState("");
+  const [preferredStyle, setPreferredStyle] = useState("ميكس كفتة فحم وبانيه مع جاتوه مثلّث");
+  const [notes, setNotes] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [plan, setPlan] = useState<PlanResult | null>(null);
+  const [resultPlan, setResultPlan] = useState<any>(null);
+  const [errorMessage, setErrorMessage] = useState("");
 
   const handleGeneratePlan = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    setErrorMessage("");
 
     try {
-      const res = await fetch('/api/ai-catering-advisor', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch("/api/ai-catering-advisor", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           occasion,
-          guestCount: Number(guestCount),
-          budget: Number(budget),
+          guestCount,
+          budget: budget ? parseInt(budget, 10) : undefined,
           preferredStyle,
-          notes,
-        }),
+          notes
+        })
       });
 
       const data = await res.json();
       if (data.success && data.plan) {
-        setPlan(data.plan);
-        confetti({
-          particleCount: 50,
-          spread: 60,
-          origin: { y: 0.7 },
-          colors: ['#5C1027', '#D4AF37', '#FAF7F2']
-        });
+        setResultPlan(data.plan);
       } else {
-        throw new Error(data.message || 'Error');
+        setErrorMessage(data.message || "تعذر إنشاء الخطة حالياً، يمكنك اختيار باقة من المنيو مباشرة");
       }
     } catch (err) {
-      console.error('AI Plan Error:', err);
-      // Fallback Egyptian catering recommendation
-      setPlan({
-        recommendationTitle: `خطة الضيافة المخصصة لـ ${occasion} (${guestCount} فرد)`,
-        suggestedPackage: "باقة كتب الكتاب والزفاف الرسمية (Royal Celebre Mix)",
-        estimatedCostPerBox: Math.round(Number(budget) / guestCount) || 65,
-        totalEstimatedCost: Number(budget) || guestCount * 65,
-        boxContents: [
-          "سندوتش بتي بان كفتة بلدي مشوية ع الفحم",
-          "سندوتش بتي بان فراخ بانية مقرمشة ومتبلة",
-          "قطعة جاتوة شوكولاتة مثلثة مغلفة فاخرة",
-          "عصير بخيرة طازج (جوافة / مانجو)",
-          "باكت شوكة ومنديل معقم عالي الجودة",
-          "علبة سيلبر الكرتون الفاخرة باللون الذهبي والنبيتي"
-        ],
-        presentationTips: [
-          "علبة سيلبر الكرتون الفاخرة باللون الذهبي والنبيتي تمنح توزيعاً فورياً وسهلاً دون فوضى داخل المساجد",
-          "تغليف آمن ومحكم بدون أشرطة لضمان أعلى معايير النظافة والسرعة",
-          "توزيع العبوات في حقائب سيلبر الحرارية يضمن بقاء المخبوزات طازجة ولذيذة"
-        ],
-        advice: `بناءً على عدد المعازيم (${guestCount} فرد) والميزانية المقترحة، هذه التشكيلة توفر أعلى قيمة وأفضل انطباع لضيوفكم الكرام دون أي هدر في المصاريف.`
-      });
+      console.error(err);
+      setErrorMessage("حدث خطأ أثناء الاتصال بالخادم، يرجى المحاولة مرة أخرى");
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleBookPlan = () => {
-    if (!plan) return;
-
-    const item: OrderItem = {
-      id: `ai-plan-${Date.now()}`,
-      type: 'custom',
-      name: `باقة مقترحة من المستشار الذكي (${plan.suggestedPackage})`,
-      details: plan.boxContents,
-      packagingName: 'علبة سيلبر الكرتون الفاخرة باللون الذهبي والنبيتي',
-      quantity: guestCount,
-      pricePerBox: plan.estimatedCostPerBox,
-      totalPrice: plan.totalEstimatedCost,
-    };
-
-    onAddToCart(item);
-    onClose();
-  };
-
-  const handleWhatsAppShare = () => {
-    if (!plan) return;
-    const contents = plan.boxContents.map(c => `• ${c}`).join('\n');
-    const msg = `مرحباً سيلبر (Celebre) 🌸\nلقد صممت خطة ضيافة بواسطة المستشار الذكي:\n*المناسبة:* ${occasion}\n*عدد الضيوف:* ${guestCount} فرد\n*الباقة المقترحة:* ${plan.suggestedPackage}\n*محتويات العبوة:*\n${contents}\n*التكلفة المقدرة:* ${plan.totalEstimatedCost.toLocaleString()} جنيه مصري\nأود مراجعة الطلب وتأكيد الحجز.`;
-    window.open(`https://wa.me/201284484868?text=${encodeURIComponent(msg)}`, '_blank');
-  };
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200 text-right">
-      <div className="relative w-full max-w-3xl max-h-[92vh] overflow-y-auto bg-[#FAF7F2] rounded-3xl border border-[#D9C49C] shadow-2xl">
-        
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fadeIn overflow-y-auto">
+      <div className="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl border border-[#E8DFD1] overflow-hidden my-6 max-h-[90vh] flex flex-col">
         {/* Header */}
-        <div className="p-6 bg-gradient-to-r from-[#5C1027] to-[#3E0716] text-white rounded-t-3xl relative">
-          <button
-            onClick={onClose}
-            className="absolute top-4 left-4 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors cursor-pointer"
-          >
-            <X className="w-5 h-5" />
-          </button>
-
-          <div className="flex items-center gap-3">
-            <div className="w-14 h-12 rounded-xl bg-white/10 backdrop-blur-md border border-[#C89B3C]/50 p-1 flex items-center justify-center flex-shrink-0 shadow-md">
-              <img
-                src={officialLogoTransparent}
-                alt="Celebre Logo"
-                className="w-full h-full object-contain filter drop-shadow-xs"
-                referrerPolicy="no-referrer"
-              />
-            </div>
+        <div className="px-6 py-4 bg-[#FAF7F2] border-b border-[#F0EAE1] flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="p-2 rounded-xl bg-[#5C1027] text-white">
+              <Sparkles className="w-5 h-5 text-[#C89B3C]" />
+            </span>
             <div>
-              <div className="flex items-center gap-2">
-                <span className="text-lg sm:text-xl font-bold">مستشار سيلبر الذكي لتنسيق الكاترنج</span>
-                <span className="px-2 py-0.5 rounded-md bg-[#D4AF37] text-[#2C0A15] text-[10px] font-black">AI 2.5</span>
-              </div>
-              <p className="text-xs text-[#E8D9C0] mt-0.5">
-                أدخل تفاصيل مناسبتك وميزانيتك وسيقوم الذكاء الاصطناعي بتوليد منيو عبوات مخصص وشهي يناسب العادات المصرية.
-              </p>
+              <h3 className="font-black text-lg text-[#221B17]">
+                خبير ومستشار ضيافة سيلبر الذكي
+              </h3>
+              <p className="text-[11px] text-[#7A6E65]">اقتراح فوري متكامل يلائم ميزانيتك ومناسبتك السعيدة</p>
             </div>
           </div>
+
+          <button
+            onClick={onClose}
+            className="w-8 h-8 rounded-full bg-white hover:bg-[#EFE8DD] border border-[#E8DFD1] flex items-center justify-center text-[#221B17]"
+          >
+            <X className="w-4 h-4" />
+          </button>
         </div>
 
-        {/* Modal Body */}
-        <div className="p-6 sm:p-8 space-y-6">
-          
-          {/* Form */}
-          {!plan && (
+        {/* Form or Result */}
+        <div className="overflow-y-auto p-6 space-y-6">
+          {!resultPlan ? (
             <form onSubmit={handleGeneratePlan} className="space-y-4">
-              
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-[#5C1027]">نوع ومكان المناسبة:</label>
-                  <input
-                    type="text"
-                    required
-                    value={occasion}
-                    onChange={(e) => setOccasion(e.target.value)}
-                    placeholder="مثال: كتب كتاب بمسجد عمر بن عبد العزيز أو قاعة ببني سويف"
-                    className="w-full px-3.5 py-2.5 text-xs bg-white rounded-xl border border-[#D9C49C] focus:ring-2 focus:ring-[#721832] focus:outline-none"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-[#5C1027]">عدد المعازيم (الأفراد):</label>
-                  <input
-                    type="number"
-                    required
-                    min={20}
-                    value={guestCount}
-                    onChange={(e) => setGuestCount(Math.max(20, parseInt(e.target.value) || 20))}
-                    className="w-full px-3.5 py-2.5 text-xs bg-white rounded-xl border border-[#D9C49C] focus:ring-2 focus:ring-[#721832] focus:outline-none font-mono"
-                  />
-                </div>
+              <div>
+                <label className="block text-xs font-bold text-[#4A3E38] mb-1.5">
+                  نوع المناسبة:
+                </label>
+                <select
+                  value={occasion}
+                  onChange={(e) => setOccasion(e.target.value)}
+                  className="w-full px-3 py-2.5 bg-[#FAF7F2] border border-[#E8DFD1] rounded-xl text-xs font-semibold text-[#221B17] focus:outline-hidden focus:border-[#5C1027]"
+                >
+                  <option value="كتب كتاب وعقد قران بالمسجد">كتب كتاب وعقد قران بالمسجد</option>
+                  <option value="حفل زفاف وفرح بالقاعة">حفل زفاف وفرح بالقاعة</option>
+                  <option value="حفل خطوبة وشبكة عائلية">حفل خطوبة وشبكة عائلية</option>
+                  <option value="عقيقة وضيافة مباركة">عقيقة وضيافة مباركة</option>
+                  <option value="مؤتمر أو استقبال رسمي VIP">مؤتمر أو استقبال رسمي VIP</option>
+                </select>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-[#5C1027]">الميزانية التقريبية (بالجنيه المصري):</label>
-                  <input
-                    type="number"
-                    value={budget}
-                    onChange={(e) => setBudget(e.target.value)}
-                    placeholder="مثال: 20000"
-                    className="w-full px-3.5 py-2.5 text-xs bg-white rounded-xl border border-[#D9C49C] focus:ring-2 focus:ring-[#721832] focus:outline-none font-mono"
-                  />
+              {/* Guest Count with flexible number including > 300 */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-bold text-[#4A3E38]">
+                    عدد المعازيم والوجبات:
+                  </label>
+                  <span className="text-xs font-black text-[#5C1027]">
+                    {guestCount} وجبة
+                  </span>
                 </div>
 
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-[#5C1027]">التفضيلات والأطباق المحببة:</label>
-                  <input
-                    type="text"
-                    value={preferredStyle}
-                    onChange={(e) => setPreferredStyle(e.target.value)}
-                    placeholder="مثال: ساندوتشات كفتة مشوية وبانية، مثلث جاتوة مغلف، عصير بخيرة"
-                    className="w-full px-3.5 py-2.5 text-xs bg-white rounded-xl border border-[#D9C49C] focus:ring-2 focus:ring-[#721832] focus:outline-none"
-                  />
+                <div className="grid grid-cols-5 gap-1.5 mb-2">
+                  {[50, 100, 150, 200, 300].map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => setGuestCount(preset)}
+                      className={`py-1.5 rounded-lg text-xs font-bold transition-all text-center ${
+                        guestCount === preset
+                          ? "bg-[#C89B3C] text-white shadow-xs"
+                          : "bg-[#FAF7F2] text-[#4A3E38] hover:bg-[#F3E7D3] border border-[#E8DFD1]"
+                      }`}
+                    >
+                      {preset}
+                    </button>
+                  ))}
                 </div>
+
+                <input
+                  type="number"
+                  min="50"
+                  step="10"
+                  placeholder="أو اكتب أي عدد أكبر من 300 (مثل 400، 500، 1000...)"
+                  value={guestCount || ""}
+                  onChange={(e) => setGuestCount(Math.max(1, parseInt(e.target.value, 10) || 0))}
+                  className="w-full text-center py-2 px-3 bg-[#FAF7F2] border-2 border-[#C89B3C]/50 focus:border-[#5C1027] rounded-xl text-xs font-black text-[#221B17]"
+                />
               </div>
 
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-[#5C1027]">أي متطلبات أو ملاحظات إضافية:</label>
+              <div>
+                <label className="block text-xs font-bold text-[#4A3E38] mb-1.5">
+                  الميزانية التقريبية الإجمالية (اختياري بالجنيه المصري):
+                </label>
+                <input
+                  type="number"
+                  value={budget}
+                  onChange={(e) => setBudget(e.target.value)}
+                  placeholder="مثال: 7500 أو 15000 جنيه"
+                  className="w-full px-3 py-2 bg-[#FAF7F2] border border-[#E8DFD1] rounded-xl text-xs font-semibold text-[#221B17] focus:outline-hidden focus:border-[#5C1027]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-[#4A3E38] mb-1.5">
+                  تفضيلات التشكيل:
+                </label>
+                <select
+                  value={preferredStyle}
+                  onChange={(e) => setPreferredStyle(e.target.value)}
+                  className="w-full px-3 py-2.5 bg-[#FAF7F2] border border-[#E8DFD1] rounded-xl text-xs font-semibold text-[#221B17] focus:outline-hidden focus:border-[#5C1027]"
+                >
+                  <option value="ميكس كفتة فحم وبانيه مع جاتوه مثلّث">ميكس كفتة فحم وبانيه مع جاتوه مثلّث (الأكثر طلباً)</option>
+                  <option value="ساندوتشات بتي بان فاخرة خفيفة (رومي وكوردن بيف)">ساندوتشات بتي بان فاخرة خفيفة (رومي وكوردن بيف)</option>
+                  <option value="باقة VIP ملوكية شاملة ميني بيتزا وباتيه وكفتة">باقة VIP ملوكية شاملة ميني بيتزا وباتيه وكفتة</option>
+                  <option value="اقتصادي عملي وسريع">اقتصادي عملي وسريع للتوزيع العاجل</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-[#4A3E38] mb-1.5">
+                  ملاحظات أو طلبات خاصة:
+                </label>
                 <textarea
                   rows={2}
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  placeholder="مثال: توقيت الحفل عصراً، مطلوب تغليف نبيتي وشريط ذهبي مع كارت للعروسين..."
-                  className="w-full px-3.5 py-2.5 text-xs bg-white rounded-xl border border-[#D9C49C] focus:ring-2 focus:ring-[#721832] focus:outline-none"
+                  placeholder="مثال: نريد موعد تسليم دقيق قبل صلاة الجمعة، أو ترغب في مشروب معين..."
+                  className="w-full px-3 py-2 bg-[#FAF7F2] border border-[#E8DFD1] rounded-xl text-xs font-semibold text-[#221B17] focus:outline-hidden focus:border-[#5C1027]"
                 />
               </div>
+
+              {errorMessage && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 flex items-center gap-2 font-bold">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{errorMessage}</span>
+                </div>
+              )}
 
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full py-3.5 rounded-2xl bg-[#5C1027] hover:bg-[#721832] text-white font-bold text-sm flex items-center justify-center gap-2 shadow-lg transition-all cursor-pointer disabled:opacity-50"
+                className="w-full py-3 px-4 bg-[#5C1027] hover:bg-[#721832] text-white font-black rounded-xl text-sm flex items-center justify-center gap-2 shadow-md transition-all disabled:opacity-50"
               >
                 {isLoading ? (
                   <>
-                    <Loader2 className="w-5 h-5 animate-spin text-[#E5C06E]" />
-                    <span>جاري تحليل تفاصيل المناسبة وتوليد المنيو المقترح...</span>
+                    <Sparkles className="w-4 h-4 animate-spin" />
+                    <span>جاري تحليل البيانات وإعداد التوصية...</span>
                   </>
                 ) : (
                   <>
-                    <Sparkles className="w-4 h-4 text-[#E5C06E]" />
-                    <span>توليد خطة الكاترنج المخصصة فوراً</span>
+                    <Send className="w-4 h-4 text-[#C89B3C]" />
+                    <span>توليد خطة الضيافة المخصصة فوراً</span>
                   </>
                 )}
               </button>
-
             </form>
-          )}
-
-          {/* AI Plan Result View */}
-          {plan && (
-            <div className="space-y-5 animate-in fade-in duration-300">
-              
-              <div className="p-4 rounded-2xl bg-[#FAF0E1] border border-[#D9C49C] flex items-center justify-between">
-                <div>
-                  <span className="text-[10px] text-[#8C5E13] font-bold">الخطة المولدة بواسطة الذكاء الاصطناعي</span>
-                  <h3 className="text-base font-extrabold text-[#5C1027]">{plan.recommendationTitle}</h3>
-                </div>
-                <button
-                  onClick={() => setPlan(null)}
-                  className="text-xs text-[#8C5E13] hover:underline flex items-center gap-1 cursor-pointer"
-                >
-                  <RefreshCw className="w-3.5 h-3.5" />
-                  <span>تعديل المدخلات</span>
-                </button>
-              </div>
-
-              {/* Package & Pricing Box */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-2xl bg-white border border-[#E8DEC9]">
-                <div>
-                  <div className="text-xs text-[#736353]">الباقة المقترحة:</div>
-                  <div className="text-sm font-bold text-[#2C0A15]">{plan.suggestedPackage}</div>
+          ) : (
+            <div className="space-y-5 animate-fadeIn">
+              <div className="bg-gradient-to-br from-[#FAF7F2] to-[#F4EEDB] p-5 rounded-2xl border border-[#C89B3C]/50 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black text-[#5C1027] bg-white px-3 py-1 rounded-full border border-[#E8DFD1]">
+                    خطة موصى بها
+                  </span>
+                  <span className="text-xs font-bold text-[#7A6E65]">
+                    {guestCount} وجبة
+                  </span>
                 </div>
 
-                <div className="text-left sm:text-right">
-                  <div className="text-xs text-[#736353]">التكلفة الإجمالية التقديرية ({guestCount} فرد):</div>
-                  <div className="text-lg font-black text-[#5C1027] font-mono">
-                    {plan.totalEstimatedCost.toLocaleString()} <span className="text-xs font-normal">ج.م</span>
-                    <span className="text-xs text-[#8C5E13] font-normal mr-2">({plan.estimatedCostPerBox} ج.م / العبوة)</span>
+                <h4 className="text-lg font-black text-[#221B17]">
+                  {resultPlan.recommendationTitle || "خطة الضيافة المقترحة"}
+                </h4>
+
+                <div className="text-sm font-bold text-[#5C1027]">
+                  الباقة الموصى بها: {resultPlan.suggestedPackage}
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 pt-2 border-t border-[#E8DFD1]">
+                  <div className="bg-white p-3 rounded-xl border border-[#E8DFD1]">
+                    <div className="text-[11px] text-[#7A6E65]">تكلفة العلبة التقديرية:</div>
+                    <div className="text-base font-black text-[#5C1027]">
+                      {resultPlan.estimatedCostPerBox || 50} جنيه
+                    </div>
+                  </div>
+                  <div className="bg-white p-3 rounded-xl border border-[#E8DFD1]">
+                    <div className="text-[11px] text-[#7A6E65]">الإجمالي التقديري:</div>
+                    <div className="text-base font-black text-[#C89B3C]">
+                      {(resultPlan.totalEstimatedCost || (guestCount * 50)).toLocaleString()} جنيه
+                    </div>
                   </div>
                 </div>
               </div>
 
-              {/* Box Contents */}
-              <div className="space-y-2">
-                <h4 className="text-xs font-bold text-[#5C1027] flex items-center gap-1.5">
-                  <Sparkles className="w-4 h-4 text-[#C89B3C]" />
-                  <span>محتويات كل عبوة فردية مقترحة:</span>
-                </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {plan.boxContents.map((item, idx) => (
-                    <div key={idx} className="flex items-center gap-2 p-2.5 rounded-xl bg-white border border-[#EAE0CF] text-xs text-[#3D332A]">
-                      <Check className="w-3.5 h-3.5 text-[#2E7D32] flex-shrink-0" />
-                      <span>{item}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Presentation Tips */}
-              {plan.presentationTips && plan.presentationTips.length > 0 && (
-                <div className="p-4 rounded-2xl bg-[#F5EADB] border border-[#DFCBB0] space-y-2">
-                  <h4 className="text-xs font-bold text-[#8C5E13] flex items-center gap-1.5">
-                    <Lightbulb className="w-4 h-4 text-[#C89B3C]" />
-                    <span>نصائح خبير سيلبر للتنظيم والتقديم في القاعة:</span>
-                  </h4>
-                  <ul className="space-y-1 text-xs text-[#524538]">
-                    {plan.presentationTips.map((tip, idx) => (
-                      <li key={idx} className="flex items-start gap-1.5">
-                        <span className="text-[#C89B3C] font-bold">•</span>
-                        <span>{tip}</span>
+              {/* Box items */}
+              {resultPlan.boxContents && (
+                <div className="bg-white p-4 rounded-2xl border border-[#E8DFD1] space-y-2">
+                  <h5 className="font-bold text-xs text-[#221B17]">محتويات العلبة الكرتونية المقترحة:</h5>
+                  <ul className="space-y-1.5 text-xs text-[#4A3E38]">
+                    {resultPlan.boxContents.map((it: string, i: number) => (
+                      <li key={i} className="flex items-center gap-2">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-[#25D366] shrink-0" />
+                        <span>{it}</span>
                       </li>
                     ))}
                   </ul>
@@ -321,34 +262,40 @@ export const AiCateringAdvisor: React.FC<AiCateringAdvisorProps> = ({
               )}
 
               {/* Advice */}
-              <p className="text-xs text-[#635547] leading-relaxed bg-[#FAF7F2] p-3 rounded-xl border border-[#E8DEC9]">
-                💡 <strong>ملخص الاستشارة:</strong> {plan.advice}
-              </p>
+              {resultPlan.advice && (
+                <div className="p-3.5 bg-amber-50/80 border border-amber-200 rounded-xl text-xs text-amber-900 leading-relaxed font-medium">
+                  💡 <strong>نصيحة خبير سيلبر:</strong> {resultPlan.advice}
+                </div>
+              )}
 
-              {/* CTAs */}
-              <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
+              {/* Action buttons */}
+              <div className="flex gap-3">
                 <button
-                  onClick={handleBookPlan}
-                  className="w-full sm:flex-1 py-3 rounded-2xl bg-[#5C1027] hover:bg-[#721832] text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md"
+                  type="button"
+                  onClick={() => setResultPlan(null)}
+                  className="flex-1 py-2.5 px-4 rounded-xl border border-[#E8DFD1] text-xs font-bold text-[#4A3E38] hover:bg-[#FAF7F2]"
                 >
-                  <ShoppingBag className="w-4 h-4 text-[#E5C06E]" />
-                  <span>اعتماد وإضافة إلى سلة الحجز</span>
+                  إعادة المحاولة
                 </button>
 
                 <button
-                  onClick={handleWhatsAppShare}
-                  className="w-full sm:flex-1 py-3 rounded-2xl bg-[#25D366] hover:bg-[#1EBE5D] text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-md"
+                  type="button"
+                  onClick={() => {
+                    const matched = packages.find(p => p.name.includes("Sale-04") || p.name.includes("Sale-01")) || packages[0];
+                    if (onSelectSuggestedPackage && matched) {
+                      onSelectSuggestedPackage(matched, guestCount);
+                    }
+                    onClose();
+                  }}
+                  className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-[#5C1027] hover:bg-[#721832] text-white font-bold text-xs shadow-md"
                 >
-                  <MessageCircle className="w-4 h-4" />
-                  <span>إرسال الخطة إلى واتساب سيلبر</span>
+                  <span>اعتماد والطلب الآن</span>
+                  <ArrowRight className="w-4 h-4" />
                 </button>
               </div>
-
             </div>
           )}
-
         </div>
-
       </div>
     </div>
   );

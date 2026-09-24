@@ -1,24 +1,35 @@
-export type OccasionCategory = 
-  | 'all'
-  | 'katb_ketab' 
-  | 'wedding' 
-  | 'engagement_henna' 
-  | 'aqiqa_baby' 
-  | 'vip_reception' 
-  | 'sweets_hospitality';
+export interface PackagingInfo {
+  type: string;
+  ribbon: string;
+  boxColor?: string;
+  dimensions?: string;
+  includesCard: boolean;
+  includesCutlery: boolean;
+}
 
-export interface PackageFoodSection {
+export interface PackageSection {
   title: string;
   items: string[];
 }
 
+export type DrinkModificationId = 'default_juice' | 'pepsi' | 'no_drink';
+
+export interface DrinkModificationOption {
+  id: DrinkModificationId;
+  label: string;
+  sublabel: string;
+  priceDelta: number;
+  iconName: string;
+  description: string;
+}
+
 export interface CateringPackage {
   id: string;
+  saleCode: string; // e.g. "Sale - 01"
   name: string;
   nameEn: string;
-  saleCode?: string;
   tagline: string;
-  category: OccasionCategory;
+  category: 'katb_ketab' | 'wedding' | 'engagement_henna' | 'corporate_special' | 'vip_reception' | 'all' | string;
   pricePerBox: number;
   originalPrice?: number;
   minOrder: number;
@@ -26,92 +37,54 @@ export interface CateringPackage {
   badge?: string;
   isBestseller?: boolean;
   isLuxury?: boolean;
-  sections: PackageFoodSection[];
-  packaging: {
-    type: string;
-    ribbon: string;
-    includesCard: boolean;
-    includesCutlery: boolean;
-  };
+  sections: PackageSection[];
+  packaging: PackagingInfo;
   recommendedFor: string[];
   description: string;
 }
 
-export interface MenuItemOption {
-  id: string;
-  name: string;
-  category: 'savory_pastry' | 'meats_skewers' | 'salads_appetizers' | 'oriental_sweets' | 'french_pastry' | 'drinks_water';
-  categoryLabel: string;
-  priceDelta: number;
-  description: string;
-  badge?: string;
-  iconName?: string;
-}
-
-export interface PackagingOption {
-  id: string;
-  name: string;
-  description: string;
-  priceExtra: number;
-  color: string;
-  texture: string;
-  ribbonColor: string;
-}
-
-export interface CustomBoxState {
-  packagingId: string;
-  selectedItems: Record<string, number>; // itemId -> count
-  selectedDrinkId: string;
-  ribbonColor: string;
-  customCardText: string;
+export interface CartItem {
+  package: CateringPackage;
   quantity: number;
+  selectedDrink?: DrinkModificationId;
+  drinkPriceDelta?: number;
+  customRibbonText?: string;
+  notes?: string;
 }
 
-export interface OrderItem {
-  id: string;
-  type: 'preset' | 'custom';
-  name: string;
-  details: string[];
-  packagingName: string;
-  quantity: number;
-  pricePerBox: number;
-  totalPrice: number;
-  customCardText?: string;
-}
-
-export interface OrderSubmission {
-  id?: string;
-  customerName: string;
+export interface OrderCustomerInfo {
+  fullName: string;
   phone: string;
-  secondaryPhone?: string;
   occasion: string;
   eventDate: string;
-  eventTime: string;
-  governorate: string;
-  venueName: string;
-  address: string;
-  items: OrderItem[];
+  eventTime?: string;
+  deliveryGovernorate: string;
+  deliveryAddress: string;
+  detailedNotes?: string;
+  paymentMethod: 'instapay' | 'vodafone_cash' | 'cash_on_delivery' | 'bank_transfer';
+}
+
+export interface Order {
+  id: string;
+  customerInfo: OrderCustomerInfo;
+  items: CartItem[];
   totalBoxes: number;
-  totalAmount: number;
-  notes?: string;
-  paymentMethod: 'instapay' | 'cash_deposit' | 'bank_transfer' | string;
-  customCardText?: string;
+  totalPrice: number;
+  depositAmount: number; // 50% deposit
+  remainingAmount: number;
+  status: 'pending' | 'confirmed' | 'in_preparation' | 'delivered';
+  createdAt: string;
 }
 
 export interface Testimonial {
   id: string;
-  author: string;
+  name: string;
   role: string;
   occasion: string;
-  eventDate: string;
+  location: string;
   rating: number;
+  date: string;
   comment: string;
   verified: boolean;
-  avatarText: string;
-}
-
-export interface FAQItem {
-  question: string;
-  answer: string;
-  category: string;
+  boxesOrdered: number;
 }
