@@ -1,7 +1,9 @@
 import React, { useState } from "react";
-import { Sparkles, ArrowDown, CheckCircle2, Shield, HeartHandshake, PhoneCall, ChevronRight } from "lucide-react";
+import { Sparkles, ArrowDown, CheckCircle2, Shield, HeartHandshake, PhoneCall, ChevronRight, Heart } from "lucide-react";
+import { CelebreLogo, CelebreClocheIcon, CelebreStarIcon, CelebreFlourishDivider } from "./CelebreLogo";
 import heroImg from "../assets/images/celebre_hero_banner_1788037530778.jpg";
 import boxImg from "../assets/images/celebre_branded_box_1788040428186.jpg";
+import logoImg from "../assets/images/celebre_official_logo_transparent.png";
 
 interface HeroProps {
   onExplorePackages: () => void;
@@ -47,26 +49,37 @@ export const Hero: React.FC<HeroProps> = ({
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-8 items-center">
           {/* Main Text Content */}
           <div className="lg:col-span-7 flex flex-col items-center lg:items-start text-center lg:text-right">
-            {/* Tag Badge */}
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#F3E7D3] border border-[#C89B3C]/50 text-[#5C1027] text-xs sm:text-sm font-semibold mb-5 shadow-xs">
-              <Sparkles className="w-3.5 h-3.5 text-[#C89B3C] animate-spin" style={{ animationDuration: "8s" }} />
-              <span>وجبات كاترنج وعبوات فردية فاخرة • بني سويف ومصر</span>
+            {/* Grand Official Celebre Logo Showcase - Strictly adhering to attached logo details */}
+            <div className="mb-4 flex flex-col items-center lg:items-start">
+              <div className="relative p-2 rounded-2xl bg-white/60 backdrop-blur-xs border border-[#C89B3C]/30 shadow-xs inline-block">
+                <CelebreLogo
+                  size="lg"
+                  showSlogan={false}
+                  showEnglishSubtitles={true}
+                  className="items-center lg:items-start"
+                />
+              </div>
+
+              {/* Tagline pill with cloche & star icons from logo */}
+              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#F3E7D3] border border-[#C89B3C]/60 text-[#5C1027] text-xs sm:text-sm font-semibold mt-4 shadow-2xs">
+                <CelebreStarIcon className="w-3.5 h-3.5 text-[#C89B3C] animate-spin" />
+                <span className="font-bold">سيلبر شريك مؤسس لمناساباتك السعيدة</span>
+                <CelebreClocheIcon className="w-4 h-4 text-[#C89B3C]" />
+              </div>
             </div>
 
             {/* Slogan & Main Headline */}
-            <div className="mb-4">
-              <p className="text-[#C89B3C] font-bold text-lg sm:text-2xl md:text-3xl mb-1 tracking-wide font-['Playfair_Display','Alexandria',serif]">
-                سيلبر شريك مؤسس لمناساباتك السعيدة
-              </p>
+            <div className="mb-3">
               <h1 className="text-3xl sm:text-5xl lg:text-5xl font-black text-[#221B17] leading-tight sm:leading-snug">
                 ضيافة تشرفك أمام ضيوفك في
                 <span className="text-[#5C1027] block sm:inline"> كتب الكتاب والأفراح</span>
               </h1>
+              <CelebreFlourishDivider className="my-3 justify-center lg:justify-start" />
             </div>
 
             {/* Description */}
             <p className="text-sm sm:text-base md:text-lg text-[#55463E] max-w-2xl leading-relaxed mb-6 font-medium">
-              نصنع ونقدم عبوات كاترنج فردية فاخرة بتغليف كرتوني مذهب محكم الغلق، تشمل ساندوتشات بتي بان وفرنساوي (كفتة ع الفحم، بانيه بلدي مقرمش، رومي)، مع قطع جاتوه مثلثة مغلفة وعصير بخيرة وشوكة ومناديل معقمة، جاهزة للتوزيع الفوري السريع داخل المساجد والقاعات.
+              نصنع ونقدم عبوات كاترنج فردية فاخرة تحمل علامة سيلبر الرسمية بتغليف كرتوني مذهب محكم الغلق، تشمل ساندوتشات بتي بان وفرنساوي (كفتة ع الفحم، بانيه بلدي مقرمش، رومي)، مع قطع جاتوه مثلثة مغلفة وعصير بخيرة وشوكة ومناديل معقمة، جاهزة للتوزيع الفوري السريع داخل المساجد والقاعات.
             </p>
 
             {/* Value Props Pills */}
@@ -115,23 +128,46 @@ export const Hero: React.FC<HeroProps> = ({
 
           {/* Interactive Hero Widget & Featured Visual */}
           <div className="lg:col-span-5 flex flex-col gap-5">
-            {/* Visual Box Card */}
-            <div className="relative rounded-2xl overflow-hidden shadow-2xl border-2 border-[#C89B3C]/40 group bg-white">
+            {/* Visual Box Card with Official Logo Watermark */}
+            <div className="relative rounded-2xl overflow-hidden shadow-2xl border-2 border-[#C89B3C]/50 group bg-white">
               <img
                 src={heroImg || boxImg}
                 alt="علب كاترنج سيلبر الملكية الفاخرة"
-                className="w-full h-56 sm:h-64 object-cover object-center group-hover:scale-105 transition-transform duration-700"
+                className="w-full h-60 sm:h-68 object-cover object-center group-hover:scale-105 transition-transform duration-700"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex flex-col justify-end p-5 text-white">
-                <span className="text-xs text-[#C89B3C] font-black uppercase tracking-wider mb-1">
-                  العلبة الرسمية المعتمدة
-                </span>
-                <h3 className="text-lg sm:text-xl font-bold">
-                  تغليف كرتوني مذهب فاخر يرفع رأسك
-                </h3>
-                <p className="text-xs text-stone-200 mt-1">
-                  توزيع مباشر وسلس بالمساجد والقاعات دون أي هدر أو فوضى
-                </p>
+              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent flex flex-col justify-between p-5 text-white">
+                {/* Top Corner Official Logo Badge */}
+                <div className="flex items-center justify-between">
+                  <div className="bg-white/95 backdrop-blur-md px-3 py-1.5 rounded-xl border border-[#C89B3C] shadow-lg flex items-center gap-2">
+                    <img
+                      src={logoImg}
+                      alt="شعار سيلبر الرسمي"
+                      className="h-8 w-auto object-contain"
+                    />
+                    <span className="font-['Cinzel',serif] text-[10px] text-[#5C1027] font-black tracking-widest uppercase">
+                      CELEBRE
+                    </span>
+                  </div>
+
+                  <span className="text-[11px] font-bold bg-[#5C1027]/90 text-white px-3 py-1 rounded-full border border-[#C89B3C]/50 flex items-center gap-1">
+                    <CelebreStarIcon className="w-3 h-3 text-[#C89B3C]" />
+                    الختم الرسمي المعتمد
+                  </span>
+                </div>
+
+                {/* Bottom Card Title */}
+                <div>
+                  <div className="flex items-center gap-1.5 text-xs text-[#C89B3C] font-black tracking-wide mb-1">
+                    <CelebreClocheIcon className="w-4 h-4 text-[#C89B3C]" />
+                    <span>سيلبر كاترنج باكيدجز • للأفراح والمناسبات</span>
+                  </div>
+                  <h3 className="text-lg sm:text-xl font-black text-white drop-shadow-md">
+                    تغليف كرتوني مذهب يجسد فخامة الشعار
+                  </h3>
+                  <p className="text-xs text-stone-200 mt-1 leading-relaxed">
+                    توزيع مباشر وفوري وسلس داخل المساجد والقاعات بدون أي هدر
+                  </p>
+                </div>
               </div>
             </div>
 

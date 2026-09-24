@@ -1,5 +1,6 @@
 import React from "react";
-import { ShoppingBag, MessageCircle, Phone, Sparkles, UtensilsCrossed } from "lucide-react";
+import { ShoppingBag, MessageCircle, Phone, Sparkles } from "lucide-react";
+import { CelebreClocheIcon } from "./CelebreLogo";
 
 interface FloatingQuickBarProps {
   cartCount: number;
@@ -21,12 +22,12 @@ export const FloatingQuickBar: React.FC<FloatingQuickBarProps> = ({
   return (
     <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 w-auto max-w-[94vw] sm:max-w-md animate-bounce-in">
       <div className="bg-[#221B17]/95 backdrop-blur-md text-[#FAF7F2] px-3.5 py-2.5 rounded-2xl shadow-2xl border border-[#C89B3C]/40 flex items-center gap-2 sm:gap-3">
-        {/* Menu browse */}
+        {/* Menu browse with Cloche Icon */}
         <button
           onClick={onScrollToPackages}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-bold transition-all text-[#FAF7F2]"
         >
-          <UtensilsCrossed className="w-3.5 h-3.5 text-[#C89B3C]" />
+          <CelebreClocheIcon className="w-4 h-4 text-[#C89B3C]" />
           <span className="hidden sm:inline">منيو</span>
           <span>الوجبات</span>
         </button>

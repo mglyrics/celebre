@@ -41,10 +41,10 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ order, onClose }) =>
         {/* Invoice Printable Sheet */}
         <div className="overflow-y-auto p-6 space-y-6 print:p-0">
           {/* Logo & Order Slogan */}
-          <div className="text-center pb-4 border-b border-[#E8DFD1]">
-            <CelebreLogo size="md" showSlogan={true} sloganText="سيلبر شريك مؤسس لمناساباتك السعيدة" />
-            <div className="mt-2 text-xs font-black text-[#5C1027] bg-[#5C1027]/10 inline-block px-3 py-1 rounded-full">
-              عقد توريد ضيافة كاترنج رسمي • كود: {order.id}
+          <div className="text-center pb-5 border-b border-[#E8DFD1]">
+            <CelebreLogo size="lg" showSlogan={true} showEnglishSubtitles={true} sloganText="سيلبر شريك مؤسس لمناساباتك السعيدة" />
+            <div className="mt-3 text-xs font-black text-[#5C1027] bg-[#5C1027]/10 inline-block px-4 py-1.5 rounded-full border border-[#C89B3C]/30">
+              عقد توريد ضيافة كاترنج رسمي ومعتمد • رقم العقد: {order.id}
             </div>
           </div>
 

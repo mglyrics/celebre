@@ -1,19 +1,23 @@
 import React from "react";
-import { Star, ShieldCheck, Quote } from "lucide-react";
+import { Star, ShieldCheck, Quote, Heart } from "lucide-react";
 import { TESTIMONIALS } from "../data/cateringData";
+import { CelebreClocheIcon, CelebreStarIcon, CelebreFlourishDivider } from "./CelebreLogo";
 
 export const TestimonialsSection: React.FC = () => {
   return (
     <section id="testimonials" className="py-14 sm:py-20 bg-[#FAF7F2]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
         <div className="text-center max-w-2xl mx-auto mb-12">
-          <span className="text-xs font-bold text-[#C89B3C] bg-[#F4EEDB] px-3.5 py-1.5 rounded-full inline-block mb-3">
-            ثقة وشهادات عملائنا
-          </span>
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#F4EEDB] text-[#5C1027] text-xs font-bold mb-3">
+            <CelebreClocheIcon className="w-4 h-4 text-[#C89B3C]" />
+            <span>ثقة وشهادات عملائنا في سيلبر كاترنج</span>
+            <CelebreStarIcon className="w-3.5 h-3.5 text-[#C89B3C]" />
+          </div>
           <h2 className="text-2xl sm:text-4xl font-black text-[#221B17]">
             ماذا يقول عملاؤنا عن ضيافة سيلبر؟
           </h2>
-          <p className="text-xs sm:text-base text-[#7A6E65] mt-2">
+          <CelebreFlourishDivider className="my-3" />
+          <p className="text-xs sm:text-base text-[#7A6E65]">
             مئات العائلات وأولياء الأمور وثقوا في سيلبر لتشريفهم أمام ضيوفهم في أهم اللحظات السعيدة.
           </p>
         </div>

@@ -1,7 +1,8 @@
 import React, { useState } from "react";
-import { X, Sparkles, CheckCircle2, ShieldCheck, ShoppingBag, Zap, Minus, Plus } from "lucide-react";
+import { X, Sparkles, CheckCircle2, ShieldCheck, ShoppingBag, Zap, Minus, Plus, Heart } from "lucide-react";
 import { CateringPackage, DrinkModificationId } from "../types";
 import { DRINK_MODIFICATION_OPTIONS } from "../data/cateringData";
+import { CelebreLogo, CelebreClocheIcon, CelebreStarIcon } from "./CelebreLogo";
 
 interface PackageDetailModalProps {
   packageItem: CateringPackage | null;
@@ -40,14 +41,17 @@ export const PackageDetailModal: React.FC<PackageDetailModalProps> = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fadeIn overflow-y-auto">
       <div className="relative w-full max-w-3xl bg-white rounded-3xl shadow-2xl border border-[#E8DFD1] overflow-hidden my-8 max-h-[90vh] flex flex-col">
         {/* Modal Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[#F0EAE1] bg-[#FAF7F2]">
-          <div className="flex items-center gap-2">
-            <span className="bg-[#5C1027] text-white text-xs font-black px-2.5 py-1 rounded-lg">
-              {packageItem.saleCode}
-            </span>
-            <h3 className="font-black text-lg sm:text-xl text-[#221B17]">
-              {packageItem.name}
-            </h3>
+        <div className="flex items-center justify-between px-6 py-3.5 border-b border-[#F0EAE1] bg-[#FAF7F2]">
+          <div className="flex items-center gap-3">
+            <CelebreLogo size="xs" showSlogan={false} />
+            <div>
+              <span className="bg-[#5C1027] text-white text-[10px] font-black px-2 py-0.5 rounded-md font-['Cinzel',sans-serif]">
+                {packageItem.saleCode}
+              </span>
+              <h3 className="font-black text-base sm:text-lg text-[#221B17] mt-0.5">
+                {packageItem.name}
+              </h3>
+            </div>
           </div>
           <button
             onClick={onClose}

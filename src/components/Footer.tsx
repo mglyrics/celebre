@@ -13,7 +13,13 @@ export const Footer: React.FC<FooterProps> = ({ onOpenPrivacy }) => {
         <div className="grid grid-cols-1 md:grid-cols-12 gap-10 pb-12 border-b border-[#3B3029]">
           {/* Brand Info */}
           <div className="md:col-span-5 flex flex-col items-center md:items-start text-center md:text-right">
-            <CelebreLogo size="md" showSlogan={true} sloganText="سيلبر شريك مؤسس لمناساباتك السعيدة" className="items-start" />
+            <CelebreLogo
+              size="lg"
+              showSlogan={true}
+              showEnglishSubtitles={true}
+              sloganText="سيلبر شريك مؤسس لمناساباتك السعيدة"
+              className="items-center md:items-start"
+            />
             <p className="text-xs text-[#A89D93] mt-4 leading-relaxed max-w-sm">
               العلامة الرسمية الرائدة في تقديم وتنسيق عبوات الكاترنج الفاخرة للافراح وكتب الكتاب بالمساجد والقاعات في بني سويف ومصر. علب كرتونية مذهبة محكمة الإغلاق تضمن أسرع وأرقى توزيع لضيوفك.
             </p>

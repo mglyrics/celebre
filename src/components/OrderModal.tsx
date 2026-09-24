@@ -2,11 +2,12 @@ import React, { useState } from "react";
 import { 
   X, MapPin, Calendar, User, Phone, CheckCircle2, 
   ArrowLeft, ArrowRight, ShieldCheck, Sparkles, AlertCircle, 
-  CreditCard, Smartphone, Banknote, RefreshCw, Send, Plus, Minus
+  CreditCard, Smartphone, Banknote, RefreshCw, Send, Plus, Minus, Heart
 } from "lucide-react";
 import { CartItem, Order, OrderCustomerInfo, DrinkModificationId } from "../types";
 import { DRINK_MODIFICATION_OPTIONS } from "../data/cateringData";
 import { detectCustomerLocation, COVERED_REGIONS } from "../utils/locationService";
+import { CelebreLogo, CelebreClocheIcon, CelebreStarIcon } from "./CelebreLogo";
 
 interface OrderModalProps {
   isOpen: boolean;
@@ -197,16 +198,15 @@ ${notes ? `- ملاحظات العميل: ${notes}` : ""}
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/65 backdrop-blur-xs animate-fadeIn overflow-y-auto">
       <div className="relative w-full max-w-3xl bg-white rounded-3xl shadow-2xl border border-[#E8DFD1] overflow-hidden my-6 max-h-[92vh] flex flex-col">
         {/* Top Header */}
-        <div className="px-6 py-4 bg-[#FAF7F2] border-b border-[#F0EAE1] flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="p-1.5 rounded-lg bg-[#5C1027] text-white">
-              <Sparkles className="w-4 h-4 text-[#C89B3C]" />
-            </span>
+        {/* Top Header with Official Celebre Emblem */}
+        <div className="px-6 py-3.5 bg-[#FAF7F2] border-b border-[#F0EAE1] flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <CelebreLogo size="xs" showSlogan={false} />
             <div>
               <h3 className="font-black text-base sm:text-lg text-[#221B17]">
                 حجز وتنسيق طلب ضيافة سيلبر
               </h3>
-              <p className="text-[11px] text-[#7A6E65]">خطوتان لإتمام حجزك وضمان أفضل تنسيق</p>
+              <p className="text-[11px] text-[#7A6E65]">شريك مؤسس لمناسباتك السعيدة • خطوتان لإتمام حجزك</p>
             </div>
           </div>
 

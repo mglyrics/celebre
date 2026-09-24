@@ -2,6 +2,7 @@ import React from "react";
 import { X, Trash2, Plus, Minus, ShoppingBag, ArrowLeft, ShieldAlert } from "lucide-react";
 import { CartItem, DrinkModificationId } from "../types";
 import { DRINK_MODIFICATION_OPTIONS } from "../data/cateringData";
+import { CelebreLogo, CelebreClocheIcon } from "./CelebreLogo";
 
 interface CartDrawerProps {
   isOpen: boolean;

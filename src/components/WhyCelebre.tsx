@@ -1,5 +1,6 @@
 import React from "react";
 import { ShieldCheck, Sparkles, Clock, UtensilsCrossed, CheckCircle2, Award } from "lucide-react";
+import { CelebreLogo, CelebreClocheIcon, CelebreStarIcon, CelebreFlourishDivider } from "./CelebreLogo";
 
 export const WhyCelebre: React.FC = () => {
   const points = [
@@ -39,13 +40,19 @@ export const WhyCelebre: React.FC = () => {
     <section className="py-14 sm:py-20 bg-gradient-to-b from-[#FAF7F2] to-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
         <div className="text-center max-w-3xl mx-auto mb-12">
-          <span className="text-xs font-bold text-[#5C1027] bg-[#5C1027]/10 px-3.5 py-1.5 rounded-full inline-block mb-3">
-            لماذا تختار سيلبر لمناسبتك السعيدة؟
+          <div className="flex justify-center mb-3">
+            <CelebreLogo size="xs" showSlogan={false} />
+          </div>
+          <span className="text-xs font-bold text-[#5C1027] bg-[#5C1027]/10 px-3.5 py-1.5 rounded-full inline-flex items-center gap-1.5 mb-3">
+            <CelebreClocheIcon className="w-3.5 h-3.5 text-[#C89B3C]" />
+            <span>لماذا تختار سيلبر لمناسبتك السعيدة؟</span>
+            <CelebreStarIcon className="w-3 h-3 text-[#C89B3C]" />
           </span>
           <h2 className="text-2xl sm:text-4xl font-black text-[#221B17]">
             معايير فندقية راقية ترفع رأسك أمام ضيوفك
           </h2>
-          <p className="text-xs sm:text-base text-[#61534B] mt-3">
+          <CelebreFlourishDivider className="my-3" />
+          <p className="text-xs sm:text-base text-[#61534B]">
             سيلبر هي الشريك المؤسس لمناسباتك السعيدة في بني سويف ومصر، نقدم تجربة ضيافة استثنائية متكاملة تجمع الفخامة، النظافة، والسرعة.
           </p>
         </div>

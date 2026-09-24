@@ -1,10 +1,11 @@
 import React, { useState, useMemo } from "react";
 import { 
   Search, SlidersHorizontal, Plus, Minus, ShoppingBag, Eye, 
-  ChevronDown, ChevronUp, Sparkles, CheckCircle2, ShieldCheck, Flame, Zap
+  ChevronDown, ChevronUp, Sparkles, CheckCircle2, ShieldCheck, Flame, Zap, Heart
 } from "lucide-react";
 import { CateringPackage, DrinkModificationId } from "../types";
 import { DRINK_MODIFICATION_OPTIONS } from "../data/cateringData";
+import { CelebreLogo, CelebreClocheIcon, CelebreStarIcon, CelebreFlourishDivider } from "./CelebreLogo";
 
 interface PackagesSectionProps {
   packages: CateringPackage[];
@@ -96,17 +97,22 @@ export const PackagesSection: React.FC<PackagesSectionProps> = ({
   return (
     <section id="packages-section" className="py-12 sm:py-16 bg-[#FAF7F2]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
-        {/* Section Header */}
+        {/* Section Header with Official Celebre Emblem */}
         <div className="text-center max-w-3xl mx-auto mb-10">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#5C1027]/10 text-[#5C1027] text-xs font-bold mb-3">
-            <Flame className="w-3.5 h-3.5 text-[#C89B3C]" />
-            <span>منيو وجبات سيلبر المعتمدة للتوزيع السريع بالمساجد والقاعات</span>
+          <div className="flex justify-center mb-3">
+            <CelebreLogo size="sm" showSlogan={false} showEnglishSubtitles={true} />
           </div>
-          <h2 className="text-2xl sm:text-4xl font-black text-[#221B17] mb-3">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#5C1027]/10 text-[#5C1027] text-xs font-bold mb-3">
+            <CelebreClocheIcon className="w-4 h-4 text-[#C89B3C]" />
+            <span>منيو وجبات سيلبر المعتمدة للتوزيع السريع بالمساجد والقاعات</span>
+            <CelebreStarIcon className="w-3.5 h-3.5 text-[#C89B3C]" />
+          </div>
+          <h2 className="text-2xl sm:text-4xl font-black text-[#221B17] mb-2">
             اختر وجبتك واطلب مباشرة بسهولة
           </h2>
+          <CelebreFlourishDivider className="my-2" />
           <p className="text-xs sm:text-base text-[#61534B]">
-            جميع الوجبات مغلفة في علبة كرتونية مذهبة محكمة الإغلاق، تشمل الساندوتشات الطازجة مع قطعة جاتوه مثلثة مغلفة وعصير بخيرة مع شوكة ومنديل معقم.
+            جميع الوجبات مغلفة في علبة سيلبر الكرتونية المذهبة الرسمية المحكمة الإغلاق، تشمل الساندوتشات الطازجة مع قطعة جاتوه مثلثة مغلفة وعصير بخيرة مع شوكة ومنديل معقم.
           </p>
         </div>
 
@@ -206,14 +212,14 @@ export const PackagesSection: React.FC<PackagesSectionProps> = ({
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/20" />
 
-                  {/* Top Badges */}
+                  {/* Top Badges with Official Celebre Cloche */}
                   <div className="absolute top-3 right-3 left-3 flex items-center justify-between">
-                    <span className="bg-[#5C1027]/90 backdrop-blur-xs text-[#FAF7F2] font-black text-xs px-2.5 py-1 rounded-lg border border-[#C89B3C]/40 shadow-xs flex items-center gap-1">
-                      <Sparkles className="w-3 h-3 text-[#C89B3C]" />
+                    <span className="bg-[#5C1027]/95 backdrop-blur-xs text-[#FAF7F2] font-black text-xs px-2.5 py-1 rounded-lg border border-[#C89B3C]/50 shadow-xs flex items-center gap-1.5 font-['Cinzel',sans-serif]">
+                      <CelebreClocheIcon className="w-3.5 h-3.5 text-[#C89B3C]" />
                       <span>{pkg.saleCode}</span>
                     </span>
 
-                    <span className="bg-white/95 backdrop-blur-xs text-[#5C1027] font-black text-xs px-2.5 py-1 rounded-lg shadow-xs">
+                    <span className="bg-white/95 backdrop-blur-xs text-[#5C1027] font-black text-xs px-2.5 py-1 rounded-lg shadow-xs border border-[#C89B3C]/30">
                       {pkg.pricePerBox} ج / علبة
                     </span>
                   </div>

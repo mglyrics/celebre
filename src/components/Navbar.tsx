@@ -57,10 +57,16 @@ export const Navbar: React.FC<NavbarProps> = ({
 
       {/* Main Navbar */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
-        <div className="flex items-center justify-between h-20">
-          {/* Logo & Slogan */}
+        <div className="flex items-center justify-between h-24">
+          {/* Official Celebre Logo Emblem with Cloche & Slogan */}
           <div className="flex items-center gap-3">
-            <CelebreLogo size="md" showSlogan={true} sloganText="سيلبر شريك مؤسس لمناساباتك السعيدة" />
+            <CelebreLogo
+              size="md"
+              showSlogan={true}
+              showEnglishSubtitles={false}
+              sloganText="سيلبر شريك مؤسس لمناساباتك السعيدة"
+              onClick={onScrollToPackages}
+            />
           </div>
 
           {/* Desktop Nav Links */}

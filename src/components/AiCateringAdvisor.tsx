@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { X, Sparkles, Send, CheckCircle2, AlertCircle, ArrowRight } from "lucide-react";
 import { CateringPackage } from "../types";
+import { CelebreLogo, CelebreClocheIcon, CelebreStarIcon } from "./CelebreLogo";
 
 interface AiCateringAdvisorProps {
   isOpen: boolean;
@@ -61,17 +62,15 @@ export const AiCateringAdvisor: React.FC<AiCateringAdvisorProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fadeIn overflow-y-auto">
       <div className="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl border border-[#E8DFD1] overflow-hidden my-6 max-h-[90vh] flex flex-col">
-        {/* Header */}
-        <div className="px-6 py-4 bg-[#FAF7F2] border-b border-[#F0EAE1] flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="p-2 rounded-xl bg-[#5C1027] text-white">
-              <Sparkles className="w-5 h-5 text-[#C89B3C]" />
-            </span>
+        {/* Header with Official Celebre Emblem */}
+        <div className="px-6 py-3.5 bg-[#FAF7F2] border-b border-[#F0EAE1] flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <CelebreLogo size="xs" showSlogan={false} />
             <div>
-              <h3 className="font-black text-lg text-[#221B17]">
+              <h3 className="font-black text-base sm:text-lg text-[#221B17]">
                 خبير ومستشار ضيافة سيلبر الذكي
               </h3>
-              <p className="text-[11px] text-[#7A6E65]">اقتراح فوري متكامل يلائم ميزانيتك ومناسبتك السعيدة</p>
+              <p className="text-[11px] text-[#7A6E65]">شريك مؤسس لمناسباتك السعيدة • خطة مخصصة تلائم ميزانيتك</p>
             </div>
           </div>
 
