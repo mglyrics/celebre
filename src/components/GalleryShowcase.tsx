@@ -11,7 +11,7 @@ import {
 import heroImg from '../assets/images/celebre_hero_banner_1788037530778.jpg';
 import mosqueKatbKetabImg from '../assets/images/celebre_mosque_katb_ketab_1789223553405.jpg';
 import eventSetupImg from '../assets/images/celebre_event_setup_1788037572328.jpg';
-import chocolateBoxImg from '../assets/images/celebre_chocolate_gift_box_1789223450390.jpg';
+import meal5VipBoxImg from '../assets/images/celebre_box_meal5_1789211955221.jpg';
 
 const GALLERY_ITEMS = [
   {
@@ -19,7 +19,7 @@ const GALLERY_ITEMS = [
     title: 'توزيعات عبوات كتب الكتاب وعقد القران بالمساجد (بني سويف)',
     category: 'كتب كتاب بالمساجد',
     image: mosqueKatbKetabImg,
-    tag: 'علب سيلبر الكرتونية المذهبة الرسمية المحكمة - سهلة وسريعة التوزيع بالمساجد',
+    tag: 'علبة سيلبر الكرتون الفاخرة باللون الذهبي والنبيتي - سهلة وسريعة التوزيع بالمساجد',
   },
   {
     id: 2,
@@ -30,10 +30,10 @@ const GALLERY_ITEMS = [
   },
   {
     id: 3,
-    title: 'علبة شيكولاتة سيلبر المرفقة باسم صاحب المناسبة (40 قطعة)',
-    category: 'شيكولاتة باسمك',
-    image: chocolateBoxImg,
-    tag: 'علبة سيلبر المذهبة الرسمية مع كارت الإهداء والخط الساخن 01284484868 (800 ج)',
+    title: 'علبة سيلبر الكرتون الفاخرة باللون الذهبي والنبيتي (وجبات VIP)',
+    category: 'وجبات VIP',
+    image: meal5VipBoxImg,
+    tag: 'علبة سيلبر الكرتون الفاخرة باللون الذهبي والنبيتي مع ساندوتشات كفتة وبانية وجاتوه',
   },
   {
     id: 4,

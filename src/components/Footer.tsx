@@ -66,7 +66,7 @@ export const Footer: React.FC<FooterProps> = ({ onOpenPrivacyPolicy }) => {
               </li>
               <li>
                 <a href="#packages-section" className="hover:text-[#FFDF9E] transition-colors">
-                  • علبة شيكولاتة باسمك (Custom Chocolate Box)
+                  • وجبات VIP الفاخرة (Sale - 05)
                 </a>
               </li>
               {onOpenPrivacyPolicy && (

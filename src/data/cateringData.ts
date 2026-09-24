@@ -3,319 +3,621 @@ import { CateringPackage, MenuItemOption, PackagingOption, Testimonial, FAQItem 
 import heroImg from '../assets/images/celebre_hero_banner_1788037530778.jpg';
 import brandedBoxImg from '../assets/images/celebre_branded_box_1788040428186.jpg';
 import royalBoxImg from '../assets/images/celebre_mosque_katb_ketab_1789223553405.jpg';
-import sweetBoxImg from '../assets/images/celebre_chocolate_gift_box_1789223450390.jpg';
 import eventSetupImg from '../assets/images/celebre_event_setup_1788037572328.jpg';
 import vipBoxImg from '../assets/images/celebre_catering_box_1789035352545.jpg';
 import petitPainBoxImg from '../assets/images/celebre_petit_pain_box_1789035374258.jpg';
 import frenchBoxImg from '../assets/images/celebre_french_sandwich_box_1789035424883.jpg';
-import chocolateBoxImg from '../assets/images/celebre_chocolate_gift_box_1789223450390.jpg';
 import mosqueKatbKetabImg from '../assets/images/celebre_mosque_katb_ketab_1789223553405.jpg';
+
 import meal1BoxImg from '../assets/images/celebre_box_meal1_1789211893922.jpg';
 import meal2BoxImg from '../assets/images/celebre_box_meal2_1789211910273.jpg';
 import meal3BoxImg from '../assets/images/celebre_box_meal3_1789211925289.jpg';
 import meal4BoxImg from '../assets/images/celebre_box_meal4_fixed_1789213130863.jpg';
 import meal5VipBoxImg from '../assets/images/celebre_box_meal5_1789211955221.jpg';
+import meal6BoxImg from '../assets/images/celebre_box_meal6_gateau_1790210849069.jpg';
+import meal7BoxImg from '../assets/images/celebre_box_meal7_sweets_1790210862618.jpg';
+import meal8BoxImg from '../assets/images/celebre_box_meal8_pizza_1790210875027.jpg';
+import meal9BoxImg from '../assets/images/celebre_box_meal9_mixed_1790210887702.jpg';
+import meal10BoxImg from '../assets/images/celebre_box_meal10_sandwiches_1790210900853.jpg';
+import meal11BoxImg from '../assets/images/celebre_box_meal11_combo_1790210924311.jpg';
+import meal12BoxImg from '../assets/images/celebre_box_meal12_pate_1790210937774.jpg';
 
 export const CATERING_PACKAGES: CateringPackage[] = [
+  // --- Sale - 01 ---
   {
-    id: 'pkg-meal-1',
-    name: 'الوجبة الأولى (50 جنيه)',
-    nameEn: 'Celebre Box 1 (Petit Pain Roumi & Cordon Beef)',
-    tagline: 'قطعة جاتوة مغلفة + ساندوتش بتي بان جبنة رومي + ساندوتش بتي بان لانشون كوردن بيف + عصير بخيرة وشوكة ومنديل',
+    id: 'pkg-sale-01',
+    saleCode: 'Sale - 01',
+    name: 'وجبة Sale - 01 (50 جنيه)',
+    nameEn: 'Celebre Box Sale-01 (Petit Pain Roumi & Cordon Beef)',
+    tagline: 'قطعة جاتوه مغلفة + سندوتش بتي بان جبنة رومي + سندوتش بتي بان لانشون كوردن بيف + عصير بخيرة وشوكة ومناديل',
     category: 'katb_ketab',
     pricePerBox: 50,
     originalPrice: 60,
     minOrder: 25,
     image: meal1BoxImg,
-    badge: '50 جنيه ✨ اقتصادي مميز',
+    badge: 'Sale - 01 ✨ 50 ج',
     isBestseller: false,
     isLuxury: false,
     recommendedFor: ['كتب الكتاب وعقد القران بالمساجد', 'المناسبات العائلية والأفراح', 'حفلات التخرج والاستقبالات'],
-    description: 'عبوة سيلبر الأنيقة المميزة: ساندوتش بتي بان جبنة رومي، ساندوتش بتي بان لانشون كوردن بيف فاخر، قطعة جاتوة مغلفة، عصير بخيرة، وشوكة ومنديل معقم داخل كيس مغلق.',
+    description: 'عبوة سيلبر الرسمية Sale-01: قطعة جاتوه مغلفة فاخرة، سندوتش بتي بان جبنة رومي، سندوتش بتي بان لانشون كوردن بيف، عصير بخيرة، وشوكة ومناديل معقمة.',
     sections: [
       {
-        title: 'الساندوتشات والمخبوزات',
+        title: 'محتويات الوجبة بالعلبة',
         items: [
-          'سندوتش بتي بان طازج محشو جبنة رومي فاخرة',
-          'سندوتش بتي بان لانشون كوردن بيف ممتاز'
-        ]
-      },
-      {
-        title: 'الحلو والمشروب',
-        items: [
-          'قطعة جاتوة مغلفة فاخرة',
-          'عصير بخيرة (جوافة / مانجو)'
-        ]
-      },
-      {
-        title: 'المرفقات والخدمة',
-        items: [
-          'شوكة ومنديل معقم في غلاف منفصل',
-          'علبة سيلبر الأنيقة بباركود وتصميم راقي'
+          'قطعة جاتوه مغلفة فاخرة',
+          'سندوتش بتي بان جبنة رومي',
+          'سندوتش بتي بان لانشون كوردن بيف',
+          'عصير بخيرة + شوكة ومناديل'
         ]
       }
     ],
     packaging: {
-      type: 'صندوق سيلبر الكرتوني المذهب المعتمد لكافة الوجبات (غلق محكم)',
+      type: 'علبة سيلبر الكرتون الفاخرة باللون الذهبي والنبيتي',
       ribbon: 'غلق ذاتي محكم بدون أشرطة (توزيع مباشر سريع ونظيف)',
       includesCard: true,
       includesCutlery: true
     }
   },
+
+  // --- Sale - 02 ---
   {
-    id: 'pkg-meal-2',
-    name: 'الوجبة الثانية (55 جنيه)',
-    nameEn: 'Celebre Box 2 (French Fresh Chicken Pane)',
-    tagline: 'قطعة جاتوة مغلفة + ساندوتش فرنساوى وسط فراخ بانية بلدي + عصير بخيرة وشوكة ومنديل',
+    id: 'pkg-sale-02',
+    saleCode: 'Sale - 02',
+    name: 'وجبة Sale - 02 (55 جنيه)',
+    nameEn: 'Celebre Box Sale-02 (French Fresh Chicken Pane)',
+    tagline: 'قطعة جاتوه مغلفة + سندوتش فرنساوى وسط فراخ بانية بلدي + عصير بخيرة وشوكة ومناديل',
     category: 'katb_ketab',
     pricePerBox: 55,
     originalPrice: 65,
     minOrder: 25,
     image: meal2BoxImg,
-    badge: '55 جنيه 🍗 فراخ بانية بلدي',
+    badge: 'Sale - 02 🍗 55 ج',
     isBestseller: false,
     isLuxury: false,
     recommendedFor: ['كتب الكتاب والمساجد الكبرى', 'حفلات الخطوبة', 'الضيافة الخفيفة السريعة'],
-    description: 'وجبة ساندوتش البانية البلدي الفرنسي المحبوب: ساندوتش فرنساوى وسط محشو بانية مقرمش متبل بعناية، مع قطعة جاتوة مغلفة وعصير بخيرة وشوكة ومنديل.',
+    description: 'وجبة سيلبر الرسمية Sale-02: قطعة جاتوه مغلفة، سندوتش فرنساوى وسط محشو فراخ بانية بلدي مقرمشة ومتبلة، عصير بخيرة وشوكة ومناديل داخل العلبة المعتمدة.',
     sections: [
       {
-        title: 'الساندوتش الرئيسي',
+        title: 'محتويات الوجبة بالعلبة',
         items: [
-          'سندوتش فرنساوى وسط فراخ بانية بلدي مقرمشة ومتبلة'
-        ]
-      },
-      {
-        title: 'الحلو والمشروب',
-        items: [
-          'قطعة جاتوة شوكولاتة / فانيليا مغلفة فاخرة',
-          'عصير بخيرة جوافة طازج'
-        ]
-      },
-      {
-        title: 'المرفقات والخدمة',
-        items: [
-          'شوكة ومنديل معقم ومغلف',
-          'علبة سيلبر الرسمية المحكمة'
+          'قطعة جاتوه مغلفة فاخرة',
+          'سندوتش فرنساوى وسط فراخ بانية بلدي',
+          'عصير بخيرة + شوكة ومناديل'
         ]
       }
     ],
     packaging: {
-      type: 'صندوق سيلبر الكرتوني المذهب المعتمد والمحكم الإغلاق',
+      type: 'علبة سيلبر الكرتون الفاخرة باللون الذهبي والنبيتي',
       ribbon: 'غلق ذاتي محكم بدون أشرطة (توزيع مباشر سريع ونظيف)',
       includesCard: true,
       includesCutlery: true
     }
   },
+
+  // --- Sale - 03 ---
   {
-    id: 'pkg-meal-3',
-    name: 'الوجبة الثالثة (60 جنيه)',
-    nameEn: 'Celebre Box 3 (French Roumi & Smoked Turkey)',
-    tagline: 'قطعة جاتوة مغلفة + ساندوتش فرنساوى وسط جبنة رومي + ساندوتش فرنساوى وسط تركي مدخن + عصير بخيرة وشوكة ومنديل',
+    id: 'pkg-sale-03',
+    saleCode: 'Sale - 03',
+    name: 'وجبة Sale - 03 (60 جنيه)',
+    nameEn: 'Celebre Box Sale-03 (French Roumi & Smoked Turkey)',
+    tagline: 'قطعة جاتوه مغلفة + سندوتش فرنساوى وسط جبنة رومي + سندوتش فرنساوى وسط تركي مدخن + عصير بخيرة وشوكة ومناديل',
     category: 'engagement_henna',
     pricePerBox: 60,
     originalPrice: 70,
     minOrder: 25,
     image: meal3BoxImg,
-    badge: '60 جنيه 🥪 تركي ورومي فرنسي',
+    badge: 'Sale - 03 🥪 60 ج',
     isBestseller: false,
     isLuxury: false,
     recommendedFor: ['حفلات الخطوبة وليالي الحنة', 'كتب الكتاب بالقاعات والمساجد', 'اجتماعات ومؤتمرات الشركات'],
-    description: 'تشكيلة فرنسية متوازنة تجمع بين ساندوتش فرنساوى وسط جبنة رومي وساندوتش فرنساوى وسط تركي مدخن، مع قطعة جاتوة مغلفة وعصير بخيرة وشوكة ومنديل.',
+    description: 'تشكيلة فرنسية متوازنة في عبوة Sale-03: قطعة جاتوه مغلفة، سندوتش فرنساوى وسط جبنة رومي، سندوتش فرنساوى وسط تركي مدخن، عصير بخيرة، وشوكة ومناديل.',
     sections: [
       {
-        title: 'الساندوتشات الفرنسية',
+        title: 'محتويات الوجبة بالعلبة',
         items: [
-          'سندوتش فرنساوى وسط جبنة رومي ممتازة',
-          'سندوتش فرنساوى وسط تركي مدخن فاخر'
-        ]
-      },
-      {
-        title: 'الحلو والمشروب',
-        items: [
-          'قطعة جاتوة مغلفة بطبقة كاكاو غنية',
-          'عصير بخيرة (جوافة / مانجو)'
-        ]
-      },
-      {
-        title: 'المرفقات والخدمة',
-        items: [
-          'شوكة ومنديل معقم مخصص',
-          'كارت تهنئة باسم المناسبة'
+          'قطعة جاتوه مغلفة فاخرة',
+          'سندوتش فرنساوى وسط جبنة رومي',
+          'سندوتش فرنساوى وسط تركي مدخن',
+          'عصير بخيرة + شوكة ومناديل'
         ]
       }
     ],
     packaging: {
-      type: 'علبة سيلبر باللون الأبيض والذهبي الملكي المعتمد',
+      type: 'علبة سيلبر الكرتون الفاخرة باللون الذهبي والنبيتي',
       ribbon: 'غلق ذاتي محكم بدون أشرطة (توزيع سريع ونظيف)',
       includesCard: true,
       includesCutlery: true
     }
   },
+
+  // --- Sale - 04 ---
   {
-    id: 'pkg-meal-4',
-    name: 'الوجبة الرابعة (65 جنيه)',
-    nameEn: 'Celebre Box 4 (Petit Pain Charcoal Kofta & Chicken Pane)',
-    tagline: 'قطعة جاتوة مغلفة + ساندوتش بتي بان كفتة مشوية ع الفحم + ساندوتش بتي بان فراخ بانية بلدي + عصير بخيرة وشوكة ومنديل',
+    id: 'pkg-sale-04',
+    saleCode: 'Sale - 04',
+    name: 'وجبة Sale - 04 (65 جنيه)',
+    nameEn: 'Celebre Box Sale-04 (Charcoal Kofta & Chicken Pane)',
+    tagline: 'قطعة جاتوه مغلفة + سندوتش بتي بان كفتة مشوية ع الفحم + سندوتش بتي بان فراخ بانية بلدي + عصير بخيرة وشوكة ومناديل',
     category: 'wedding',
     pricePerBox: 65,
     originalPrice: 75,
     minOrder: 25,
     image: meal4BoxImg,
-    badge: '65 جنيه 🔥 الأكثر مبيعاً',
+    badge: 'Sale - 04 🔥 الأكثر مبيعاً (65 ج)',
     isBestseller: true,
     isLuxury: false,
     recommendedFor: ['كتب الكتاب ومسجد الشرطة وقاعات القوات المسلحة', 'حفلات الزفاف والخطوبة', 'العزومات والمناسبات الاجتماعية'],
-    description: 'الوجبة الأكثر طلباً وإعجاباً لدى المعازيم! تجمع بين ساندوتش بتي بان كفتة مشوية على الفحم وساندوتش بتي بان فراخ بانية بلدي، مع قطعة جاتوة مغلفة وعصير بخيرة وشوكة ومنديل.',
+    description: 'الوجبة الأكثر طلباً وإعجاباً Sale-04: قطعة جاتوه مغلفة، سندوتش بتي بان كفتة مشوية ع الفحم، سندوتش بتي بان فراخ بانية بلدي، عصير بخيرة، وشوكة ومناديل.',
     sections: [
       {
-        title: 'الساندوتشات (ميكس فحم وبانية)',
+        title: 'محتويات الوجبة بالعلبة',
         items: [
-          'سندوتش بتي بان كفتة بلدي مشوية ع الفحم برائحة الشواء',
-          'سندوتش بتي بان فراخ بانية بلدي طازجة ومقرمشة'
-        ]
-      },
-      {
-        title: 'الحلو والمشروب',
-        items: [
-          'قطعة جاتوة مغلفة فاخرة',
-          'عصير بخيرة جوافة / مانجو طبيعي'
-        ]
-      },
-      {
-        title: 'المرفقات والخدمة',
-        items: [
-          'شوكة ومنديل معقم',
-          'صندوق سيلبر المقوى بختم المناسبات'
+          'قطعة جاتوه مغلفة فاخرة',
+          'سندوتش بتي بان كفتة مشوية ع الفحم',
+          'سندوتش بتي بان فراخ بانية بلدي',
+          'عصير بخيرة + شوكة ومناديل'
         ]
       }
     ],
     packaging: {
-      type: 'صندوق سيلبر الكرتوني المذهب بحفظ حراري متميز وغلق محكم',
+      type: 'علبة سيلبر الكرتون الفاخرة باللون الذهبي والنبيتي',
       ribbon: 'غلق ذاتي محكم بدون أشرطة (توزيع سريع ونظيف بالمساجد والقاعات)',
       includesCard: true,
       includesCutlery: true
     }
   },
+
+  // --- Sale - 05 ---
   {
-    id: 'pkg-meal-5',
-    name: 'عرض VIP - الوجبة الخامسة (80 جنيه)',
-    nameEn: 'Celebre Box 5 - VIP Charcoal Kofta & Chicken Pane French',
-    tagline: 'قطعة جاتوة مغلفة + ساندوتش فرنساوى وسط كفتة مشوية + ساندوتش فرنساوى وسط فراخ بانية + عصير بخيرة وشوكة ومنديل',
+    id: 'pkg-sale-05',
+    saleCode: 'Sale - 05',
+    name: 'وجبة Sale - 05 (80 جنيه)',
+    nameEn: 'Celebre Box Sale-05 (VIP Charcoal Kofta & Chicken Pane French)',
+    tagline: 'قطعة جاتوه مغلفة + سندوتش فرنساوى وسط كفتة مشوية + سندوتش فرنساوى وسط فراخ بانية + عصير بخيرة وشوكة ومناديل',
     category: 'vip_reception',
     pricePerBox: 80,
     originalPrice: 95,
     minOrder: 25,
     image: meal5VipBoxImg,
-    badge: '80 جنيه 👑 عرض VIP',
+    badge: 'Sale - 05 👑 عرض VIP (80 ج)',
     isBestseller: true,
     isLuxury: true,
     recommendedFor: ['حفلات الزفاف الكبرى والأوبن إير', 'استقبال كبار الزوار VIP', 'أفراح الفيلات والفنادق الفاخرة'],
-    description: 'عرض الـ VIP الاستثنائي من سيلبر: ساندوتشين فرنساوي وسط بالحجم الكبير (كفتة مشوية على الفحم + فراخ بانية مقرمشة)، مع قطعة جاتوة مغلفة وعصير بخيرة وشوكة ومنديل معقم، بتغليف فاخر يليق بأهم ضيوفك.',
+    description: 'عرض الـ VIP الاستثنائي Sale-05: قطعة جاتوه مغلفة، ساندوتش فرنساوى وسط كفتة مشوية، ساندوتش فرنساوى وسط فراخ بانية، عصير بخيرة وشوكة ومناديل داخل علبة سيلبر الكرتون الفاخرة باللون الذهبي والنبيتي.',
     sections: [
       {
-        title: 'ساندوتشات الـ VIP الفرنسية الكبيرة',
+        title: 'محتويات الوجبة بالعلبة',
         items: [
-          'سندوتش فرنساوى وسط كفتة مشوية على الفحم متبلة بالبهارات الخاصة',
-          'سندوتش فرنساوى وسط فراخ بانية بلدي كرسبي ذهبية'
-        ]
-      },
-      {
-        title: 'الحلو والضيافة والمشروب',
-        items: [
-          'قطعة جاتوة سيلبر الملكية المغلفة',
-          'عصير بخيرة جوافة عالي الجودة'
-        ]
-      },
-      {
-        title: 'مرفقات الـ VIP وتجهيز الحفل',
-        items: [
-          'شوكة ومنديل معقم فاخر',
-          'كارت إهداء سيلبر مطبوع بأسماء العروسين وتاريخ المناسبة',
-          'صندوق سيلبر VIP الفاخر مع رمز QR لتفاصيل الحفل'
+          'قطعة جاتوه مغلفة فاخرة',
+          'سندوتش فرنساوى وسط كفتة مشوية',
+          'سندوتش فرنساوى وسط فراخ بانية',
+          'عصير بخيرة + شوكة ومناديل'
         ]
       }
     ],
     packaging: {
-      type: 'صندوق سيلبر VIP الفاخر بطباعة ذهبية بارزة وغلق محكم',
-      ribbon: 'غلق ذاتي محكم بدون أشرطة (تغليف كرتوني مقوى مذهب محكم)',
+      type: 'علبة سيلبر الكرتون الفاخرة باللون الذهبي والنبيتي',
+      ribbon: 'غلق ذاتي محكم بدون أشرطة (توزيع مباشر سريع ونظيف)',
       includesCard: true,
       includesCutlery: true
     }
   },
+
+  // --- Sale - 06 ---
   {
-    id: 'pkg-custom-chocolate',
-    name: 'علبة شيكولاتة باسمك (40 قطعة)',
-    nameEn: 'Celebre 40-Piece Personalized Name Chocolate Box',
-    tagline: 'علبة فاخرة 40 قطعة باسم صاحب المناسبة | تطلب قبل موعد المناسبة بـ 5 أيام على الأقل',
-    category: 'sweets_hospitality',
-    pricePerBox: 800,
-    originalPrice: 850,
-    minOrder: 1,
-    image: chocolateBoxImg,
-    badge: '🍫 40 قطعة باسمك | 800 ج',
-    isBestseller: true,
-    isLuxury: true,
-    recommendedFor: ['توزيعات كتب الكتاب والأفراح الفاخرة', 'هدايا وتذكارات المعازيم الراقية', 'حفلات الخطوبة والسبوع والمناسبات الخاصة', 'هدية فاخرة خاصة للعروسين وأصحاب الحفل'],
-    description: 'علبة شيكولاتة فاخرة مكونة من 40 قطعة مخصصة بالكامل باسم صاحب المناسبة أو أسماء العروسين: شيكولاتة سيلبر الفاخرة بقوالب ملكية وتشكيلة حشوات ونكهات غنية مع طباعة الاسم وتاريخ المناسبة. تطلب قبل موعد المناسبة بـ 5 أيام على الأقل.',
+    id: 'pkg-sale-06',
+    saleCode: 'Sale - 06',
+    name: 'وجبة Sale - 06 (35 جنيه)',
+    nameEn: 'Celebre Box Sale-06 (Gateau & Juice)',
+    tagline: 'قطعة جاتوه مغلفة + عصير بخيرة + شوكة ومناديل',
+    category: 'katb_ketab',
+    pricePerBox: 35,
+    originalPrice: 42,
+    minOrder: 25,
+    image: meal6BoxImg,
+    badge: 'Sale - 06 ☕ 35 ج',
+    isBestseller: false,
+    isLuxury: false,
+    recommendedFor: ['الضيافة السريعة والخفيفة بالمساجد', 'حفلات التكريم والندوات', 'عقد القران الخفيف'],
+    description: 'وجبة ضيافة خفيفة وأنيقة Sale-06: قطعة جاتوه مغلفة غنية بالكاكاو أو الفانيليا، مع عصير بخيرة طازج وشوكة ومناديل معقمة، بسعر اقتصادي ممتاز 35 ج.',
     sections: [
       {
-        title: 'محتويات علبة الشيكولاتة المخصصة (40 قطعة)',
+        title: 'محتويات الوجبة بالعلبة',
         items: [
-          '40 قطعة شيكولاتة فاخرة بطباعة مخصصة باسم صاحب المناسبة أو العروسين',
-          'تشكيلة نكهات وحشوات غنية (كراميل مملح، بندق مكرمل، لوتس، دارك وشوكولاتة بيضاء مقرمشة)',
-          'قوالب مقسمة ومذهبة تحافظ على بريق وجودة كل قطعة وتمنحها مظهراً ملكياً'
-        ]
-      },
-      {
-        title: 'التخصيص وموعد الطلب المسبق',
-        items: [
-          'طباعة اسم صاحب المناسبة أو العروسين وتاريخ الاحتفال على العلبة والقطع مجاناً',
-          'علبة شوكولاتة سيلبر المذهبة الرسمية الفاخرة مع كارت إهداء خاص جاهزة للتقديم المباشر',
-          '⚠️ تنبيه هام: تطلب العلبة قبل موعد المناسبة بـ 5 أيام على الأقل لضمان دقة التجهيز والطباعة'
+          'قطعة جاتوه مغلفة فاخرة',
+          'عصير بخيرة + شوكة ومناديل'
         ]
       }
     ],
     packaging: {
-      type: 'علبة شوكولاتة سيلبر المذهبة الفاخرة 40 قطعة بتقسيم داخلي ملكي وكارت إهداء',
-      ribbon: 'علبة صلبة فاخرة مع كارت إهداء وطباعة مخصصة للاسم',
+      type: 'علبة سيلبر الكرتون الفاخرة باللون الذهبي والنبيتي',
+      ribbon: 'غلق ذاتي محكم بدون أشرطة (توزيع سريع ونظيف)',
       includesCard: true,
-      includesCutlery: false
+      includesCutlery: true
     }
   },
+
+  // --- Sale - 07 ---
+  {
+    id: 'pkg-sale-07',
+    saleCode: 'Sale - 07',
+    name: 'وجبة Sale - 07 (50 جنيه)',
+    nameEn: 'Celebre Box Sale-07 (Gateau & 2 Oriental Sweets)',
+    tagline: 'قطعة جاتوه مغلفة + 2 قطعة حلويات شرقي + عصير بخيرة + شوكة ومناديل',
+    category: 'engagement_henna',
+    pricePerBox: 50,
+    originalPrice: 60,
+    minOrder: 25,
+    image: meal7BoxImg,
+    badge: 'Sale - 07 🍯 50 ج',
+    isBestseller: false,
+    isLuxury: false,
+    recommendedFor: ['ليالي الحنة والخطوبات', 'ضيافة عقد القران الحلوة', 'احتفالات العائلة والسبوع'],
+    description: 'وجبة الحلويات المميزة Sale-07: قطعة جاتوه مغلفة فاخرة مع قطعتين من الحلويات الشرقية اللذيذة بالسمن البلدي وعصير بخيرة وشوكة ومناديل.',
+    sections: [
+      {
+        title: 'محتويات الوجبة بالعلبة',
+        items: [
+          'قطعة جاتوه مغلفة فاخرة',
+          '2 قطعة حلويات شرقي',
+          'عصير بخيرة + شوكة ومناديل'
+        ]
+      }
+    ],
+    packaging: {
+      type: 'علبة سيلبر الكرتون الفاخرة باللون الذهبي والنبيتي',
+      ribbon: 'غلق ذاتي محكم بدون أشرطة (توزيع مباشر سريع ونظيف)',
+      includesCard: true,
+      includesCutlery: true
+    }
+  },
+
+  // --- Sale - 08 ---
+  {
+    id: 'pkg-sale-08',
+    saleCode: 'Sale - 08',
+    name: 'وجبة Sale - 08 (45 جنيه)',
+    nameEn: 'Celebre Box Sale-08 (Gateau, 2 Mini Pizza, 2 Baton Sale)',
+    tagline: 'قطعة جاتوه مغلفة + 2 ق ميني بيتزا + 2 باتون سالية + عصير بخيرة + شوكة ومنديل',
+    category: 'katb_ketab',
+    pricePerBox: 45,
+    originalPrice: 55,
+    minOrder: 25,
+    image: meal8BoxImg,
+    badge: 'Sale - 08 🍕 45 ج',
+    isBestseller: false,
+    isLuxury: false,
+    recommendedFor: ['كتب الكتاب والمساجد', 'حفلات التخرج والاستقبال', 'أعياد الميلاد والمناسبات'],
+    description: 'تشكيلة المخبوزات والجاتوه الشهية Sale-08: قطعة جاتوه مغلفة، قطعتين ميني بيتزا غنية بالجبن، قطعتين باتون ساليه مقرمش بالكمون، وعصير بخيرة وشوكة ومنديل.',
+    sections: [
+      {
+        title: 'محتويات الوجبة بالعلبة',
+        items: [
+          'قطعة جاتوه مغلفة فاخرة',
+          '2 ق ميني بيتزا طازجة',
+          '2 باتون سالية مقرمش',
+          'عصير بخيرة + شوكة ومنديل'
+        ]
+      }
+    ],
+    packaging: {
+      type: 'علبة سيلبر الكرتون الفاخرة باللون الذهبي والنبيتي',
+      ribbon: 'غلق ذاتي محكم بدون أشرطة (توزيع سريع ونظيف)',
+      includesCard: true,
+      includesCutlery: true
+    }
+  },
+
+  // --- Sale - 09 ---
+  {
+    id: 'pkg-sale-09',
+    saleCode: 'Sale - 09',
+    name: 'وجبة Sale - 09 (50 جنيه)',
+    nameEn: 'Celebre Box Sale-09 (Gateau, 2 Mini Pizza, Oriental Sweet)',
+    tagline: 'قطعة جاتوه مغلفة + 2 ق ميني بيتزا + قطعة حلوي شرقي + عصير بخيرة + شوكة ومنديل',
+    category: 'engagement_henna',
+    pricePerBox: 50,
+    originalPrice: 60,
+    minOrder: 25,
+    image: meal9BoxImg,
+    badge: 'Sale - 09 🍕 50 ج',
+    isBestseller: false,
+    isLuxury: false,
+    recommendedFor: ['حفلات الخطوبة وعقد القران', 'المناسبات العائلية والأفراح', 'الضيافة المتنوعة'],
+    description: 'مزيج الحادق والحلو المتكامل Sale-09: قطعة جاتوه مغلفة، قطعتين ميني بيتزا، قطعة حلوي شرقي بالسمن البلدي، وعصير بخيرة وشوكة ومنديل معقم.',
+    sections: [
+      {
+        title: 'محتويات الوجبة بالعلبة',
+        items: [
+          'قطعة جاتوه مغلفة فاخرة',
+          '2 ق ميني بيتزا شهية',
+          'قطعة حلوي شرقي فاخرة',
+          'عصير بخيرة + شوكة ومنديل'
+        ]
+      }
+    ],
+    packaging: {
+      type: 'علبة سيلبر الكرتون الفاخرة باللون الذهبي والنبيتي',
+      ribbon: 'غلق ذاتي محكم بدون أشرطة (توزيع سريع ونظيف)',
+      includesCard: true,
+      includesCutlery: true
+    }
+  },
+
+  // --- Sale - 10 ---
+  {
+    id: 'pkg-sale-10',
+    saleCode: 'Sale - 10',
+    name: 'وجبة Sale - 10 (45 جنيه)',
+    nameEn: 'Celebre Box Sale-10 (3 Petit Pain: Kofta, Roumi, Turkey/Pastrami)',
+    tagline: 'سندوتش بتي بان كفتة + سندوتش بتي بان جبنة رومي + سندوتش بتي بان تركي مدخن / بسطرمة + عصير بخيرة وشوكة ومناديل',
+    category: 'wedding',
+    pricePerBox: 45,
+    originalPrice: 55,
+    minOrder: 25,
+    image: meal10BoxImg,
+    badge: 'Sale - 10 🥪 3 ساندوتشات (45 ج)',
+    isBestseller: true,
+    isLuxury: false,
+    recommendedFor: ['محبي الساندوتشات الحادقة', 'كتب الكتاب والمساجد', 'حفلات الشباب والرحلات'],
+    description: 'وجبة الساندوتشات الغنية Sale-10: 3 ساندوتشات بتي بان مشبعة (سندوتش بتي بان كفتة مشوية، سندوتش بتي بان جبنة رومي، سندوتش بتي بان تركي مدخن أو بسطرمة)، مع عصير بخيرة وشوكة ومناديل.',
+    sections: [
+      {
+        title: 'محتويات الوجبة بالعلبة',
+        items: [
+          'سندوتش بتي بان كفتة مشوية',
+          'سندوتش بتي بان جبنة رومي',
+          'سندوتش بتي بان تركي مدخن / بسطرمة',
+          'عصير بخيرة + شوكة ومناديل'
+        ]
+      }
+    ],
+    packaging: {
+      type: 'علبة سيلبر الكرتون الفاخرة باللون الذهبي والنبيتي',
+      ribbon: 'غلق ذاتي محكم بدون أشرطة (توزيع سريع ونظيف)',
+      includesCard: true,
+      includesCutlery: true
+    }
+  },
+
+  // --- Sale - 11 ---
+  {
+    id: 'pkg-sale-11',
+    saleCode: 'Sale - 11',
+    name: 'وجبة Sale - 11 (39 جنيه)',
+    nameEn: 'Celebre Box Sale-11 (Gateau, Petit Pain, Baton Sale, Mini Pizza)',
+    tagline: 'قطعة جاتوه مغلفة + سندوتش بتي بان جبنة رومي / فيتا / بسطرمة + ق باتون سالية + ق ميني بيتزا + عصير بخيرة وشوكة ومناديل',
+    category: 'katb_ketab',
+    pricePerBox: 39,
+    originalPrice: 48,
+    minOrder: 25,
+    image: meal11BoxImg,
+    badge: 'Sale - 11 ⭐ 39 ج',
+    isBestseller: false,
+    isLuxury: false,
+    recommendedFor: ['كتب الكتاب بالمساجد', 'حفلات التخرج والمؤتمرات', 'توزيعات المناسبات الاقتصادية الراقية'],
+    description: 'تشكيلة متميزة بسعر مذهل Sale-11: قطعة جاتوه مغلفة، سندوتش بتي بان (جبنة رومي / فيتا / بسطرمة)، قطعة باتون ساليه، قطعة ميني بيتزا، عصير بخيرة وشوكة ومناديل.',
+    sections: [
+      {
+        title: 'محتويات الوجبة بالعلبة',
+        items: [
+          'قطعة جاتوه مغلفة فاخرة',
+          'سندوتش بتي بان جبنة رومي / فيتا / بسطرمة',
+          'ق باتون سالية + ق ميني بيتزا',
+          'عصير بخيرة + شوكة ومناديل'
+        ]
+      }
+    ],
+    packaging: {
+      type: 'علبة سيلبر الكرتون الفاخرة باللون الذهبي والنبيتي',
+      ribbon: 'غلق ذاتي محكم بدون أشرطة (توزيع سريع ونظيف)',
+      includesCard: true,
+      includesCutlery: true
+    }
+  },
+
+  // --- Sale - 12 ---
+  {
+    id: 'pkg-sale-12',
+    saleCode: 'Sale - 12',
+    name: 'وجبة Sale - 12 (44 جنيه)',
+    nameEn: 'Celebre Box Sale-12 (Gateau & Flavored Butter Pate)',
+    tagline: 'قطعة جاتوه مغلفة + باتية زبدة نكهات مختلفة + عصير بخيرة + شوكة ومناديل',
+    category: 'katb_ketab',
+    pricePerBox: 44,
+    originalPrice: 52,
+    minOrder: 25,
+    image: meal12BoxImg,
+    badge: 'Sale - 12 🥐 44 ج',
+    isBestseller: false,
+    isLuxury: false,
+    recommendedFor: ['الصباحيات وحفلات كتب الكتاب', 'استقبالات الصالونات والمعارض', 'المناسبات العائلية'],
+    description: 'وجبة المخبوزات والجاتوه الفرنسية Sale-12: قطعة جاتوه مغلفة، باتيه بالزبدة الطبيعية بنكهات مختلفة غنية، عصير بخيرة، وشوكة ومناديل.',
+    sections: [
+      {
+        title: 'محتويات الوجبة بالعلبة',
+        items: [
+          'قطعة جاتوه مغلفة فاخرة',
+          'باتية زبدة نكهات مختلفة',
+          'عصير بخيرة + شوكة ومناديل'
+        ]
+      }
+    ],
+    packaging: {
+      type: 'علبة سيلبر الكرتون الفاخرة باللون الذهبي والنبيتي',
+      ribbon: 'غلق ذاتي محكم بدون أشرطة (توزيع سريع ونظيف)',
+      includesCard: true,
+      includesCutlery: true
+    }
+  },
+
   // Backwards compatibility mappings for older ID references
   {
+    id: 'pkg-meal-1',
+    saleCode: 'Sale - 01',
+    name: 'وجبة Sale - 01 (50 جنيه)',
+    nameEn: 'Celebre Box Sale-01',
+    tagline: 'قطعة جاتوه مغلفة + سندوتش بتي بان جبنة رومي + سندوتش بتي بان لانشون كوردن بيف + عصير بخيرة وشوكة ومناديل',
+    category: 'katb_ketab',
+    pricePerBox: 50,
+    originalPrice: 60,
+    minOrder: 25,
+    image: meal1BoxImg,
+    badge: 'Sale - 01 ✨ 50 ج',
+    sections: [
+      {
+        title: 'المحتويات',
+        items: ['قطعة جاتوه مغلفة', 'سندوتش بتي بان جبنة رومي', 'سندوتش بتي بان لانشون كوردن بيف', 'عصير بخيرة + شوكة ومناديل']
+      }
+    ],
+    packaging: {
+      type: 'علبة سيلبر الكرتون الفاخرة باللون الذهبي والنبيتي',
+      ribbon: 'غلق ذاتي محكم بدون أشرطة (توزيع مباشر سريع ونظيف)',
+      includesCard: true,
+      includesCutlery: true
+    },
+    recommendedFor: ['كتب الكتاب بالمساجد'],
+    description: 'وجبة سيلبر الرسمية Sale-01'
+  },
+  {
+    id: 'pkg-meal-2',
+    saleCode: 'Sale - 02',
+    name: 'وجبة Sale - 02 (55 جنيه)',
+    nameEn: 'Celebre Box Sale-02',
+    tagline: 'قطعة جاتوه مغلفة + سندوتش فرنساوى وسط فراخ بانية بلدي + عصير بخيرة وشوكة ومناديل',
+    category: 'katb_ketab',
+    pricePerBox: 55,
+    originalPrice: 65,
+    minOrder: 25,
+    image: meal2BoxImg,
+    badge: 'Sale - 02 🍗 55 ج',
+    sections: [
+      {
+        title: 'المحتويات',
+        items: ['قطعة جاتوه مغلفة', 'سندوتش فرنساوى وسط فراخ بانية بلدي', 'عصير بخيرة + شوكة ومناديل']
+      }
+    ],
+    packaging: {
+      type: 'علبة سيلبر الكرتون الفاخرة باللون الذهبي والنبيتي',
+      ribbon: 'غلق ذاتي محكم بدون أشرطة',
+      includesCard: true,
+      includesCutlery: true
+    },
+    recommendedFor: ['كتب الكتاب والخطوبة'],
+    description: 'وجبة سيلبر الرسمية Sale-02'
+  },
+  {
+    id: 'pkg-meal-3',
+    saleCode: 'Sale - 03',
+    name: 'وجبة Sale - 03 (60 جنيه)',
+    nameEn: 'Celebre Box Sale-03',
+    tagline: 'قطعة جاتوه مغلفة + سندوتش فرنساوى وسط جبنة رومي + سندوتش فرنساوى وسط تركي مدخن + عصير بخيرة وشوكة ومناديل',
+    category: 'engagement_henna',
+    pricePerBox: 60,
+    originalPrice: 70,
+    minOrder: 25,
+    image: meal3BoxImg,
+    badge: 'Sale - 03 🥪 60 ج',
+    sections: [
+      {
+        title: 'المحتويات',
+        items: ['قطعة جاتوه مغلفة', 'سندوتش فرنساوى وسط جبنة رومي', 'سندوتش فرنساوى وسط تركي مدخن', 'عصير بخيرة + شوكة ومناديل']
+      }
+    ],
+    packaging: {
+      type: 'علبة سيلبر الكرتون الفاخرة باللون الذهبي والنبيتي',
+      ribbon: 'غلق ذاتي محكم بدون أشرطة',
+      includesCard: true,
+      includesCutlery: true
+    },
+    recommendedFor: ['الخطوبة والحنة'],
+    description: 'وجبة سيلبر الرسمية Sale-03'
+  },
+  {
+    id: 'pkg-meal-4',
+    saleCode: 'Sale - 04',
+    name: 'وجبة Sale - 04 (65 جنيه)',
+    nameEn: 'Celebre Box Sale-04',
+    tagline: 'قطعة جاتوه مغلفة + سندوتش بتي بان كفتة مشوية ع الفحم + سندوتش بتي بان فراخ بانية بلدي + عصير بخيرة وشوكة ومناديل',
+    category: 'wedding',
+    pricePerBox: 65,
+    originalPrice: 75,
+    minOrder: 25,
+    image: meal4BoxImg,
+    badge: 'Sale - 04 🔥 الأكثر مبيعاً (65 ج)',
+    isBestseller: true,
+    sections: [
+      {
+        title: 'المحتويات',
+        items: ['قطعة جاتوه مغلفة', 'سندوتش بتي بان كفتة مشوية ع الفحم', 'سندوتش بتي بان فراخ بانية بلدي', 'عصير بخيرة + شوكة ومناديل']
+      }
+    ],
+    packaging: {
+      type: 'علبة سيلبر الكرتون الفاخرة باللون الذهبي والنبيتي',
+      ribbon: 'غلق ذاتي محكم بدون أشرطة',
+      includesCard: true,
+      includesCutlery: true
+    },
+    recommendedFor: ['كتب الكتاب والأفراح'],
+    description: 'وجبة سيلبر الرسمية Sale-04'
+  },
+  {
+    id: 'pkg-meal-5',
+    saleCode: 'Sale - 05',
+    name: 'وجبة Sale - 05 (80 جنيه)',
+    nameEn: 'Celebre Box Sale-05',
+    tagline: 'قطعة جاتوه مغلفة + سندوتش فرنساوى وسط كفتة مشوية + سندوتش فرنساوى وسط فراخ بانية + عصير بخيرة وشوكة ومناديل',
+    category: 'vip_reception',
+    pricePerBox: 80,
+    originalPrice: 95,
+    minOrder: 25,
+    image: meal5VipBoxImg,
+    badge: 'Sale - 05 👑 عرض VIP (80 ج)',
+    isBestseller: true,
+    isLuxury: true,
+    sections: [
+      {
+        title: 'المحتويات',
+        items: ['قطعة جاتوه مغلفة', 'سندوتش فرنساوى وسط كفتة مشوية', 'سندوتش فرنساوى وسط فراخ بانية', 'عصير بخيرة + شوكة ومناديل']
+      }
+    ],
+    packaging: {
+      type: 'علبة سيلبر الكرتون الفاخرة باللون الذهبي والنبيتي',
+      ribbon: 'غلق ذاتي محكم بدون أشرطة',
+      includesCard: true,
+      includesCutlery: true
+    },
+    recommendedFor: ['أفراح VIP والفنادق'],
+    description: 'وجبة سيلبر الرسمية Sale-05'
+  },
+  {
     id: 'pkg-katb-ketab-royal',
-    name: 'باقة كتب الكتاب الملكية (الوجبة الرابعة ميكس فحم وبانية)',
-    nameEn: 'Royal Katb Ketab Box',
+    saleCode: 'Sale - 04',
+    name: 'باقة كتب الكتاب الملكية (Sale - 04 ميكس فحم وبانية)',
+    nameEn: 'Royal Katb Ketab Box (Sale-04)',
     tagline: 'الخيار الأكثر طلباً لمساجد وقاعات عقد القران في بني سويف وشرق النيل',
     category: 'katb_ketab',
     pricePerBox: 65,
     originalPrice: 75,
     minOrder: 25,
     image: meal4BoxImg,
-    badge: 'الأكثر مبيعاً ✨',
+    badge: 'Sale - 04 🔥 الأكثر مبيعاً (65 ج)',
     isBestseller: true,
     isLuxury: false,
     recommendedFor: ['كتب كتاب بالمساجد والقاعات', 'حفلات عقد القران العائلية', 'مراسم الخطوبة الرسمية'],
-    description: 'ساندوتش بتي بان كفتة مشوية ع الفحم + ساندوتش بتي بان فراخ بانية بلدي + قطعة جاتوة مغلفة + عصير بخيرة وشوكة ومنديل.',
+    description: 'ساندوتش بتي بان كفتة مشوية ع الفحم + ساندوتش بتي بان فراخ بانية بلدي + قطعة جاتوه مغلفة + عصير بخيرة وشوكة ومناديل.',
     sections: [
       {
-        title: 'الساندوتشات',
+        title: 'محتويات العلبة',
         items: [
+          'قطعة جاتوه مغلفة',
           'سندوتش بتي بان كفتة مشوية ع الفحم',
-          'سندوتش بتي بان فراخ بانية بلدي'
-        ]
-      },
-      {
-        title: 'الحلو والمشروب',
-        items: [
-          'قطعة جاتوة مغلفة',
-          'عصير بخيرة وشوكة ومنديل'
+          'سندوتش بتي بان فراخ بانية بلدي',
+          'عصير بخيرة + شوكة ومناديل'
         ]
       }
     ],
     packaging: {
-      type: 'صندوق سيلبر الكرتوني المذهب الفاخر المعتمد لكتب الكتاب',
+      type: 'علبة سيلبر الكرتون الفاخرة باللون الذهبي والنبيتي',
       ribbon: 'غلق ذاتي محكم بدون أشرطة لسرعة وسهولة التوزيع',
       includesCard: true,
       includesCutlery: true
@@ -323,37 +625,33 @@ export const CATERING_PACKAGES: CateringPackage[] = [
   },
   {
     id: 'pkg-diamond-wedding',
-    name: 'باقة الزفاف والخطوبة الفاخرة (عرض VIP)',
-    nameEn: 'Diamond Wedding VIP Box',
-    tagline: 'تجربة طعام فندقية: ساندوتشين فرنساوي كفتة مشوية وبانية مع جاتوة وعصير وتغليف VIP',
+    saleCode: 'Sale - 05',
+    name: 'باقة الزفاف والخطوبة الفاخرة (عرض VIP - Sale - 05)',
+    nameEn: 'Diamond Wedding VIP Box (Sale-05)',
+    tagline: 'تجربة طعام فندقية: ساندوتشين فرنساوي كفتة مشوية وبانية مع جاتوه وعصير وتغليف VIP',
     category: 'wedding',
     pricePerBox: 80,
     originalPrice: 95,
     minOrder: 25,
     image: meal5VipBoxImg,
-    badge: 'باقة الـ VIP ⭐',
+    badge: 'Sale - 05 👑 باقة الـ VIP (80 ج)',
     isLuxury: true,
     isBestseller: true,
     recommendedFor: ['حفلات الزفاف الكبرى', 'أفراح الفيلات والأوبن إير', 'حفلات الخطوبة الفاخرة'],
-    description: 'ساندوتش فرنساوى وسط كفتة مشوية ع الفحم + ساندوتش فرنساوى وسط فراخ بانية + قطعة جاتوة مغلفة + عصير بخيرة وشوكة ومنديل وتغليف ملوكي.',
+    description: 'ساندوتش فرنساوى وسط كفتة مشوية ع الفحم + ساندوتش فرنساوى وسط فراخ بانية + قطعة جاتوه مغلفة + عصير بخيرة وشوكة ومناديل وتغليف ملوكي.',
     sections: [
       {
-        title: 'الساندوتشات الرئيسية',
+        title: 'محتويات العلبة VIP',
         items: [
+          'قطعة جاتوه مغلفة فاخرة',
           'سندوتش فرنساوى وسط كفتة مشوية',
-          'سندوتش فرنساوى وسط فراخ بانية'
-        ]
-      },
-      {
-        title: 'الحلو والمشروب',
-        items: [
-          'قطعة جاتوة مغلفة فاخرة',
-          'عصير بخيرة + شوكة ومنديل'
+          'سندوتش فرنساوى وسط فراخ بانية',
+          'عصير بخيرة + شوكة ومناديل'
         ]
       }
     ],
     packaging: {
-      type: 'علبة سيلبر الماسية VIP مع طباعة ذهبية بارزة',
+      type: 'علبة سيلبر الكرتون الفاخرة باللون الذهبي والنبيتي',
       ribbon: 'غلق ذاتي محكم فاخر بدون أشرطة',
       includesCard: true,
       includesCutlery: true
@@ -498,6 +796,51 @@ export const MENU_ITEMS_CUSTOMIZER: MenuItemOption[] = [
     description: 'كبيبة برغل مقرمشة محشوة باللحمة المفرومة والصنوبر'
   },
   {
+    id: 'item-mini-pizza-official',
+    name: '2 ق ميني بيتزا طازجة',
+    category: 'savory_pastry',
+    categoryLabel: 'المعجنات والمخبوزات السواريه',
+    priceDelta: 12,
+    description: 'قطعتين ميني بيتزا طازجة بالجبن والصلصة والزيتون',
+    badge: 'المنيو الرسمي ⭐'
+  },
+  {
+    id: 'item-baton-sale-official',
+    name: '2 باتون سالية مقرمش بالكمون والسمسم',
+    category: 'savory_pastry',
+    categoryLabel: 'المعجنات والمخبوزات السواريه',
+    priceDelta: 8,
+    description: 'أصابع باتون ساليه هشة ومقرمشة ومتبلة بحبات الكمون والسمسم',
+    badge: 'المنيو الرسمي ⭐'
+  },
+  {
+    id: 'item-butter-pate-official',
+    name: 'باتية زبدة نكهات مختلفة (طازج)',
+    category: 'savory_pastry',
+    categoryLabel: 'المعجنات والمخبوزات السواريه',
+    priceDelta: 12,
+    description: 'مخبوزات باتيه بالزبدة الطبيعية بنكهات الجبن الرومي أو الفيتا الغنية',
+    badge: 'المنيو الرسمي ⭐'
+  },
+  {
+    id: 'item-oriental-sweets-official',
+    name: 'قطعتين حلويات شرقي فاخرة بالسمن البلدي',
+    category: 'french_pastry',
+    categoryLabel: 'الحلويات الشرقية والغربية',
+    priceDelta: 14,
+    description: 'تشكيلة شرقية فاخرة (بسبوسة بالمكسرات، كنافة أساور)',
+    badge: 'المنيو الرسمي ⭐'
+  },
+  {
+    id: 'item-petit-turkey-pastrami',
+    name: 'سندوتش بتي بان تركي مدخن / بسطرمة',
+    category: 'savory_pastry',
+    categoryLabel: 'المعجنات وساندوتشات الجبن',
+    priceDelta: 14,
+    description: 'سندوتش بتي بان طازج محشو بشرائح تركي مدخن أو بسطرمة بلدي',
+    badge: 'المنيو الرسمي ⭐'
+  },
+  {
     id: 'item-mini-pizza',
     name: 'ميني بيتزا إيطالية بالمارجريتا والمشروم',
     category: 'savory_pastry',
@@ -540,15 +883,6 @@ export const MENU_ITEMS_CUSTOMIZER: MenuItemOption[] = [
     priceDelta: 14,
     description: 'قطعة جاتوة شوكولاتة أو فانيليا بطبقات غنية مغلفة فردياً ومعقمة',
     badge: 'المنيو الرسمي ⭐'
-  },
-  {
-    id: 'item-custom-chocolate',
-    name: 'شيكولاتة مخصصة باسمك وتاريخ المناسبة',
-    category: 'french_pastry',
-    categoryLabel: 'الجاتوة والحلويات المخصصة',
-    priceDelta: 18,
-    description: 'قطع شيكولاتة فاخرة مطبوعة ومخصصة باسم صاحب المناسبة وتاريخ الحفل',
-    badge: 'شيكولاتة باسمك 🍫'
   },
   {
     id: 'item-mini-eclair',
@@ -622,30 +956,12 @@ export const MENU_ITEMS_CUSTOMIZER: MenuItemOption[] = [
 export const PACKAGING_OPTIONS: PackagingOption[] = [
   {
     id: 'pack-official-gold',
-    name: 'صندوق سيلبر الكرتوني المذهب المعتمد',
-    description: 'الكرتون المقوى الأبيض والمذهب الرسمي لكافة الوجبات، تقسيم داخلي صحي وغلق محكم بدون أشرطة لسرعة التوزيع والنظافة',
+    name: 'علبة سيلبر الكرتون الفاخرة باللون الذهبي والنبيتي',
+    description: 'علبة سيلبر الكرتون الفاخرة باللون الذهبي والنبيتي مع غلق محكم بدون أشرطة لسرعة التوزيع والنظافة لجميع الوجبات',
     priceExtra: 0,
-    color: '#FAF7F2',
-    texture: 'كرتون مقوى مذهب',
+    color: '#5C1027',
+    texture: 'كرتون مقوى مذهب ونبيتي',
     ribbonColor: 'بدون أشرطة (قفل محكم)'
-  },
-  {
-    id: 'pack-black-gold',
-    name: 'صندوق سيلبر الملكي المذهب الأسود VIP',
-    description: 'كرتون صلب مقوى باللون الأسود الملكي مع طباعة شعار سيلبر برقائق الذهب البارزة',
-    priceExtra: 15,
-    color: '#1C1B1F',
-    texture: 'كرتون مقوى مذهب',
-    ribbonColor: 'بدون أشرطة (قفل محكم)'
-  },
-  {
-    id: 'pack-chocolate-box',
-    name: 'علبة شوكولاتة سيلبر المذهبة الفاخرة (40 قطعة)',
-    description: 'علبة كرتونية صلبة مذهبة مع تقسيم داخلي ملكي وكارت إهداء وطباعة الاسم',
-    priceExtra: 0,
-    color: '#FAF5EB',
-    texture: 'علبة مذهبة صلبة',
-    ribbonColor: 'بدون أشرطة (كارت إهداء)'
   }
 ];
 
@@ -690,7 +1006,7 @@ export const TESTIMONIALS: Testimonial[] = [
     occasion: 'سبوع وعقيقة (75 عبوة)',
     eventDate: 'يوليو 2026',
     rating: 5,
-    comment: 'بوكس السبوع كان يجنن! الكوكيز والشيكولاتة باسم البيبي كانت تحفة. الناس كلها سألتني عن سيلبر والرقم المطبوع على العلبة. تسلم إيديكم.',
+    comment: 'بوكس الضيافة كان يجنن! المعجنات والحلويات كانت تحفة وطازجة جداً. الناس كلها سألتني عن سيلبر والرقم المطبوع على العلبة. تسلم إيديكم.',
     verified: true,
     avatarText: 'مص'
   }
@@ -709,7 +1025,7 @@ export const FAQS: FAQItem[] = [
   },
   {
     question: 'كيف يتم تقديم وتغليف العبوات؟',
-    answer: 'تأتي عبوات سيلبر بتصميمها الكرتوني المذهب الفاخر المعتمد لكافة الوجبات، وبأعلى معايير الأناقة والنظافة المحكمة الجاهزة للتقديم المباشر لضيوفكم، مع غلق ذاتي محكم وبدون أشرطة حرصاً على التقديم السريع والعملي والمنظم والمعقم داخل المساجد والقاعات.',
+    answer: 'تأتي وجبات سيلبر داخل علبة سيلبر الكرتون الفاخرة باللون الذهبي والنبيتي، وبأعلى معايير الأناقة والنظافة المحكمة الجاهزة للتقديم المباشر لضيوفكم، مع غلق ذاتي محكم وبدون أشرطة حرصاً على التقديم السريع والعملي والمنظم والمعقم داخل المساجد والقاعات.',
     category: 'التخصيص والتغليف'
   },
   {

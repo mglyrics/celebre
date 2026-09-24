@@ -40,26 +40,26 @@ export const Hero: React.FC<HeroProps> = ({
             {/* Top Occasions Tag */}
             <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#F3E7D3] border border-[#C89B3C]/50 text-[#5C1027] text-xs sm:text-sm font-semibold mb-5 shadow-xs">
               <Sparkles className="w-3.5 h-3.5 text-[#C89B3C] animate-spin" style={{ animationDuration: '8s' }} />
-              <span>منيو وجبات كاترنج فاخرة لجميع المناسبات</span>
+              <span>وجبات كاتريتج فاخرة لجميع المناسبات</span>
               <span className="w-1.5 h-1.5 rounded-full bg-[#C89B3C]" />
               <span className="font-['Playfair_Display'] font-bold text-[#8C6517]">Celebre</span>
             </div>
 
             {/* Headline */}
             <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-[#2C0A15] leading-[1.3] tracking-tight mb-4">
-              أكل مميز لكل مناسبة ♡{' '}
+              كل مناسبة ... أحلى مع سيليبري ♡{' '}
               <span className="text-[#721832] inline-block relative">
                 وجبات كاترنج فاخرة
                 <svg className="absolute -bottom-2 right-0 w-full h-3 text-[#D4AF37]" viewBox="0 0 100 20" preserveAspectRatio="none">
                   <path d="M0 15 Q50 0 100 15" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
                 </svg>
               </span>{' '}
-              تبدأ من 50 جنيه فقط
+              تبدأ من 35 جنيه فقط
             </h1>
 
             {/* Subtext */}
             <p className="text-base sm:text-lg text-[#554A41] leading-relaxed max-w-2xl mb-8">
-              في <strong className="text-[#5C1027] font-semibold">سيلبر (Celebre)</strong>، لأن مناسبتك تستحق الأفضل! نقدم لكم 5 وجبات ضيافة متكاملة ومعدّة طازجة: ساندوتشات كفتة مشوية ع الفحم، فراخ بانية بلدي، بتي بان وفرنساوي، مع قطعة جاتوة مغلفة وعصير بخيرة وشوكة ومنديل معقم وتغليف شيك يُبهر ضيوفك.
+              في <strong className="text-[#5C1027] font-semibold">سيلبر (Celebre)</strong> لأن مناسبتك تستحق الأفضل! نقدم لكم المنيو الرسمي المعتمد المكون من 12 وجبة ضيافة فاخرة ومعدة طازجة (Sale-01 إلى Sale-12) من 35 إلى 80 جنيه: ساندوتشات كفتة مشوية ع الفحم، فراخ بانية بلدي، بتي بان وفرنساوي، ميني بيتزا، باتون ساليه، حلويات شرقية، مع قطعة جاتوه مغلفة وعصير بخيرة وشوكة ومناديل معقمة بتغليف شيك ومحكم.
             </p>
 
             {/* CTAs */}
@@ -68,7 +68,7 @@ export const Hero: React.FC<HeroProps> = ({
                 onClick={onExplorePackages}
                 className="w-full sm:w-auto px-7 py-3.5 rounded-2xl bg-gradient-to-r from-[#5C1027] to-[#7E1D3B] text-white font-bold text-base shadow-lg shadow-[#5C1027]/25 hover:shadow-xl hover:shadow-[#5C1027]/35 hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2.5 cursor-pointer active:scale-95"
               >
-                <span>استكشف عروض المنيو (50 - 80 ج)</span>
+                <span>استكشف عروض المنيو (12 وجبة | 35 - 80 ج)</span>
                 <ArrowLeft className="w-5 h-5 text-[#E5C06E]" />
               </button>
 
@@ -163,7 +163,7 @@ export const Hero: React.FC<HeroProps> = ({
                 <div className="absolute bottom-3 right-3 left-3 text-white text-right">
                   <div className="flex items-center gap-1 text-[#E5C06E] text-xs font-bold">
                     <CheckCircle2 className="w-3.5 h-3.5" />
-                    <span>علبة كاترنج فاخرة بختم سيلبر الذهبي</span>
+                    <span>علبة سيلبر الكرتون الفاخرة باللون الذهبي والنبيتي</span>
                   </div>
                 </div>
               </div>

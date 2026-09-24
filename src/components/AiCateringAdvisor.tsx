@@ -42,7 +42,7 @@ export const AiCateringAdvisor: React.FC<AiCateringAdvisorProps> = ({
   const [guestCount, setGuestCount] = useState(120);
   const [budget, setBudget] = useState('18000');
   const [preferredStyle, setPreferredStyle] = useState('ساندوتشات كفتة وبانية فاخرة مع جاتوة مثلّث وعصير بخيرة');
-  const [notes, setNotes] = useState('يرجى مراعاة علب سيلبر الكرتونية المذهبة الرسمية المحكمة وسرعة التوزيع');
+  const [notes, setNotes] = useState('يرجى مراعاة علبة سيلبر الكرتون الفاخرة باللون الذهبي والنبيتي وسرعة التوزيع');
 
   const [isLoading, setIsLoading] = useState(false);
   const [plan, setPlan] = useState<PlanResult | null>(null);
@@ -90,10 +90,10 @@ export const AiCateringAdvisor: React.FC<AiCateringAdvisorProps> = ({
           "قطعة جاتوة شوكولاتة مثلثة مغلفة فاخرة",
           "عصير بخيرة طازج (جوافة / مانجو)",
           "باكت شوكة ومنديل معقم عالي الجودة",
-          "صندوق سيلبر الكرتوني المذهب المعتمد والمحكم الإغلاق"
+          "علبة سيلبر الكرتون الفاخرة باللون الذهبي والنبيتي"
         ],
         presentationTips: [
-          "العلب الكرتونية المذهبة الرسمية المحكمة تمنح توزيعاً فورياً وسهلاً دون فوضى داخل المساجد",
+          "علبة سيلبر الكرتون الفاخرة باللون الذهبي والنبيتي تمنح توزيعاً فورياً وسهلاً دون فوضى داخل المساجد",
           "تغليف آمن ومحكم بدون أشرطة لضمان أعلى معايير النظافة والسرعة",
           "توزيع العبوات في حقائب سيلبر الحرارية يضمن بقاء المخبوزات طازجة ولذيذة"
         ],
@@ -112,7 +112,7 @@ export const AiCateringAdvisor: React.FC<AiCateringAdvisorProps> = ({
       type: 'custom',
       name: `باقة مقترحة من المستشار الذكي (${plan.suggestedPackage})`,
       details: plan.boxContents,
-      packagingName: 'صندوق سيلبر الكرتوني المذهب المعتمد لكافة المناسبات',
+      packagingName: 'علبة سيلبر الكرتون الفاخرة باللون الذهبي والنبيتي',
       quantity: guestCount,
       pricePerBox: plan.estimatedCostPerBox,
       totalPrice: plan.totalEstimatedCost,

@@ -17,24 +17,33 @@ interface PackagesSectionProps {
   onAddToCart: (item: OrderItem) => void;
 }
 
-const CATEGORIES: { id: OccasionCategory; label: string; icon: string }[] = [
-  { id: 'all', label: 'جميع وجبات المنيو (50 - 80 ج)', icon: '✨' },
-  { id: 'katb_ketab', label: 'كتب الكتاب والمساجد', icon: '💍' },
-  { id: 'wedding', label: 'حفلات الزفاف والأفراح', icon: '👑' },
-  { id: 'vip_reception', label: 'عروض كبار الزوار VIP', icon: '⭐' },
-  { id: 'engagement_henna', label: 'الخطوبة وليالي الحنة', icon: '🌺' },
-  { id: 'sweets_hospitality', label: 'علبة شيكولاتة باسمك (40 قطعة)', icon: '🍫' },
+type FilterTab = 'all' | 'under_50' | '50_to_65' | 'vip';
+
+const FILTER_TABS: { id: FilterTab; label: string; icon: string; count?: number }[] = [
+  { id: 'all', label: 'جميع وجبات المنيو (12 وجبة)', icon: '✨' },
+  { id: 'under_50', label: 'وجبات 35 - 45 ج', icon: '🏷️' },
+  { id: '50_to_65', label: 'وجبات 50 - 65 ج (الأكثر طلباً)', icon: '🔥' },
+  { id: 'vip', label: 'وجبات VIP (80 ج)', icon: '👑' },
 ];
 
 export const PackagesSection: React.FC<PackagesSectionProps> = ({
   onAddToCart,
 }) => {
-  const [selectedCategory, setSelectedCategory] = useState<OccasionCategory>('all');
+  const [activeTab, setActiveTab] = useState<FilterTab>('all');
   const [activeModalPackage, setActiveModalPackage] = useState<CateringPackage | null>(null);
 
-  const filteredPackages = selectedCategory === 'all' 
-    ? CATERING_PACKAGES 
-    : CATERING_PACKAGES.filter(p => p.category === selectedCategory);
+  // Filter out legacy aliases so only the 12 clean meals appear
+  const officialPackages = CATERING_PACKAGES.filter(p => 
+    !['pkg-meal-1', 'pkg-meal-2', 'pkg-meal-3', 'pkg-meal-4', 'pkg-meal-5', 'pkg-katb-ketab-royal', 'pkg-diamond-wedding'].includes(p.id)
+  );
+
+  const filteredPackages = officialPackages.filter(pkg => {
+    if (activeTab === 'all') return true;
+    if (activeTab === 'under_50') return pkg.pricePerBox <= 45;
+    if (activeTab === '50_to_65') return pkg.pricePerBox >= 50 && pkg.pricePerBox <= 65;
+    if (activeTab === 'vip') return pkg.pricePerBox >= 80;
+    return true;
+  });
 
   return (
     <section id="packages-section" className="py-16 sm:py-20 bg-[#FAF7F2] relative">
@@ -42,67 +51,71 @@ export const PackagesSection: React.FC<PackagesSectionProps> = ({
         
         {/* Section Header */}
         <div className="text-center max-w-3xl mx-auto mb-10">
-          <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#F3E7D3] border border-[#C89B3C]/40 text-[#5C1027] text-xs font-bold mb-3 shadow-xs">
+          <div className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-[#F3E7D3] border border-[#C89B3C]/50 text-[#5C1027] text-xs sm:text-sm font-bold mb-3 shadow-xs">
             <Crown className="w-4 h-4 text-[#C89B3C]" />
-            <span>منيو وجبات الكاترنج الرسمي المعتمد 2026</span>
+            <span>المنيو الرسمي المعتمد 2026 | Celebre Catering Packages</span>
           </div>
 
-          <h2 className="text-3xl sm:text-4xl font-extrabold text-[#2C0A15] tracking-tight mb-3">
-            وجبات كاترنج فاخرة لجميع المناسبات من{' '}
-            <span className="font-['Playfair_Display'] text-[#721832] font-black">Celebre</span>
+          <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-[#2C0A15] tracking-tight mb-3">
+            وجبات كاتريتج فاخرة لجميع المناسبات
           </h2>
           
-          <p className="text-base sm:text-lg text-[#721832] font-bold mb-2">
-            « أكل مميز لكل مناسبة ♡ لأن مناسبتك تستحق الأفضل »
+          <p className="text-lg sm:text-xl text-[#721832] font-black mb-3 font-serif">
+            « كل مناسبة ... أحلى مع سيليبري ♡ »
           </p>
 
-          <p className="text-sm sm:text-base text-[#66574A] leading-relaxed">
-            اختر وجبة ضيافتك المفضلة من المنيو الرسمي المعتمد، تبدأ من 50 جنيه فقط وتصلكم مغلفة بأرقى الخامات مع قطعة جاتوة مغلفة وعصير بخيرة وشوكة ومنديل معقم.
+          <p className="text-sm sm:text-base text-[#66574A] leading-relaxed max-w-2xl mx-auto">
+            12 وجبة ضيافة متكاملة ومعدّة طازجة يوم الحفل، تبدأ من <span className="font-bold text-[#5C1027]">35 جنيه</span> حتى <span className="font-bold text-[#5C1027]">80 جنيه</span>، داخل علبة سيلبر الكرتون الفاخرة باللون الذهبي والنبيتي مع عصير بخيرة وشوكة ومناديل معقمة.
           </p>
         </div>
 
-        {/* Official Menu Highlights Banner */}
-        <div className="mb-12 p-6 rounded-3xl bg-white border border-[#E3D4BC] shadow-sm">
+        {/* Official Menu Highlights Banner (From bottom of official brochure) */}
+        <div className="mb-10 p-6 rounded-3xl bg-gradient-to-r from-[#FAF3E5] via-[#FFFDF9] to-[#FAF3E5] border border-[#E3D4BC] shadow-sm">
+          <div className="text-center mb-4">
+            <span className="text-xs font-bold text-[#8C5E13] tracking-wider uppercase">
+              مناسبتك ... تستحق الأفضل
+            </span>
+          </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center divide-y md:divide-y-0 md:divide-x md:divide-x-reverse divide-[#E8DEC9]">
             <div className="pt-2 md:pt-0 px-2 flex flex-col items-center">
-              <span className="text-2xl mb-1">⭐</span>
+              <span className="text-2xl mb-1.5">👨‍🍳</span>
               <span className="text-xs sm:text-sm font-bold text-[#2C0A15]">جودة عالية في المكونات</span>
-              <span className="text-[11px] text-[#7A6A5C]">لحوم وفراخ بلدي طازجة يومياً</span>
+              <span className="text-[11px] text-[#7A6A5C]">لحوم وفراخ بلدي طازجة وسمن بلدي</span>
             </div>
             <div className="pt-2 md:pt-0 px-2 flex flex-col items-center">
-              <span className="text-2xl mb-1">🎁</span>
+              <span className="text-2xl mb-1.5">🎁</span>
               <span className="text-xs sm:text-sm font-bold text-[#2C0A15]">تغليف أنيق ومميز</span>
-              <span className="text-[11px] text-[#7A6A5C]">علبة فاخرة جاهزة للتقديم المباشر</span>
+              <span className="text-[11px] text-[#7A6A5C]">علبة سيلبر الكرتون الفاخرة باللون الذهبي والنبيتي</span>
             </div>
             <div className="pt-2 md:pt-0 px-2 flex flex-col items-center">
-              <span className="text-2xl mb-1">🎉</span>
+              <span className="text-2xl mb-1.5">⭐</span>
               <span className="text-xs sm:text-sm font-bold text-[#2C0A15]">مناسبة لكل الاحتفالات</span>
-              <span className="text-[11px] text-[#7A6A5C]">كتب كتاب، أفراح، خطوبات، سبوع</span>
+              <span className="text-[11px] text-[#7A6A5C]">كتب كتاب، أفراح، خطوبة، ومؤتمرات</span>
             </div>
             <div className="pt-2 md:pt-0 px-2 flex flex-col items-center">
-              <span className="text-2xl mb-1">♡</span>
-              <span className="text-xs sm:text-sm font-bold text-[#2C0A15]">تُجهز لك بكل حب</span>
-              <span className="text-[11px] text-[#7A6A5C]">خدمة فورية وتوصيل معقم</span>
+              <span className="text-2xl mb-1.5">♡</span>
+              <span className="text-xs sm:text-sm font-bold text-[#2C0A15]">أُجهز لك بكل حب</span>
+              <span className="text-[11px] text-[#7A6A5C]">توصيل في مواعيد دقيقة وحقائب حرارية</span>
             </div>
           </div>
         </div>
 
-        {/* Category Filters Bar */}
+        {/* Filter Tabs Bar */}
         <div className="flex items-center gap-2 overflow-x-auto pb-4 mb-10 no-scrollbar justify-start md:justify-center">
-          {CATEGORIES.map((cat) => {
-            const isSelected = selectedCategory === cat.id;
+          {FILTER_TABS.map((tab) => {
+            const isSelected = activeTab === tab.id;
             return (
               <button
-                key={cat.id}
-                onClick={() => setSelectedCategory(cat.id)}
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
                 className={`px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all flex items-center gap-1.5 cursor-pointer flex-shrink-0 ${
                   isSelected
                     ? 'bg-[#5C1027] text-[#FFDF9E] shadow-md shadow-[#5C1027]/25 border border-[#C89B3C]'
                     : 'bg-[#F2E8D7] text-[#4F4135] hover:bg-[#EBDDC5] border border-[#E3D6BF]'
                 }`}
               >
-                <span>{cat.icon}</span>
-                <span>{cat.label}</span>
+                <span>{tab.icon}</span>
+                <span>{tab.label}</span>
               </button>
             );
           })}
@@ -123,18 +136,18 @@ export const PackagesSection: React.FC<PackagesSectionProps> = ({
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                   referrerPolicy="no-referrer"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/20" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-black/25" />
 
-                {/* Badge */}
-                {pkg.badge && (
-                  <div className="absolute top-3 right-3 px-3 py-1 rounded-full bg-[#D4AF37] text-[#2C0A15] text-[11px] font-black shadow-md">
-                    {pkg.badge}
+                {/* Official Sale Code Ribbon Badge */}
+                {pkg.saleCode && (
+                  <div className="absolute top-3 right-3 px-3 py-1 rounded-xl bg-[#5C1027] border border-[#C89B3C] text-[#FFDF9E] text-xs font-black shadow-md flex items-center gap-1">
+                    <span>{pkg.saleCode}</span>
                   </div>
                 )}
 
-                {/* Min Order Tag */}
-                <div className="absolute top-3 left-3 px-2.5 py-1 rounded-lg bg-black/60 backdrop-blur-sm text-[#F7ECD5] text-[10px] font-semibold border border-white/20">
-                  الحد الأدنى: {pkg.minOrder} {pkg.id.includes('chocolate') ? 'علبة' : 'عبوة'}
+                {/* Price Tag Pill on Image */}
+                <div className="absolute top-3 left-3 px-3 py-1 rounded-xl bg-[#D4AF37] text-[#2C0A15] text-xs font-black shadow-md flex items-center gap-1 font-mono">
+                  <span>سعر البيع: {pkg.pricePerBox} ج</span>
                 </div>
 
                 {/* English Name & Tagline at bottom of image */}
@@ -149,48 +162,20 @@ export const PackagesSection: React.FC<PackagesSectionProps> = ({
               {/* Card Content */}
               <div className="p-5 flex-1 flex flex-col justify-between text-right">
                 
-                {/* Bread & Standard Items Badge */}
-                {!pkg.id.includes('chocolate') && (
-                  <div className="mb-3 flex flex-wrap items-center gap-1.5 text-[11px]">
-                    {pkg.tagline.includes('فرنساوى') ? (
-                      <span className="px-2.5 py-1 rounded-lg bg-[#FAF0E1] text-[#721832] font-extrabold border border-[#DFCBB0] flex items-center gap-1">
-                        <span>🥖</span>
-                        <span>سندوتش فرنساوى وسط (أكبر حجماً وممتد)</span>
-                      </span>
-                    ) : (
-                      <span className="px-2.5 py-1 rounded-lg bg-[#FAF0E1] text-[#8C5E13] font-extrabold border border-[#DFCBB0] flex items-center gap-1">
-                        <span>🥐</span>
-                        <span>سندوتش بتي بان ميني طازج</span>
-                      </span>
-                    )}
-                    <span className="px-2 py-0.5 rounded-md bg-[#F4EEDB] text-[#634F3A] font-semibold text-[10px]">
-                      مثلث جاتوة مغلف + عصير بخيرة
-                    </span>
-                  </div>
-                )}
-
-                {/* Description & highlights */}
+                {/* Official Tagline / Items Overview */}
                 <div className="mb-4">
-                  <p className="text-xs text-[#5C5045] leading-relaxed mb-3 line-clamp-2">
-                    {pkg.description}
-                  </p>
+                  <div className="p-2.5 rounded-xl bg-[#FAF0E1] border border-[#E2D2B8] text-xs text-[#5C1027] font-bold leading-relaxed mb-3">
+                    {pkg.tagline}
+                  </div>
 
                   {/* Highlights Bullet List */}
                   <div className="space-y-1.5 py-2 border-t border-b border-[#F0E6D5]">
-                    {(pkg.id.includes('chocolate')
-                      ? pkg.sections.flatMap(s => s.items).slice(0, 5)
-                      : pkg.sections.flatMap(s => s.items).slice(0, 4)
-                    ).map((item, idx) => (
+                    {pkg.sections.flatMap(s => s.items).map((item, idx) => (
                       <div key={idx} className="flex items-center gap-2 text-xs text-[#3D332A]">
-                        <Check className="w-3.5 h-3.5 text-[#C89B3C] flex-shrink-0" />
-                        <span className="truncate">{item}</span>
+                        <Check className="w-3.5 h-3.5 text-[#2E7D32] flex-shrink-0" />
+                        <span className="font-medium">{item}</span>
                       </div>
                     ))}
-                    {!pkg.id.includes('chocolate') && pkg.sections.flatMap(s => s.items).length > 4 && (
-                      <div className="text-[11px] text-[#8C5E13] font-semibold pt-1">
-                        + {pkg.sections.flatMap(s => s.items).length - 4} أصناف إضافية ومشروب وتغليف
-                      </div>
-                    )}
                   </div>
                 </div>
 
@@ -203,14 +188,12 @@ export const PackagesSection: React.FC<PackagesSectionProps> = ({
                 {/* Pricing & CTA Buttons */}
                 <div className="pt-2 border-t border-[#F0E6D5] flex items-center justify-between gap-3">
                   <div>
-                    <div className="text-[10px] text-[#7A6A5C] font-semibold">
-                      {pkg.id.includes('chocolate') ? 'سعر العلبة (40 قطعة)' : 'سعر العبوة'}
-                    </div>
+                    <div className="text-[10px] text-[#7A6A5C] font-semibold">سعر العبوة</div>
                     <div className="flex items-baseline gap-1.5">
-                      <span className="text-xl font-black text-[#5C1027] font-mono">{pkg.pricePerBox}</span>
+                      <span className="text-2xl font-black text-[#5C1027] font-mono">{pkg.pricePerBox}</span>
                       <span className="text-xs font-bold text-[#5C1027]">ج.م</span>
                       {pkg.originalPrice && (
-                        <span className="text-[10px] text-[#8C7B6C] line-through font-mono">
+                        <span className="text-[11px] text-[#8C7B6C] line-through font-mono">
                           {pkg.originalPrice}
                         </span>
                       )}

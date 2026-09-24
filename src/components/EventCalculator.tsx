@@ -48,10 +48,10 @@ export const EventCalculator: React.FC<EventCalculatorProps> = ({
   // Adjust price based on tier & extras
   const unitPrice = useMemo(() => {
     let base = recommendedPackage.pricePerBox;
-    if (tier === 'standard') base = Math.min(base, 50);
-    if (tier === 'luxury') base = Math.max(base, 65);
+    if (tier === 'standard') base = 40;
+    if (tier === 'luxury') base = 60;
     if (tier === 'vip') base = 80;
-    return Math.max(50, base);
+    return Math.max(35, base);
   }, [recommendedPackage, tier]);
 
   const recommendedBoxesCount = useMemo(() => {

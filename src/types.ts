@@ -16,6 +16,7 @@ export interface CateringPackage {
   id: string;
   name: string;
   nameEn: string;
+  saleCode?: string;
   tagline: string;
   category: OccasionCategory;
   pricePerBox: number;
