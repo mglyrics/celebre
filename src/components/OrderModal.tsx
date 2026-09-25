@@ -2,11 +2,10 @@ import React, { useState } from "react";
 import { 
   X, MapPin, Calendar, User, Phone, CheckCircle2, 
   ArrowLeft, ArrowRight, ShieldCheck, Sparkles, AlertCircle, 
-  CreditCard, Smartphone, Banknote, RefreshCw, Send, Plus, Minus, Heart
+  CreditCard, Smartphone, Banknote, RefreshCw, Send, Plus, Minus, Heart, Truck
 } from "lucide-react";
 import { CartItem, Order, OrderCustomerInfo, DrinkModificationId } from "../types";
 import { DRINK_MODIFICATION_OPTIONS } from "../data/cateringData";
-import { detectCustomerLocation, COVERED_REGIONS } from "../utils/locationService";
 import { CelebreLogo, CelebreClocheIcon, CelebreStarIcon } from "./CelebreLogo";
 
 interface OrderModalProps {
@@ -29,8 +28,6 @@ export const OrderModal: React.FC<OrderModalProps> = ({
   if (!isOpen) return null;
 
   const [currentStep, setCurrentStep] = useState<1 | 2>(1);
-  const [isDetectingGps, setIsDetectingGps] = useState<boolean>(false);
-  const [gpsDetectedText, setGpsDetectedText] = useState<string>("");
 
   // Customer form state
   const [fullName, setFullName] = useState("");
@@ -65,25 +62,6 @@ export const OrderModal: React.FC<OrderModalProps> = ({
   }, 0);
   const depositAmount = Math.round(totalPrice * 0.5);
   const remainingAmount = totalPrice - depositAmount;
-
-  // GPS Detection Handler
-  const handleAutoDetectLocation = async () => {
-    setIsDetectingGps(true);
-    try {
-      const res = await detectCustomerLocation();
-      setGpsDetectedText(res.detectedAreaName);
-      if (res.governorate) {
-        setGovernorate(res.governorate);
-      }
-      if (!address) {
-        setAddress(res.detectedAreaName);
-      }
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setIsDetectingGps(false);
-    }
-  };
 
   // Validation
   const validateStep1 = () => {
@@ -172,7 +150,7 @@ export const OrderModal: React.FC<OrderModalProps> = ({
 - المناسبة: ${occasion}
 - تاريخ المناسبة: ${eventDate}
 - التوقيت: ${eventTime}
-- مكان الحفل: ${address} (${governorate})
+- مكان الحفل / العنوان: ${address || "يتم التنسيق"}
 
 *تفاصيل الوجبات:*
 ${packagesSummaryText}
@@ -180,11 +158,12 @@ ${packagesSummaryText}
 *الحساب المالي:*
 - إجمالي عدد الوجبات: ${totalBoxes} علبة
 - إجمالي المبلغ: ${totalPrice.toLocaleString()} جنيه
+- مصاريف التوصيل: ⚠️ *التوصيل غير مشمول*
 - العربون المطلوب (50%): ${depositAmount.toLocaleString()} جنيه
 - المتبقي عند الاستلام: ${remainingAmount.toLocaleString()} جنيه
 - طريقة السداد: ${paymentMethod === "instapay" ? "إنستاباي (InstaPay)" : paymentMethod === "vodafone_cash" ? "فودافون كاش" : "سداد كاش"}
-${notes ? `- ملاحظات العميل: ${notes}` : ""}
------------------------------
+${notes ? `- ملاحظات العميل: ${notes}\n` : ""}-----------------------------
+⚠️ *ملاحظة هامة: التوصيل غير مشمول* في سعر الوجبات ويتم التنسيق بشأنه.
 يرجى تأكيد الحجز وإرسال تفاصيل تحويل العربون. شكراً لاختياركم سيلبر! ✨`;
 
     const encoded = encodeURIComponent(whatsappMessage);
@@ -347,44 +326,20 @@ ${notes ? `- ملاحظات العميل: ${notes}` : ""}
               </div>
             </div>
 
-            {/* Delivery Location with GPS radar tool */}
+            {/* Event & Delivery Location Section */}
             <div className="space-y-3 pt-2 border-t border-[#F0EAE1]">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-bold text-[#4A3E38] flex items-center gap-1.5">
                   <MapPin className="w-4 h-4 text-[#5C1027]" />
-                  <span>المحافظة والمنطقة:</span>
+                  <span>مكان المناسبة / الاستلام:</span>
                 </label>
 
-                {/* GPS Radar Button */}
-                <button
-                  type="button"
-                  onClick={handleAutoDetectLocation}
-                  disabled={isDetectingGps}
-                  className="flex items-center gap-1.5 text-[11px] text-[#5C1027] bg-[#5C1027]/10 hover:bg-[#5C1027]/15 px-2.5 py-1 rounded-lg font-bold transition-colors"
-                >
-                  <RefreshCw className={`w-3 h-3 ${isDetectingGps ? "animate-spin" : ""}`} />
-                  <span>{isDetectingGps ? "جاري كشف الموقع..." : "تحديد موقعي التلقائي (GPS)"}</span>
-                </button>
+                {/* Only 'التوصيل غير مشمول' badge */}
+                <span className="inline-flex items-center gap-1.5 bg-amber-100 border border-amber-300 text-amber-950 font-black text-xs px-3 py-1 rounded-full shadow-2xs">
+                  <Truck className="w-3.5 h-3.5 text-amber-800" />
+                  <span>التوصيل غير مشمول</span>
+                </span>
               </div>
-
-              {gpsDetectedText && (
-                <div className="p-2 bg-emerald-50 border border-emerald-200 rounded-lg text-[11px] text-emerald-800 font-bold flex items-center gap-1.5">
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>تم التقاط الموقع: {gpsDetectedText}</span>
-                </div>
-              )}
-
-              <select
-                value={governorate}
-                onChange={(e) => setGovernorate(e.target.value)}
-                className="w-full px-3 py-2 bg-[#FAF7F2] border border-[#E8DFD1] rounded-xl text-xs font-semibold text-[#221B17] focus:outline-hidden focus:border-[#5C1027]"
-              >
-                {COVERED_REGIONS.map((r, i) => (
-                  <option key={i} value={`${r.governorate} - ${r.name}`}>
-                    {r.name} ({r.note} - {r.fee === 0 ? "توصيل مجاني" : `رسوم ${r.fee} ج`})
-                  </option>
-                ))}
-              </select>
 
               <div>
                 <label className="block text-xs font-bold text-[#4A3E38] mb-1">
@@ -530,9 +485,11 @@ ${notes ? `- ملاحظات العميل: ${notes}` : ""}
                 <span>تكلفة الوجبات الإجمالية:</span>
                 <span className="font-bold text-[#221B17]">{totalPrice.toLocaleString()} جنيه</span>
               </div>
-              <div className="flex justify-between text-xs text-[#4A3E38]">
+              <div className="flex justify-between text-xs text-[#4A3E38] items-center">
                 <span>مصاريف التوصيل:</span>
-                <span className="font-bold text-emerald-700">توصيل مجاني رسمي</span>
+                <span className="font-black text-amber-900 bg-amber-100 border border-amber-300 px-2.5 py-0.5 rounded text-[11px]">
+                  التوصيل غير مشمول
+                </span>
               </div>
               <div className="pt-2 border-t border-[#E8DFD1] flex justify-between items-center">
                 <span className="font-bold text-sm text-[#221B17]">المبلغ الإجمالي:</span>

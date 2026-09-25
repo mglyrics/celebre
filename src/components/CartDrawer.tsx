@@ -201,9 +201,11 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                   <span>إجمالي عدد الوجبات:</span>
                   <span className="font-bold text-[#221B17]">{totalBoxes} علبة</span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between items-center">
                   <span>التوصيل:</span>
-                  <span className="font-bold text-emerald-700">مجاني لمدينة بني سويف والمساجد</span>
+                  <span className="font-black text-amber-900 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded text-[11px]">
+                    التوصيل غير مشمول
+                  </span>
                 </div>
                 <div className="flex justify-between text-sm font-black text-[#221B17] pt-1 border-t border-[#E8DFD1]">
                   <span>المبلغ الإجمالي:</span>

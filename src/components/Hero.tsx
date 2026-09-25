@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Sparkles, ArrowDown, CheckCircle2, Shield, HeartHandshake, PhoneCall, ChevronRight, Heart } from "lucide-react";
+import { Sparkles, ArrowDown, CheckCircle2, Shield, HeartHandshake, PhoneCall, ChevronRight, Heart, Truck } from "lucide-react";
 import { CelebreLogo, CelebreClocheIcon, CelebreStarIcon, CelebreFlourishDivider } from "./CelebreLogo";
 import heroImg from "../assets/images/celebre_hero_banner_1788037530778.jpg";
 import boxImg from "../assets/images/celebre_real_closed_box_1790336502952.jpg";
@@ -60,11 +60,17 @@ export const Hero: React.FC<HeroProps> = ({
                 />
               </div>
 
-              {/* Tagline pill with cloche & star icons from logo */}
-              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#F3E7D3] border border-[#C89B3C]/60 text-[#5C1027] text-xs sm:text-sm font-semibold mt-4 shadow-2xs">
-                <CelebreStarIcon className="w-3.5 h-3.5 text-[#C89B3C] animate-spin" />
-                <span className="font-bold">سيلبر شريك مؤسس لمناساباتك السعيدة</span>
-                <CelebreClocheIcon className="w-4 h-4 text-[#C89B3C]" />
+              {/* Tagline pill with cloche & star icons from logo + prominent Delivery Notice */}
+              <div className="flex flex-wrap items-center justify-center lg:justify-start gap-2 mt-4">
+                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#F3E7D3] border border-[#C89B3C]/60 text-[#5C1027] text-xs sm:text-sm font-semibold shadow-2xs">
+                  <CelebreStarIcon className="w-3.5 h-3.5 text-[#C89B3C] animate-spin" />
+                  <span className="font-bold">سيلبر شريك مؤسس لمناسباتك السعيدة</span>
+                  <CelebreClocheIcon className="w-4 h-4 text-[#C89B3C]" />
+                </div>
+                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-100 border border-amber-300 text-amber-950 text-xs sm:text-sm font-black shadow-2xs">
+                  <Truck className="w-3.5 h-3.5 text-amber-800" />
+                  <span>التوصيل غير مشمول</span>
+                </div>
               </div>
             </div>
 
@@ -84,6 +90,10 @@ export const Hero: React.FC<HeroProps> = ({
 
             {/* Value Props Pills */}
             <div className="flex flex-wrap gap-2.5 sm:gap-3 mb-8 justify-center lg:justify-start">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-50 border border-amber-300 text-amber-950 text-xs sm:text-sm font-black shadow-2xs">
+                <Truck className="w-4 h-4 text-amber-700" />
+                التوصيل غير مشمول
+              </span>
               <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-[#E8DFD1] text-[#221B17] text-xs sm:text-sm font-semibold shadow-2xs">
                 <CheckCircle2 className="w-4 h-4 text-[#25D366]" />
                 علب كرتونية مذهبة محكمة الغلق

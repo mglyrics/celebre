@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Phone, MessageCircle, ShoppingBag, Sparkles, Menu, X, Calculator, ShieldCheck } from "lucide-react";
+import { Phone, MessageCircle, ShoppingBag, Sparkles, Menu, X, Calculator, ShieldCheck, Truck } from "lucide-react";
 import { CelebreLogo } from "./CelebreLogo";
 
 interface NavbarProps {
@@ -25,20 +25,24 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   return (
     <header className="sticky top-0 z-40 bg-[#FAF7F2]/95 backdrop-blur-md border-b border-[#E8DFD1] shadow-xs transition-all">
-      {/* Top golden announcement bar */}
+      {/* Top announcement bar with 'التوصيل غير مشمول' */}
       <div className="bg-gradient-to-r from-[#5C1027] via-[#721832] to-[#5C1027] text-white py-1.5 px-4 text-xs sm:text-sm font-medium">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-2">
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="inline-block w-2 h-2 rounded-full bg-[#C89B3C] animate-ping" />
             <span className="font-semibold text-[#F4EEDB]">
-              سيلبر شريك مؤسس لمناساباتك السعيدة
+              سيلبر شريك مؤسس لمناسباتك السعيدة
+            </span>
+            <span className="inline-flex items-center gap-1 bg-[#C89B3C] text-[#221B17] font-black text-[11px] px-2.5 py-0.5 rounded-full shadow-xs">
+              <Truck className="w-3 h-3 text-[#5C1027]" />
+              <span>التوصيل غير مشمول</span>
             </span>
             <span className="hidden md:inline text-xs text-[#E8DFD1]/80">
               | جودة وضيافة تشرفك أمام ضيوفك في بني سويف ومصر
             </span>
           </div>
 
-          <div className="flex items-center gap-4 text-xs font-semibold">
+          <div className="flex items-center gap-3 text-xs font-semibold shrink-0">
             <a
               href="tel:01284484868"
               className="flex items-center gap-1 text-[#F4EEDB] hover:text-white transition-colors"
@@ -49,7 +53,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             <span className="hidden sm:inline text-white/40">|</span>
             <span className="hidden sm:inline-flex items-center gap-1 text-[#C89B3C]">
               <ShieldCheck className="w-3.5 h-3.5" />
-              علب كرتونية مذهبة محكمة الإغلاق
+              علب كرتونية فاخرة
             </span>
           </div>
         </div>

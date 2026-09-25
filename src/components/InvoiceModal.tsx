@@ -107,6 +107,12 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ order, onClose }) =>
               <span>إجمالي عدد الوجبات:</span>
               <span className="font-bold text-[#221B17]">{order.totalBoxes} علبة</span>
             </div>
+            <div className="flex justify-between items-center text-[#4A3E38]">
+              <span>مصاريف التوصيل:</span>
+              <span className="font-black text-amber-900 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded text-[11px]">
+                التوصيل غير مشمول
+              </span>
+            </div>
             <div className="flex justify-between font-bold text-sm text-[#221B17] pt-2 border-t border-[#E8DFD1]">
               <span>المبلغ الإجمالي للطلب:</span>
               <span className="text-[#5C1027] text-base">{order.totalPrice.toLocaleString()} جنيه</span>
