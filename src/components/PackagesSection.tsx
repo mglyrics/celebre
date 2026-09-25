@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { 
   Search, SlidersHorizontal, Plus, Minus, ShoppingBag, Eye, 
-  ChevronDown, ChevronUp, Sparkles, CheckCircle2, ShieldCheck, Flame, Zap, Heart
+  ChevronDown, ChevronUp, Sparkles, CheckCircle2, ShieldCheck, Flame, Zap, Heart, Package
 } from "lucide-react";
 import { CateringPackage, DrinkModificationId } from "../types";
 import { DRINK_MODIFICATION_OPTIONS } from "../data/cateringData";
@@ -232,6 +232,10 @@ export const PackagesSection: React.FC<PackagesSectionProps> = ({
 
                   {/* Bottom Image Overlay Info */}
                   <div className="absolute bottom-3 right-3 left-3 text-white">
+                    <div className="inline-flex items-center gap-1 bg-[#5C1027]/90 backdrop-blur-xs px-2.5 py-0.5 rounded-full text-[10px] text-[#F4EEDB] font-bold mb-1 border border-[#C89B3C]/50 shadow-xs">
+                      <Package className="w-3 h-3 text-[#C89B3C]" />
+                      <span>علبة سيلبر الرسمية الحقيقية</span>
+                    </div>
                     <h3 className="font-black text-base sm:text-lg drop-shadow-sm">
                       {pkg.name}
                     </h3>
@@ -243,58 +247,41 @@ export const PackagesSection: React.FC<PackagesSectionProps> = ({
 
                 {/* Card Content Body */}
                 <div className="p-4 sm:p-5 flex-1 flex flex-col justify-between space-y-4">
-                  {/* Quick Summary Highlights */}
-                  <div className="space-y-2">
-                    <p className="text-xs text-[#4A3E38] line-clamp-2 leading-relaxed">
-                      {pkg.description}
-                    </p>
+                  {/* Quick Summary Highlights & Box Components (Sale-06 style) */}
+                  <div className="space-y-3">
+                    {/* Box Components Breakdown (Same presentation style as Sale-06) */}
+                    <div className="bg-[#FAF7F2] p-3 rounded-xl border border-[#E8DFD1] space-y-2">
+                      <div className="flex items-center justify-between text-xs font-black text-[#5C1027]">
+                        <span className="flex items-center gap-1.5">
+                          <Package className="w-3.5 h-3.5 text-[#C89B3C]" />
+                          <span>مكونات الوجبة داخل العلبة:</span>
+                        </span>
+                        <span className="text-[10px] text-[#C89B3C] font-black bg-white px-2 py-0.5 rounded-full border border-[#C89B3C]/30 shadow-2xs">
+                          {pkg.saleCode}
+                        </span>
+                      </div>
+
+                      <div className="space-y-1.5 pt-0.5">
+                        {pkg.sections[0]?.items.map((item, idx) => (
+                          <div 
+                            key={idx} 
+                            className="flex items-center gap-2 text-xs text-[#4A3E38] bg-white px-2.5 py-1.5 rounded-lg border border-[#F0EAE1] shadow-2xs"
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5 text-[#25D366] shrink-0" />
+                            <span className="font-bold text-[11px] leading-tight">{item}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
 
                     {/* Official Box Logo Guarantee */}
-                    <div className="flex items-center justify-between text-[11px] font-bold bg-[#FAF7F2] text-[#8C6D28] px-2.5 py-1.5 rounded-xl border border-[#C89B3C]/25">
+                    <div className="flex items-center justify-between text-[11px] font-bold bg-white text-[#8C6D28] px-2.5 py-1.5 rounded-xl border border-[#C89B3C]/25">
                       <div className="flex items-center gap-1.5">
                         <img src="/logo.png" alt="شعار سيلبر" className="w-4 h-4 object-contain" />
-                        <span className="text-[#4A3E38] text-[11px]">مختومة بشعار سيلبر الذهبي الرسمي</span>
+                        <span className="text-[#4A3E38] text-[11px]">مختومة بشعار سيلبر الذهبي المعتمد</span>
                       </div>
                       <span className="text-[10px] text-[#5C1027] font-black font-['Cinzel',serif]">CÉLÈBRE</span>
                     </div>
-
-                    {/* Expandable Accordion Button for Deep Details */}
-                    <button
-                      type="button"
-                      onClick={() => toggleExpand(pkg.id)}
-                      className="w-full flex items-center justify-between py-1.5 px-2.5 bg-[#FAF7F2] hover:bg-[#F3E7D3] rounded-xl text-xs font-bold text-[#5C1027] border border-[#E8DFD1] transition-colors"
-                    >
-                      <span className="flex items-center gap-1.5">
-                        <Eye className="w-3.5 h-3.5 text-[#C89B3C]" />
-                        <span>{isExpanded ? "إخفاء محتويات العلبة" : "عرض مكونات العلبة بالتفصيل"}</span>
-                      </span>
-                      {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                    </button>
-
-                    {/* Accordion Detailed Content */}
-                    {isExpanded && (
-                      <div className="p-3 bg-[#FAF7F2] rounded-xl border border-[#E8DFD1] space-y-2 animate-fadeIn text-xs">
-                        <div className="font-bold text-[#221B17] mb-1">
-                          محتويات الوجبة داخل العبوة الكرتونية المذهبة:
-                        </div>
-                        {pkg.sections.map((sec, idx) => (
-                          <div key={idx} className="space-y-1">
-                            <span className="text-[11px] font-bold text-[#C89B3C] block">{sec.title}:</span>
-                            <ul className="space-y-1 pr-1">
-                              {sec.items.map((item, iIdx) => (
-                                <li key={iIdx} className="flex items-start gap-1.5 text-[#4A3E38]">
-                                  <CheckCircle2 className="w-3 h-3 text-[#25D366] shrink-0 mt-0.5" />
-                                  <span>{item}</span>
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        ))}
-                        <div className="pt-2 border-t border-[#E8DFD1] text-[11px] text-[#7A6E65]">
-                          📌 نوع العلبة: {pkg.packaging.type} (محكمة الغلق بدون أشرطة للتوزيع المباشر النظيف).
-                        </div>
-                      </div>
-                    )}
                   </div>
 
                   {/* Drink Selector Choice */}

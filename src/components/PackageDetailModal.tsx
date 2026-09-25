@@ -86,6 +86,11 @@ export const PackageDetailModal: React.FC<PackageDetailModalProps> = ({
                   {packageItem.saleCode}
                 </span>
               </div>
+              <div className="absolute bottom-3 right-3 left-3">
+                <span className="inline-flex items-center gap-1.5 bg-[#5C1027]/90 text-[#F4EEDB] text-[10px] font-bold px-3 py-1 rounded-full border border-[#C89B3C]/40 backdrop-blur-xs shadow-md">
+                  📦 علبة سيلبر الكرتونية الرسمية الحقيقية
+                </span>
+              </div>
             </div>
 
             <div className="md:col-span-6 space-y-3">

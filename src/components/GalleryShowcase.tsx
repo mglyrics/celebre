@@ -1,7 +1,7 @@
 import React from "react";
 import { CelebreLogo, CelebreClocheIcon, CelebreStarIcon, CelebreFlourishDivider } from "./CelebreLogo";
 import mosqueImg from "../assets/images/celebre_mosque_katb_ketab_1789223553405.jpg";
-import boxImg from "../assets/images/celebre_branded_box_1788040428186.jpg";
+import boxImg from "../assets/images/celebre_real_closed_box_1790336502952.jpg";
 import setupImg from "../assets/images/celebre_event_setup_1788037572328.jpg";
 import heroImg from "../assets/images/celebre_hero_banner_1788037530778.jpg";
 
@@ -14,8 +14,8 @@ export const GalleryShowcase: React.FC = () => {
     },
     {
       src: boxImg,
-      title: "العلبة الكرتونية المذهبة الرسمية",
-      desc: "تصميم ملكي فاخر يحمل شعار سيلبر الذهبي مع غلق ذاتي محكم"
+      title: "علبة سيلبر الرسمية الحقيقية (الأصلية)",
+      desc: "العلبة البيضاء الفاخرة بشعار سيلبر المعتمد وهوت لاين 01284484868 مع غلق ذاتي محكم وسريع"
     },
     {
       src: setupImg,

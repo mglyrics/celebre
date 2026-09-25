@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Sparkles, ArrowDown, CheckCircle2, Shield, HeartHandshake, PhoneCall, ChevronRight, Heart } from "lucide-react";
 import { CelebreLogo, CelebreClocheIcon, CelebreStarIcon, CelebreFlourishDivider } from "./CelebreLogo";
 import heroImg from "../assets/images/celebre_hero_banner_1788037530778.jpg";
-import boxImg from "../assets/images/celebre_branded_box_1788040428186.jpg";
+import boxImg from "../assets/images/celebre_real_closed_box_1790336502952.jpg";
 import logoImg from "../assets/images/celebre_official_logo_transparent.png";
 
 interface HeroProps {
