@@ -140,18 +140,18 @@ export const Hero: React.FC<HeroProps> = ({
                 <div className="flex items-center justify-between">
                   <div className="bg-white/95 backdrop-blur-md px-3 py-1.5 rounded-xl border border-[#C89B3C] shadow-lg flex items-center gap-2">
                     <img
-                      src={logoImg}
-                      alt="شعار سيلبر الرسمي"
-                      className="h-8 w-auto object-contain"
+                      src="/logo.png"
+                      alt="شعار سيلبر الرسمي المعتمد على العلبة"
+                      className="h-9 w-auto object-contain"
                     />
                     <span className="font-['Cinzel',serif] text-[10px] text-[#5C1027] font-black tracking-widest uppercase">
                       CELEBRE
                     </span>
                   </div>
 
-                  <span className="text-[11px] font-bold bg-[#5C1027]/90 text-white px-3 py-1 rounded-full border border-[#C89B3C]/50 flex items-center gap-1">
+                  <span className="text-[11px] font-bold bg-[#5C1027]/90 text-white px-3 py-1 rounded-full border border-[#C89B3C]/50 flex items-center gap-1 shadow-md">
                     <CelebreStarIcon className="w-3 h-3 text-[#C89B3C]" />
-                    الختم الرسمي المعتمد
+                    شعار العلبة الرسمي المعتمد
                   </span>
                 </div>
 

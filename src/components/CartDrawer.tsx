@@ -133,7 +133,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                       >
                         {DRINK_MODIFICATION_OPTIONS.map((d) => (
                           <option key={d.id} value={d.id}>
-                            {d.label} ({d.priceDelta === 0 ? "مجاني" : d.priceDelta > 0 ? `+${d.priceDelta}ج` : `-${Math.abs(d.priceDelta)}ج`})
+                            {d.label} ({d.priceDelta === 0 ? "مشمول (بقيمة 5ج)" : d.priceDelta > 0 ? `+${d.priceDelta}ج` : `-${Math.abs(d.priceDelta)}ج`})
                           </option>
                         ))}
                       </select>

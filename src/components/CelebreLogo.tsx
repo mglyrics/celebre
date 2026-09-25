@@ -15,7 +15,7 @@ interface CelebreLogoProps {
 export const CelebreLogo: React.FC<CelebreLogoProps> = ({
   className = "",
   size = "md",
-  showSlogan = true,
+  showSlogan = false,
   showEnglishSubtitles = false,
   sloganText = "سيلبر شريك مؤسس لمناساباتك السعيدة",
   variant = "transparent",
@@ -23,12 +23,12 @@ export const CelebreLogo: React.FC<CelebreLogoProps> = ({
 }) => {
   // Dimension presets respecting the original logo aspect ratio (~708x598)
   const sizeMap = {
-    xs: "h-10 sm:h-12 w-auto max-w-[130px]",
-    sm: "h-14 sm:h-16 w-auto max-w-[170px]",
-    md: "h-20 sm:h-24 w-auto max-w-[240px]",
-    lg: "h-28 sm:h-32 w-auto max-w-[320px]",
-    xl: "h-36 sm:h-44 w-auto max-w-[420px]",
-    hero: "h-44 sm:h-56 md:h-64 w-auto max-w-[500px]"
+    xs: "h-9 sm:h-10 w-auto max-w-[110px]",
+    sm: "h-11 sm:h-13 w-auto max-w-[140px]",
+    md: "h-15 sm:h-17 w-auto max-w-[180px]",
+    lg: "h-20 sm:h-24 w-auto max-w-[240px]",
+    xl: "h-28 sm:h-34 w-auto max-w-[320px]",
+    hero: "h-36 sm:h-44 md:h-50 w-auto max-w-[400px]"
   };
 
   const imageSrc = variant === "white_card" ? logoWhiteImg : logoImg;

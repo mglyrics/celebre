@@ -212,14 +212,20 @@ export const PackagesSection: React.FC<PackagesSectionProps> = ({
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/20" />
 
-                  {/* Top Badges with Official Celebre Cloche */}
-                  <div className="absolute top-3 right-3 left-3 flex items-center justify-between">
-                    <span className="bg-[#5C1027]/95 backdrop-blur-xs text-[#FAF7F2] font-black text-xs px-2.5 py-1 rounded-lg border border-[#C89B3C]/50 shadow-xs flex items-center gap-1.5 font-['Cinzel',sans-serif]">
-                      <CelebreClocheIcon className="w-3.5 h-3.5 text-[#C89B3C]" />
-                      <span>{pkg.saleCode}</span>
-                    </span>
+                  {/* Top Badges with Official Celebre Box Logo Seal */}
+                  <div className="absolute top-3 right-3 left-3 flex items-center justify-between z-10">
+                    <div className="bg-white/95 backdrop-blur-md px-2.5 py-1 rounded-xl border border-[#C89B3C]/80 shadow-md flex items-center gap-2">
+                      <img
+                        src="/logo.png"
+                        alt="شعار سيلبر المعتمد على العلبة"
+                        className="h-6 w-auto object-contain"
+                      />
+                      <span className="font-['Cinzel',sans-serif] text-[11px] text-[#5C1027] font-black border-r border-[#C89B3C]/40 pr-1.5 leading-none">
+                        {pkg.saleCode}
+                      </span>
+                    </div>
 
-                    <span className="bg-white/95 backdrop-blur-xs text-[#5C1027] font-black text-xs px-2.5 py-1 rounded-lg shadow-xs border border-[#C89B3C]/30">
+                    <span className="bg-[#5C1027]/95 backdrop-blur-md text-[#F4EEDB] font-black text-xs px-3 py-1.5 rounded-xl shadow-md border border-[#C89B3C]/50">
                       {pkg.pricePerBox} ج / علبة
                     </span>
                   </div>
@@ -242,6 +248,15 @@ export const PackagesSection: React.FC<PackagesSectionProps> = ({
                     <p className="text-xs text-[#4A3E38] line-clamp-2 leading-relaxed">
                       {pkg.description}
                     </p>
+
+                    {/* Official Box Logo Guarantee */}
+                    <div className="flex items-center justify-between text-[11px] font-bold bg-[#FAF7F2] text-[#8C6D28] px-2.5 py-1.5 rounded-xl border border-[#C89B3C]/25">
+                      <div className="flex items-center gap-1.5">
+                        <img src="/logo.png" alt="شعار سيلبر" className="w-4 h-4 object-contain" />
+                        <span className="text-[#4A3E38] text-[11px]">مختومة بشعار سيلبر الذهبي الرسمي</span>
+                      </div>
+                      <span className="text-[10px] text-[#5C1027] font-black font-['Cinzel',serif]">CÉLÈBRE</span>
+                    </div>
 
                     {/* Expandable Accordion Button for Deep Details */}
                     <button
@@ -287,7 +302,7 @@ export const PackagesSection: React.FC<PackagesSectionProps> = ({
                     <div className="flex items-center justify-between text-xs">
                       <span className="font-bold text-[#4A3E38]">نوع المشروب بالعلبة:</span>
                       <span className="text-[11px] text-[#C89B3C] font-semibold">
-                        {drinkDelta > 0 ? `+${drinkDelta} ج` : drinkDelta < 0 ? `${drinkDelta} ج` : "مشمول"}
+                        {drinkDelta > 0 ? `+${drinkDelta} ج` : drinkDelta < 0 ? `${drinkDelta} ج` : "بقيمة 5 ج مشمول"}
                       </span>
                     </div>
                     <div className="grid grid-cols-3 gap-1.5">
@@ -304,7 +319,7 @@ export const PackagesSection: React.FC<PackagesSectionProps> = ({
                         >
                           <div className="truncate">{opt.label.split(" ")[0]} {opt.label.split(" ")[1]}</div>
                           <div className={`text-[9px] mt-0.5 ${drink === opt.id ? "text-[#F4EEDB]" : "text-[#7A6E65]"}`}>
-                            {opt.priceDelta === 0 ? "مجاني" : opt.priceDelta > 0 ? `+${opt.priceDelta}ج` : `-${Math.abs(opt.priceDelta)}ج`}
+                            {opt.priceDelta === 0 ? "بقيمة 5ج" : opt.priceDelta > 0 ? `+${opt.priceDelta}ج` : `-${Math.abs(opt.priceDelta)}ج`}
                           </div>
                         </button>
                       ))}

@@ -75,6 +75,17 @@ export const PackageDetailModal: React.FC<PackageDetailModalProps> = ({
               <div className="absolute top-3 right-3 bg-white/95 backdrop-blur-xs text-[#5C1027] font-black text-xs px-3 py-1.5 rounded-xl shadow-xs">
                 {unitPrice} جنيه / علبة
               </div>
+              {/* Official Celebre Box Logo Stamp */}
+              <div className="absolute top-3 left-3 bg-white/95 backdrop-blur-md px-2.5 py-1.5 rounded-xl border border-[#C89B3C]/80 shadow-md flex items-center gap-2">
+                <img
+                  src="/logo.png"
+                  alt="شعار سيلبر الرسمي على العلبة"
+                  className="h-6 w-auto object-contain"
+                />
+                <span className="font-['Cinzel',sans-serif] text-[10px] text-[#5C1027] font-black">
+                  {packageItem.saleCode}
+                </span>
+              </div>
             </div>
 
             <div className="md:col-span-6 space-y-3">
@@ -133,12 +144,17 @@ export const PackageDetailModal: React.FC<PackageDetailModalProps> = ({
             </div>
 
             {/* Packaging Highlights */}
-            <div className="mt-4 p-3 bg-white/80 rounded-xl border border-[#E8DFD1] flex flex-col sm:flex-row items-center justify-between text-xs text-[#7A6E65] gap-2">
-              <div>
-                <strong className="text-[#221B17]">نوع التغليف:</strong> {packageItem.packaging.type}
+            <div className="mt-4 p-3.5 bg-white/90 rounded-xl border border-[#C89B3C]/40 flex flex-col sm:flex-row items-center justify-between text-xs text-[#7A6E65] gap-2 shadow-2xs">
+              <div className="flex items-center gap-2">
+                <img src="/logo.png" alt="شعار سيلبر المعتمد" className="w-6 h-6 object-contain" />
+                <div>
+                  <strong className="text-[#221B17]">التغليف الرسمي:</strong>{" "}
+                  <span className="text-[#5C1027] font-bold">علبة كرتونية مذهبة فاخرة تحمل شعار سيلبر الملكي المعتمد</span>
+                </div>
               </div>
-              <div className="text-emerald-700 font-bold">
-                ✓ توزيع فوري سريع ونظيف بالمساجد والقاعات
+              <div className="text-emerald-700 font-bold flex items-center gap-1">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>غلق ذاتي محكم وتوزيع سريع نظيف</span>
               </div>
             </div>
           </div>

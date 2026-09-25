@@ -57,16 +57,31 @@ export const Navbar: React.FC<NavbarProps> = ({
 
       {/* Main Navbar */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
-        <div className="flex items-center justify-between h-24">
-          {/* Official Celebre Logo Emblem with Cloche & Slogan */}
-          <div className="flex items-center gap-3">
+        <div className="flex items-center justify-between h-16 sm:h-20">
+          {/* Official Celebre Logo Emblem with Clean Horizontal Title */}
+          <div
+            onClick={onScrollToPackages}
+            className="flex items-center gap-2.5 sm:gap-3 cursor-pointer group py-1"
+          >
             <CelebreLogo
-              size="md"
-              showSlogan={true}
+              size="xs"
+              showSlogan={false}
               showEnglishSubtitles={false}
-              sloganText="سيلبر شريك مؤسس لمناساباتك السعيدة"
-              onClick={onScrollToPackages}
+              className="items-center"
             />
+            <div className="flex flex-col text-right">
+              <div className="flex items-center gap-1.5">
+                <span className="font-['Cinzel',serif] font-black text-lg sm:text-xl text-[#5C1027] tracking-wider group-hover:text-[#721832] transition-colors">
+                  CÉLÈBRE
+                </span>
+                <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-[#C89B3C]/15 text-[#8C6D28] border border-[#C89B3C]/30 hidden md:inline-block">
+                  كاترنج
+                </span>
+              </div>
+              <span className="text-[10px] sm:text-xs font-bold text-[#8C6D28] -mt-0.5">
+                شريك مؤسس لمناسباتك السعيدة
+              </span>
+            </div>
           </div>
 
           {/* Desktop Nav Links */}
