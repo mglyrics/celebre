@@ -88,3 +88,29 @@ export interface Testimonial {
   verified: boolean;
   boxesOrdered: number;
 }
+
+export interface AdminBooking {
+  id: string;
+  customerName: string; // اسم صاحب المناسبة
+  phone: string; // هاتف العميل
+  occasion: string; // نوع المناسبة
+  eventDate: string; // تاريخ المناسبة
+  eventTime: string; // توقيت المناسبة
+  packageCode: string; // كود الوجبة (مثلاً Sale - 04 أو مخصص)
+  packageName: string; // الوجبة المطلوبة وتفاصيلها المخصصة
+  basePrice: number; // السعر الأساسي للوجبة
+  drinkOption: 'juice_included' | 'pepsi_added' | 'no_juice' | 'custom'; // تعديل المشروب
+  drinkOptionLabel: string; // نص المشروب
+  drinkPriceDelta: number; // +5 أو -5 أو 0
+  unitPrice: number; // سعر العلبة الصافي بعد تعديل المشروب
+  quantity: number; // عدد الوجبات
+  totalPrice: number; // الإجمالي = unitPrice * quantity
+  depositPaid: number; // مبلغ الحجز / العربون المسدد
+  remainingAmount: number; // الباقي = totalPrice - depositPaid
+  paymentStatus: 'deposit_paid' | 'fully_paid' | 'pending_payment' | 'refunded';
+  orderStatus: 'confirmed' | 'in_preparation' | 'delivered' | 'cancelled';
+  deliveryAddress: string; // مكان المناسبة / التسليم
+  phoneAgreementNotes: string; // ملاحظات الاتفاق التليفوني والتخصيص
+  createdAt: string;
+  updatedAt: string;
+}

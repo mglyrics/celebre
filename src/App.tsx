@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import confetti from "canvas-confetti";
 import { CateringPackage, CartItem, Order, DrinkModificationId } from "./types";
 import { CATERING_PACKAGES } from "./data/cateringData";
@@ -19,6 +19,7 @@ import { Footer } from "./components/Footer";
 import { InvoiceModal } from "./components/InvoiceModal";
 import { PrivacyPolicyModal } from "./components/PrivacyPolicyModal";
 import { FloatingQuickBar } from "./components/FloatingQuickBar";
+import { AdminBookingsDashboard } from "./components/AdminBookingsDashboard";
 
 export const App: React.FC = () => {
   const [packages] = useState<CateringPackage[]>(CATERING_PACKAGES);
@@ -33,6 +34,19 @@ export const App: React.FC = () => {
   const [isPrivacyOpen, setIsPrivacyOpen] = useState(false);
   const [lastOrder, setLastOrder] = useState<Order | null>(null);
   const [isInvoiceOpen, setIsInvoiceOpen] = useState(false);
+  const [isAdminOpen, setIsAdminOpen] = useState(false);
+
+  // Global shortcut to open admin dashboard: Ctrl+Shift+A or Alt+A
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "a") || (e.altKey && e.key.toLowerCase() === "a")) {
+        e.preventDefault();
+        setIsAdminOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   // Cart operations
   const handleAddToCart = (pkg: CateringPackage, quantity: number, selectedDrink: DrinkModificationId = "default_juice") => {
@@ -146,7 +160,10 @@ export const App: React.FC = () => {
       </main>
 
       {/* Footer */}
-      <Footer onOpenPrivacy={() => setIsPrivacyOpen(true)} />
+      <Footer 
+        onOpenPrivacy={() => setIsPrivacyOpen(true)} 
+        onOpenAdmin={() => setIsAdminOpen(true)}
+      />
 
       {/* Floating Quick Bar for mobile & desktop immediate access */}
       <FloatingQuickBar
@@ -212,6 +229,12 @@ export const App: React.FC = () => {
       <PrivacyPolicyModal
         isOpen={isPrivacyOpen}
         onClose={() => setIsPrivacyOpen(false)}
+      />
+
+      {/* Admin Bookings Management Dashboard (Excel-like spreadsheet) */}
+      <AdminBookingsDashboard
+        isOpen={isAdminOpen}
+        onClose={() => setIsAdminOpen(false)}
       />
     </div>
   );

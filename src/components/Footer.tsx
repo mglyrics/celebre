@@ -1,12 +1,13 @@
 import React from "react";
-import { Phone, MessageCircle, MapPin, ShieldCheck, Heart } from "lucide-react";
+import { Phone, MessageCircle, MapPin, ShieldCheck, Heart, Lock } from "lucide-react";
 import { CelebreLogo } from "./CelebreLogo";
 
 interface FooterProps {
   onOpenPrivacy: () => void;
+  onOpenAdmin?: () => void;
 }
 
-export const Footer: React.FC<FooterProps> = ({ onOpenPrivacy }) => {
+export const Footer: React.FC<FooterProps> = ({ onOpenPrivacy, onOpenAdmin }) => {
   return (
     <footer className="bg-[#221B17] text-[#FAF7F2] pt-14 pb-8 border-t border-[#3B3029]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
@@ -56,6 +57,19 @@ export const Footer: React.FC<FooterProps> = ({ onOpenPrivacy }) => {
                 <MapPin className="w-4 h-4 text-[#C89B3C]" />
                 <span>المقر الرئيسي: محافظة بني سويف (مدينة بني سويف - شرق النيل)</span>
               </div>
+
+              {/* Dedicated Sales Management Portal Entry */}
+              <div className="pt-2 flex justify-center md:justify-start">
+                <button
+                  type="button"
+                  onClick={onOpenAdmin}
+                  className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-[#2D241F] hover:bg-[#3E322B] text-[#E8DFD1] hover:text-[#C89B3C] border border-[#4A3E38] hover:border-[#C89B3C]/50 transition-all font-bold text-xs shadow-2xs cursor-pointer active:scale-95"
+                  title="إدارة المبيعات • سجل الحجوزات والتعاقدات (01284484868)"
+                >
+                  <Lock className="w-3.5 h-3.5 text-[#C89B3C]" />
+                  <span>إدارة المبيعات (سجل الحجوزات)</span>
+                </button>
+              </div>
             </div>
           </div>
 
@@ -86,6 +100,16 @@ export const Footer: React.FC<FooterProps> = ({ onOpenPrivacy }) => {
               className="hover:text-[#FAF7F2] transition-colors underline"
             >
               سياسة الخصوصية والشروط
+            </button>
+            <span>•</span>
+            <button
+              type="button"
+              onClick={onOpenAdmin}
+              className="hover:text-[#C89B3C] text-[#C4B7AA] hover:bg-[#352B24] transition-all flex items-center gap-1.5 cursor-pointer font-bold px-2.5 py-1 rounded-lg bg-[#271F1A] border border-[#3E322B]"
+              title="إدارة المبيعات • سجل الحجوزات والتعاقدات (01284484868)"
+            >
+              <Lock className="w-3 h-3 text-[#C89B3C]" />
+              <span>إدارة المبيعات</span>
             </button>
           </div>
         </div>
