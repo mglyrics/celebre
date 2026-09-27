@@ -5,10 +5,11 @@ import {
   RefreshCw, Calendar, Phone, DollarSign, 
   CheckCircle2, AlertCircle, Clock, FileSpreadsheet, 
   ShieldCheck, ArrowUpDown, Eye, CheckSquare, Sparkles, ChevronDown,
-  Shield, Smartphone, Send, MessageCircle, Settings, ShieldAlert
+  Shield, Smartphone, Send, MessageCircle, Settings, ShieldAlert,
+  BellRing, Volume2, VolumeX, Radio, Zap
 } from "lucide-react";
 import * as XLSX from "xlsx";
-import html2canvas from "html2canvas";
+import html2canvas from "html2canvas-pro";
 import { AdminBooking } from "../types";
 import { CATERING_PACKAGES } from "../data/cateringData";
 import { CelebreLogo } from "./CelebreLogo";
@@ -140,39 +141,187 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
   // Ref for table capture
   const tableContainerRef = useRef<HTMLDivElement>(null);
 
-  // Auto-sync cache
-  const updateBookingsState = (newBookings: AdminBooking[]) => {
+  // Real-time synchronization states
+  const [isLiveConnected, setIsLiveConnected] = useState(false);
+  const [isLiveSyncEnabled, setIsLiveSyncEnabled] = useState(true);
+  const [soundAlertsEnabled, setSoundAlertsEnabled] = useState(true);
+  const [lastSyncedTime, setLastSyncedTime] = useState<Date | null>(new Date());
+  const [newlyAddedBookingId, setNewlyAddedBookingId] = useState<string | null>(null);
+  const [liveIncomingAlert, setLiveIncomingAlert] = useState<{
+    id: string;
+    customerName: string;
+    quantity: number;
+    occasion: string;
+    amount: number;
+  } | null>(null);
+
+  // Play pleasant chime on incoming booking
+  const playNotificationChime = () => {
+    if (!soundAlertsEnabled) return;
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const now = ctx.currentTime;
+      
+      const osc1 = ctx.createOscillator();
+      const gain1 = ctx.createGain();
+      osc1.type = "sine";
+      osc1.frequency.setValueAtTime(587.33, now); // D5
+      osc1.frequency.exponentialRampToValueAtTime(880, now + 0.12); // A5
+      gain1.gain.setValueAtTime(0.18, now);
+      gain1.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
+      osc1.connect(gain1);
+      gain1.connect(ctx.destination);
+      osc1.start(now);
+      osc1.stop(now + 0.35);
+
+      const osc2 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+      osc2.type = "sine";
+      osc2.frequency.setValueAtTime(880, now + 0.12); // A5
+      osc2.frequency.exponentialRampToValueAtTime(1174.66, now + 0.3); // D6
+      gain2.gain.setValueAtTime(0.2, now + 0.12);
+      gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.55);
+      osc2.connect(gain2);
+      gain2.connect(ctx.destination);
+      osc2.start(now + 0.12);
+      osc2.stop(now + 0.55);
+    } catch {
+      // Audio autoplay may be disabled by browser before user interaction
+    }
+  };
+
+  // Auto-sync cache & multi-tab broadcast
+  const updateBookingsState = (newBookings: AdminBooking[], shouldBroadcast = true) => {
     setBookings(newBookings);
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(newBookings));
     } catch (e) {
       console.error(e);
     }
+    if (shouldBroadcast && typeof window !== "undefined" && "BroadcastChannel" in window) {
+      try {
+        const bc = new BroadcastChannel("celebre_admin_realtime_sync");
+        bc.postMessage({ type: "bookings_updated", bookings: newBookings });
+        bc.close();
+      } catch {}
+    }
   };
 
   // Fetch bookings from server
-  const fetchBookings = async () => {
-    setIsLoadingBookings(true);
+  const fetchBookings = async (showLoadingSpinner = true) => {
+    if (showLoadingSpinner) setIsLoadingBookings(true);
     try {
       const res = await fetch("/api/admin/bookings");
       const data = await res.json();
       if (data.success && Array.isArray(data.bookings)) {
-        // Strip any legacy demo mock IDs
         const cleaned = data.bookings.filter((b: any) => !["CEL-BK-101", "CEL-BK-102", "CEL-BK-103", "CEL-BK-104"].includes(b.id));
-        updateBookingsState(cleaned);
+        updateBookingsState(cleaned, false);
+        setLastSyncedTime(new Date());
       }
     } catch (e) {
       console.error("Failed to load bookings from API, using cached data:", e);
     } finally {
-      setIsLoadingBookings(false);
+      if (showLoadingSpinner) setIsLoadingBookings(false);
     }
   };
 
+  // Real-Time EventSource (SSE) + BroadcastChannel + Periodic Fallback Polling
   useEffect(() => {
-    if (isOpen && isAuthenticated) {
-      fetchBookings();
+    if (!isOpen || !isAuthenticated) return;
+
+    // Initial load
+    fetchBookings(true);
+
+    if (!isLiveSyncEnabled) {
+      setIsLiveConnected(false);
+      return;
     }
-  }, [isOpen, isAuthenticated]);
+
+    let eventSource: EventSource | null = null;
+    let fallbackPollInterval: NodeJS.Timeout | null = null;
+
+    try {
+      eventSource = new EventSource("/api/admin/bookings/live-stream");
+
+      eventSource.addEventListener("connected", () => {
+        setIsLiveConnected(true);
+        setLastSyncedTime(new Date());
+      });
+
+      eventSource.addEventListener("bookings_update", (e) => {
+        try {
+          const data = JSON.parse(e.data);
+          if (data.success && Array.isArray(data.bookings)) {
+            const cleaned = data.bookings.filter(
+              (b: any) => !["CEL-BK-101", "CEL-BK-102", "CEL-BK-103", "CEL-BK-104"].includes(b.id)
+            );
+            updateBookingsState(cleaned, false);
+            setLastSyncedTime(new Date());
+            setIsLiveConnected(true);
+
+            // Trigger alert on new booking created!
+            if (data.type === "created" && data.booking) {
+              playNotificationChime();
+              setNewlyAddedBookingId(data.booking.id);
+              setLiveIncomingAlert({
+                id: data.booking.id,
+                customerName: data.booking.customerName || "عميل سيلبر",
+                quantity: data.booking.quantity || 50,
+                occasion: data.booking.occasion || "حجز مناسبة",
+                amount: data.booking.totalPrice || 0
+              });
+              // Auto-dismiss pulse highlight after 15 seconds
+              setTimeout(() => {
+                setNewlyAddedBookingId(null);
+              }, 15000);
+            }
+          }
+        } catch (err) {
+          console.error("Error parsing live stream payload:", err);
+        }
+      });
+
+      eventSource.onerror = () => {
+        setIsLiveConnected(false);
+      };
+    } catch (err) {
+      console.error("Error initializing EventSource:", err);
+      setIsLiveConnected(false);
+    }
+
+    // Cross-tab broadcast listener
+    let broadcastChannel: BroadcastChannel | null = null;
+    try {
+      if (typeof window !== "undefined" && "BroadcastChannel" in window) {
+        broadcastChannel = new BroadcastChannel("celebre_admin_realtime_sync");
+        broadcastChannel.onmessage = (event) => {
+          if (event.data?.type === "bookings_updated" && Array.isArray(event.data?.bookings)) {
+            setBookings(event.data.bookings);
+            setLastSyncedTime(new Date());
+          }
+        };
+      }
+    } catch {}
+
+    // Resilient fallback polling every 7 seconds
+    fallbackPollInterval = setInterval(() => {
+      fetchBookings(false);
+    }, 7000);
+
+    return () => {
+      if (eventSource) {
+        eventSource.close();
+      }
+      if (broadcastChannel) {
+        broadcastChannel.close();
+      }
+      if (fallbackPollInterval) {
+        clearInterval(fallbackPollInterval);
+      }
+    };
+  }, [isOpen, isAuthenticated, isLiveSyncEnabled, soundAlertsEnabled]);
 
   if (!isOpen) return null;
 
@@ -776,7 +925,34 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
       const canvas = await html2canvas(tableContainerRef.current, {
         scale: 2,
         useCORS: true,
-        backgroundColor: "#FFFFFF"
+        backgroundColor: "#FFFFFF",
+        onclone: (clonedDoc) => {
+          const dummy = clonedDoc.createElement("canvas");
+          const ctx = dummy.getContext("2d");
+          const toSafe = (val: string) => {
+            if (!val || (!val.includes("oklab") && !val.includes("oklch"))) return val;
+            if (!ctx) return "#221B17";
+            try {
+              ctx.fillStyle = "#000000";
+              ctx.fillStyle = val;
+              return ctx.fillStyle;
+            } catch {
+              return "#221B17";
+            }
+          };
+          const all = Array.from(clonedDoc.querySelectorAll("*")) as HTMLElement[];
+          const win = clonedDoc.defaultView || window;
+          all.forEach(el => {
+            if (!el.style) return;
+            const comp = win.getComputedStyle(el);
+            ["color", "background-color", "border-color", "outline-color", "fill", "stroke"].forEach(p => {
+              const v = comp.getPropertyValue(p);
+              if (v && (v.includes("oklab") || v.includes("oklch"))) {
+                el.style.setProperty(p, v.replace(/okl(ab|ch)\([^)]+\)/gi, m => toSafe(m)), "important");
+              }
+            });
+          });
+        }
       });
       const dataUrl = canvas.toDataURL("image/jpeg", 0.95);
       const link = document.createElement("a");
@@ -1152,7 +1328,66 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
                  </div>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* Real-Time Live Sync Status Badge */}
+                <div 
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all shadow-2xs ${
+                    isLiveConnected 
+                      ? "bg-emerald-50 border-emerald-300 text-emerald-900" 
+                      : isLiveSyncEnabled
+                      ? "bg-amber-50 border-amber-300 text-amber-900"
+                      : "bg-stone-100 border-stone-300 text-stone-600"
+                  }`}
+                  title={isLiveConnected ? "متصل بالخادم وتصلك الحجوزات والتعديلات فورياً لحظة بلحظة" : "جاري الاتصال أو المزامنة التلقائية"}
+                >
+                  <span className="relative flex h-2.5 w-2.5">
+                    {isLiveConnected && (
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    )}
+                    <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${
+                      isLiveConnected ? "bg-emerald-600" : isLiveSyncEnabled ? "bg-amber-500 animate-pulse" : "bg-stone-400"
+                    }`}></span>
+                  </span>
+                  <span className="font-black text-[11px]">
+                    {isLiveConnected ? "مُحدّث لحظياً (مباشر)" : isLiveSyncEnabled ? "مزامنة لحظية..." : "مزامنة متوقفة"}
+                  </span>
+                  {lastSyncedTime && (
+                    <span className="text-[10px] text-[#7A6E65] border-r border-[#E8DFD1] pr-1.5 mr-0.5 font-mono">
+                      {lastSyncedTime.toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                    </span>
+                  )}
+                </div>
+
+                {/* Sound Alert Toggle */}
+                <button
+                  type="button"
+                  onClick={() => setSoundAlertsEnabled(prev => !prev)}
+                  className={`p-2 rounded-xl border text-xs font-bold flex items-center gap-1 transition-all ${
+                    soundAlertsEnabled 
+                      ? "bg-emerald-50 border-emerald-200 text-emerald-800 hover:bg-emerald-100" 
+                      : "bg-stone-100 border-stone-200 text-stone-500 hover:bg-stone-200"
+                  }`}
+                  title={soundAlertsEnabled ? "تنبيه صوتي مفعل عند ورود حجز جديد (انقر للكتم)" : "التنبيه الصوتي مكتوم (انقر للتفعيل)"}
+                >
+                  {soundAlertsEnabled ? <Volume2 className="w-3.5 h-3.5 text-emerald-600" /> : <VolumeX className="w-3.5 h-3.5 text-stone-400" />}
+                  <span className="hidden md:inline">{soundAlertsEnabled ? "صوت التنبيه" : "مكتوم"}</span>
+                </button>
+
+                {/* Live Sync Pause/Resume */}
+                <button
+                  type="button"
+                  onClick={() => setIsLiveSyncEnabled(prev => !prev)}
+                  className={`p-2 rounded-xl border text-xs font-bold flex items-center gap-1 transition-all ${
+                    isLiveSyncEnabled
+                      ? "bg-white border-[#E8DFD1] text-[#4A3E38] hover:bg-[#EFE8DD]"
+                      : "bg-amber-100 border-amber-300 text-amber-900 hover:bg-amber-200"
+                  }`}
+                  title={isLiveSyncEnabled ? "إيقاف المزامنة اللحظية مؤقتاً" : "استئناف المزامنة اللحظية المباشرة"}
+                >
+                  <Radio className={`w-3.5 h-3.5 ${isLiveSyncEnabled ? "text-emerald-600 animate-pulse" : "text-stone-400"}`} />
+                  <span className="hidden lg:inline">{isLiveSyncEnabled ? "المزامنة نشطة" : "استئناف المباشر"}</span>
+                </button>
+
                 <button
                   type="button"
                   onClick={() => {
@@ -1170,11 +1405,11 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
 
                 <button
                   type="button"
-                  onClick={fetchBookings}
+                  onClick={() => fetchBookings(true)}
                   className="p-2 rounded-xl bg-white border border-[#E8DFD1] hover:bg-[#EFE8DD] text-[#4A3E38] text-xs font-bold flex items-center gap-1.5"
-                  title="تحديث البيانات من السيرفر"
+                  title="تحديث فوري للبيانات من السيرفر"
                 >
-                  <RefreshCw className={`w-3.5 h-3.5 ${isLoadingBookings ? "animate-spin" : ""}`} />
+                  <RefreshCw className={`w-3.5 h-3.5 ${isLoadingBookings ? "animate-spin text-[#5C1027]" : "text-[#4A3E38]"}`} />
                   <span className="hidden sm:inline">تحديث</span>
                 </button>
 
@@ -1195,6 +1430,50 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
                 </button>
               </div>
             </div>
+
+            {/* LIVE INCOMING BOOKING TOAST BANNER */}
+            {liveIncomingAlert && (
+              <div className="mx-4 mt-3 p-3.5 bg-gradient-to-r from-emerald-50 via-amber-50 to-emerald-50 border-2 border-emerald-500 rounded-2xl flex flex-wrap items-center justify-between gap-3 text-xs text-emerald-950 font-bold shadow-lg animate-bounce-in shrink-0 no-print">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                    <BellRing className="w-5 h-5 animate-bounce" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-black text-sm text-[#5C1027]">🔔 وصل حجز جديد للتو لحظياً!</span>
+                      <span className="bg-emerald-600 text-white text-[10px] px-2 py-0.5 rounded-full font-mono">
+                        {liveIncomingAlert.id}
+                      </span>
+                    </div>
+                    <p className="text-emerald-900 text-xs mt-0.5">
+                      العميل: <span className="font-black text-emerald-950">{liveIncomingAlert.customerName}</span> • عدد الوجبات: <span className="font-black text-[#5C1027]">{liveIncomingAlert.quantity} علبة</span> • المناسبة: {liveIncomingAlert.occasion} • الإجمالي: {liveIncomingAlert.amount.toLocaleString()} ج.م
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchQuery(liveIncomingAlert.id);
+                      setLiveIncomingAlert(null);
+                    }}
+                    className="px-3.5 py-1.5 bg-[#5C1027] hover:bg-[#721832] text-white rounded-xl text-xs font-black transition-all shadow-xs active:scale-95 flex items-center gap-1"
+                  >
+                    <Zap className="w-3.5 h-3.5 text-[#C89B3C]" />
+                    <span>تحديد الحجز في الجدول</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setLiveIncomingAlert(null)}
+                    className="p-1.5 rounded-lg text-emerald-800 hover:bg-emerald-200/60"
+                    title="إغلاق التنبيه"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* KPI Summary Dashboard Bar */}
             <div className="bg-gradient-to-r from-[#5C1027] via-[#721832] to-[#5C1027] text-white p-4 grid grid-cols-2 sm:grid-cols-5 gap-3 shrink-0 no-print">
@@ -1421,11 +1700,15 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
                       </td>
                     </tr>
                   ) : (
-                    filteredBookings.map((b, idx) => (
+                    filteredBookings.map((b, idx) => {
+                      const isNewLive = b.id === newlyAddedBookingId;
+                      return (
                       <tr 
                         key={b.id} 
-                        className={`hover:bg-[#FAF7F2] transition-colors ${
-                          idx % 2 === 0 ? "bg-white" : "bg-[#F8FAFC]"
+                        className={`transition-all ${
+                          isNewLive 
+                            ? "bg-amber-100/95 ring-2 ring-[#C89B3C] shadow-inner" 
+                            : idx % 2 === 0 ? "bg-white hover:bg-[#FAF7F2]" : "bg-[#F8FAFC] hover:bg-[#FAF7F2]"
                         }`}
                       >
                         {/* 1. Row Index */}
@@ -1435,7 +1718,15 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
 
                         {/* 2. Booking ID */}
                         <td className="p-2 border-r border-[#E2E8F0] font-mono font-bold text-[#5C1027]">
-                          {b.id}
+                          <div className="flex items-center gap-1">
+                            <span>{b.id}</span>
+                            {isNewLive && (
+                              <span className="bg-[#5C1027] text-white text-[9px] px-1.5 py-0.2 rounded-full font-black animate-bounce inline-flex items-center gap-0.5">
+                                <Zap className="w-2.5 h-2.5 text-[#C89B3C]" />
+                                <span>جديد</span>
+                              </span>
+                            )}
+                          </div>
                         </td>
 
                         {/* 3. Customer Name (بيان نصي) */}
@@ -1586,7 +1877,8 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
                           </div>
                         </td>
                       </tr>
-                    ))
+                      );
+                    })
                   )}
                 </tbody>
 

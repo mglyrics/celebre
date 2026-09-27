@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Sparkles, ArrowDown, CheckCircle2, Shield, HeartHandshake, PhoneCall, ChevronRight, Heart, Truck } from "lucide-react";
+import { Sparkles, ArrowDown, CheckCircle2, Shield, HeartHandshake, PhoneCall, ChevronRight, Heart, Truck, FileText } from "lucide-react";
 import { CelebreLogo, CelebreClocheIcon, CelebreStarIcon, CelebreFlourishDivider } from "./CelebreLogo";
 import { LocationGreetingBar } from "./LocationGreetingBar";
 import heroImg from "../assets/images/celebre_hero_banner_1788037530778.jpg";
@@ -9,12 +9,14 @@ import logoImg from "../assets/images/celebre_official_logo_transparent.png";
 interface HeroProps {
   onExplorePackages: () => void;
   onOpenAdvisor: () => void;
+  onOpenMenu?: () => void;
   onQuickOrderWithCount?: (count: number) => void;
 }
 
 export const Hero: React.FC<HeroProps> = ({
   onExplorePackages,
-  onOpenAdvisor
+  onOpenAdvisor,
+  onOpenMenu
 }) => {
   // Quick cost simulator state
   const [guestCount, setGuestCount] = useState<number>(100);
@@ -140,6 +142,21 @@ export const Hero: React.FC<HeroProps> = ({
                 <span dir="ltr">01284484868</span>
               </a>
             </div>
+
+            {/* Quick Interactive Menu Download Button */}
+            {onOpenMenu && (
+              <div className="w-full flex justify-center lg:justify-start pt-2">
+                <button
+                  type="button"
+                  onClick={onOpenMenu}
+                  className="inline-flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#F4EEDB] via-white to-[#F4EEDB] hover:from-[#EBE3D0] hover:to-[#EBE3D0] text-[#5C1027] font-black text-xs sm:text-sm border border-[#C89B3C]/70 shadow-2xs hover:shadow-xs transition-all active:scale-98"
+                >
+                  <FileText className="w-4 h-4 text-[#C89B3C]" />
+                  <span>تحميل منيو العروض التفاعلي المحدث (PDF أو صورة JPG)</span>
+                  <span className="text-[10px] bg-[#5C1027] text-white px-2 py-0.5 rounded-full font-bold">تحديث فوري</span>
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Interactive Hero Widget & Featured Visual */}

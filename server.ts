@@ -220,6 +220,88 @@ app.get("/api/health", (_req, res) => {
   res.json({ status: "ok", brand: "Celebre Catering Packages", contact: "01284484868" });
 });
 
+// ==========================================
+// Celebre Admin Bookings System (Excel-like) & Real-time Live Sync
+// ==========================================
+interface AdminBookingRecord {
+  id: string;
+  customerName: string;
+  phone: string;
+  occasion: string;
+  eventDate: string;
+  eventTime: string;
+  packageCode: string;
+  packageName: string;
+  basePrice: number;
+  drinkOption: 'juice_included' | 'pepsi_added' | 'no_juice' | 'custom';
+  drinkOptionLabel: string;
+  drinkPriceDelta: number;
+  unitPrice: number;
+  quantity: number;
+  totalPrice: number;
+  depositPaid: number;
+  remainingAmount: number;
+  paymentStatus: 'deposit_paid' | 'fully_paid' | 'pending_payment' | 'refunded';
+  orderStatus: 'confirmed' | 'in_preparation' | 'delivered' | 'cancelled';
+  deliveryAddress: string;
+  phoneAgreementNotes: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+const ADMIN_BOOKINGS_FILE = path.join(process.cwd(), "celebre-admin-bookings.json");
+
+function loadAdminBookings(): AdminBookingRecord[] {
+  try {
+    if (fs.existsSync(ADMIN_BOOKINGS_FILE)) {
+      const data = fs.readFileSync(ADMIN_BOOKINGS_FILE, "utf-8");
+      const parsed = JSON.parse(data);
+      if (Array.isArray(parsed)) {
+        return parsed;
+      }
+    }
+  } catch (e) {
+    console.error("Error reading admin bookings file:", e);
+  }
+  return [];
+}
+
+function saveAdminBookings(bookingsList: AdminBookingRecord[]) {
+  try {
+    fs.writeFileSync(ADMIN_BOOKINGS_FILE, JSON.stringify(bookingsList, null, 2), "utf-8");
+  } catch (e) {
+    console.error("Error saving admin bookings file:", e);
+  }
+}
+
+const DEFAULT_ADMIN_BOOKINGS: AdminBookingRecord[] = [];
+let adminBookings: AdminBookingRecord[] = loadAdminBookings();
+
+// Active SSE client connections for real-time live admin bookings
+const sseBookingClients = new Set<express.Response>();
+
+function broadcastAdminBookingsUpdate(
+  eventType: 'created' | 'updated' | 'deleted' | 'reset' | 'init',
+  bookingPayload?: any
+) {
+  const payload = JSON.stringify({
+    success: true,
+    type: eventType,
+    booking: bookingPayload || null,
+    bookings: adminBookings,
+    count: adminBookings.length,
+    timestamp: new Date().toISOString()
+  });
+
+  for (const client of sseBookingClients) {
+    try {
+      client.write(`event: bookings_update\ndata: ${payload}\n\n`);
+    } catch {
+      sseBookingClients.delete(client);
+    }
+  }
+}
+
 // API: List & Create Orders
 app.get("/api/orders", (_req, res) => {
   res.json({ success: true, orders });
@@ -295,6 +377,7 @@ app.post("/api/orders", (req, res) => {
     };
     adminBookings.unshift(newAdminBooking);
     saveAdminBookings(adminBookings);
+    broadcastAdminBookingsUpdate('created', newAdminBooking);
 
     res.json({ success: true, order: newOrder, adminBooking: newAdminBooking });
   } catch (error) {
@@ -302,65 +385,6 @@ app.post("/api/orders", (req, res) => {
     res.status(500).json({ success: false, message: "تعذر حفظ الطلب" });
   }
 });
-
-// ==========================================
-// Celebre Admin Bookings System (Excel-like)
-// Credentials: Username "01284484868", Password "Mahmoud@010973"
-// ==========================================
-interface AdminBookingRecord {
-  id: string;
-  customerName: string;
-  phone: string;
-  occasion: string;
-  eventDate: string;
-  eventTime: string;
-  packageCode: string;
-  packageName: string;
-  basePrice: number;
-  drinkOption: 'juice_included' | 'pepsi_added' | 'no_juice' | 'custom';
-  drinkOptionLabel: string;
-  drinkPriceDelta: number;
-  unitPrice: number;
-  quantity: number;
-  totalPrice: number;
-  depositPaid: number;
-  remainingAmount: number;
-  paymentStatus: 'deposit_paid' | 'fully_paid' | 'pending_payment' | 'refunded';
-  orderStatus: 'confirmed' | 'in_preparation' | 'delivered' | 'cancelled';
-  deliveryAddress: string;
-  phoneAgreementNotes: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-const ADMIN_BOOKINGS_FILE = path.join(process.cwd(), "celebre-admin-bookings.json");
-
-function loadAdminBookings(): AdminBookingRecord[] {
-  try {
-    if (fs.existsSync(ADMIN_BOOKINGS_FILE)) {
-      const data = fs.readFileSync(ADMIN_BOOKINGS_FILE, "utf-8");
-      const parsed = JSON.parse(data);
-      if (Array.isArray(parsed)) {
-        return parsed;
-      }
-    }
-  } catch (e) {
-    console.error("Error reading admin bookings file:", e);
-  }
-  return [];
-}
-
-function saveAdminBookings(bookingsList: AdminBookingRecord[]) {
-  try {
-    fs.writeFileSync(ADMIN_BOOKINGS_FILE, JSON.stringify(bookingsList, null, 2), "utf-8");
-  } catch (e) {
-    console.error("Error saving admin bookings file:", e);
-  }
-}
-
-const DEFAULT_ADMIN_BOOKINGS: AdminBookingRecord[] = [];
-
-let adminBookings: AdminBookingRecord[] = loadAdminBookings();
 
 interface AdminCredentials {
   phone: string;
@@ -620,6 +644,49 @@ app.get("/api/admin/bookings", (_req, res) => {
   res.json({ success: true, bookings: adminBookings });
 });
 
+// Admin Bookings: Real-Time Live Stream (SSE)
+app.get("/api/admin/bookings/live-stream", (req, res) => {
+  res.writeHead(200, {
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache, no-transform",
+    "Connection": "keep-alive",
+    "Access-Control-Allow-Origin": "*"
+  });
+
+  if (typeof (res as any).flushHeaders === "function") {
+    (res as any).flushHeaders();
+  }
+
+  // Send connection acknowledged
+  res.write(`event: connected\ndata: ${JSON.stringify({ status: "connected", timestamp: new Date().toISOString() })}\n\n`);
+
+  // Send current state on connection
+  res.write(`event: bookings_update\ndata: ${JSON.stringify({
+    success: true,
+    type: "init",
+    bookings: adminBookings,
+    count: adminBookings.length,
+    timestamp: new Date().toISOString()
+  })}\n\n`);
+
+  sseBookingClients.add(res);
+
+  // Heartbeat ping every 20 seconds to keep connection alive
+  const pingInterval = setInterval(() => {
+    try {
+      res.write(`event: ping\ndata: ${JSON.stringify({ time: Date.now() })}\n\n`);
+    } catch {
+      clearInterval(pingInterval);
+      sseBookingClients.delete(res);
+    }
+  }, 20000);
+
+  req.on("close", () => {
+    clearInterval(pingInterval);
+    sseBookingClients.delete(res);
+  });
+});
+
 // Admin Bookings: Create New Record
 app.post("/api/admin/bookings", (req, res) => {
   try {
@@ -660,6 +727,8 @@ app.post("/api/admin/bookings", (req, res) => {
 
     adminBookings.unshift(newRecord);
     saveAdminBookings(adminBookings);
+    broadcastAdminBookingsUpdate('created', newRecord);
+
     res.json({ success: true, booking: newRecord });
   } catch (error) {
     console.error("Error creating booking:", error);
@@ -714,6 +783,8 @@ app.put("/api/admin/bookings/:id", (req, res) => {
 
     adminBookings[index] = updatedBooking;
     saveAdminBookings(adminBookings);
+    broadcastAdminBookingsUpdate('updated', updatedBooking);
+
     res.json({ success: true, booking: updatedBooking });
   } catch (error) {
     console.error("Error updating booking:", error);
@@ -726,6 +797,7 @@ app.delete("/api/admin/bookings/:id", (req, res) => {
   const { id } = req.params;
   adminBookings = adminBookings.filter(b => b.id !== id);
   saveAdminBookings(adminBookings);
+  broadcastAdminBookingsUpdate('deleted', { id } as any);
   res.json({ success: true, message: "تم حذف الحجز بنجاح" });
 });
 
@@ -733,6 +805,7 @@ app.delete("/api/admin/bookings/:id", (req, res) => {
 app.post("/api/admin/bookings/reset", (_req, res) => {
   adminBookings = [...DEFAULT_ADMIN_BOOKINGS];
   saveAdminBookings(adminBookings);
+  broadcastAdminBookingsUpdate('reset');
   res.json({ success: true, bookings: adminBookings });
 });
 

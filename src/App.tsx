@@ -21,6 +21,7 @@ import { PrivacyPolicyModal } from "./components/PrivacyPolicyModal";
 import { FloatingQuickBar } from "./components/FloatingQuickBar";
 import { AdminBookingsDashboard } from "./components/AdminBookingsDashboard";
 import { LocationGreetingBar } from "./components/LocationGreetingBar";
+import { InteractiveMenuModal } from "./components/InteractiveMenuModal";
 
 export const App: React.FC = () => {
   const [packages] = useState<CateringPackage[]>(CATERING_PACKAGES);
@@ -36,6 +37,7 @@ export const App: React.FC = () => {
   const [lastOrder, setLastOrder] = useState<Order | null>(null);
   const [isInvoiceOpen, setIsInvoiceOpen] = useState(false);
   const [isAdminOpen, setIsAdminOpen] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   // Global shortcut to open admin dashboard: Ctrl+Shift+A or Alt+A
   useEffect(() => {
@@ -132,6 +134,7 @@ export const App: React.FC = () => {
         onOpenAdvisor={() => setIsAdvisorOpen(true)}
         onOpenCalculator={() => setIsCalculatorOpen(true)}
         onScrollToPackages={handleScrollToPackages}
+        onOpenMenu={() => setIsMenuOpen(true)}
       />
 
       {/* Main Content */}
@@ -140,6 +143,7 @@ export const App: React.FC = () => {
         <Hero
           onExplorePackages={handleScrollToPackages}
           onOpenAdvisor={() => setIsAdvisorOpen(true)}
+          onOpenMenu={() => setIsMenuOpen(true)}
         />
 
         {/* Packages Section (12 meals, expandable details accordion, in-card drink customizer, in-card quantity > 300 flexible input, 1-click order) */}
@@ -148,6 +152,7 @@ export const App: React.FC = () => {
           onSelectPackage={(pkg) => setSelectedPackageForDetail(pkg)}
           onAddToCart={handleAddToCart}
           onDirectOrder={handleDirectOrder}
+          onOpenMenu={() => setIsMenuOpen(true)}
         />
 
         {/* Gallery Showcase of gold carton boxes and mosque distributions */}
@@ -175,6 +180,7 @@ export const App: React.FC = () => {
         onOpenCart={() => setIsCartOpen(true)}
         onScrollToPackages={handleScrollToPackages}
         onOpenAdvisor={() => setIsAdvisorOpen(true)}
+        onOpenMenu={() => setIsMenuOpen(true)}
       />
 
       {/* Modals */}
@@ -239,6 +245,13 @@ export const App: React.FC = () => {
       <AdminBookingsDashboard
         isOpen={isAdminOpen}
         onClose={() => setIsAdminOpen(false)}
+      />
+
+      {/* Interactive Current Offers Menu Modal (PDF / JPG Export) */}
+      <InteractiveMenuModal
+        isOpen={isMenuOpen}
+        onClose={() => setIsMenuOpen(false)}
+        packages={packages}
       />
     </div>
   );

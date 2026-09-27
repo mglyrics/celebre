@@ -1,5 +1,5 @@
 import React from "react";
-import { ShoppingBag, MessageCircle, Phone, Sparkles } from "lucide-react";
+import { ShoppingBag, MessageCircle, Phone, Sparkles, FileDown } from "lucide-react";
 import { CelebreClocheIcon } from "./CelebreLogo";
 
 interface FloatingQuickBarProps {
@@ -7,13 +7,15 @@ interface FloatingQuickBarProps {
   onOpenCart: () => void;
   onScrollToPackages: () => void;
   onOpenAdvisor: () => void;
+  onOpenMenu?: () => void;
 }
 
 export const FloatingQuickBar: React.FC<FloatingQuickBarProps> = ({
   cartCount,
   onOpenCart,
   onScrollToPackages,
-  onOpenAdvisor
+  onOpenAdvisor,
+  onOpenMenu
 }) => {
   const handleWhatsApp = () => {
     window.open("https://wa.me/201284484868?text=السلام%20عليكم،%20أود%20الاستفسار%20عن%20عبوات%20كاترنج%20سيلبر%20للمناسبات", "_blank");
@@ -31,6 +33,18 @@ export const FloatingQuickBar: React.FC<FloatingQuickBarProps> = ({
           <span className="hidden sm:inline">منيو</span>
           <span>الوجبات</span>
         </button>
+
+        {/* Download Menu CTA button */}
+        {onOpenMenu && (
+          <button
+            onClick={onOpenMenu}
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-[#C89B3C]/20 hover:bg-[#C89B3C]/30 text-xs font-black transition-all text-[#C89B3C] border border-[#C89B3C]/40"
+            title="تحميل منيو العروض (PDF/JPG)"
+          >
+            <FileDown className="w-3.5 h-3.5" />
+            <span>تحميل</span>
+          </button>
+        )}
 
         {/* AI Advisor */}
         <button

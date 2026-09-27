@@ -50,11 +50,13 @@
     visibility: hidden;
   }
 
-  /* Make ONLY the printable invoice sheet or admin bookings sheet visible */
+  /* Make ONLY the printable invoice sheet, admin bookings sheet, or celebre printable menu visible */
   #invoice-sheet,
   #invoice-sheet *,
   #admin-bookings-sheet,
-  #admin-bookings-sheet * {
+  #admin-bookings-sheet *,
+  #celebre-printable-menu,
+  #celebre-printable-menu * {
     visibility: visible;
   }
 

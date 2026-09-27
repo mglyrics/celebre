@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Phone, MessageCircle, ShoppingBag, Sparkles, Menu, X, Calculator, ShieldCheck, Truck } from "lucide-react";
+import { Phone, MessageCircle, ShoppingBag, Sparkles, Menu, X, Calculator, ShieldCheck, Truck, FileDown } from "lucide-react";
 import { CelebreLogo } from "./CelebreLogo";
 
 interface NavbarProps {
@@ -8,6 +8,7 @@ interface NavbarProps {
   onOpenAdvisor: () => void;
   onOpenCalculator: () => void;
   onScrollToPackages: () => void;
+  onOpenMenu?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -15,7 +16,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenCart,
   onOpenAdvisor,
   onOpenCalculator,
-  onScrollToPackages
+  onScrollToPackages,
+  onOpenMenu
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -120,7 +122,20 @@ export const Navbar: React.FC<NavbarProps> = ({
           </nav>
 
           {/* Action Buttons */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
+            {onOpenMenu && (
+              <button
+                type="button"
+                onClick={onOpenMenu}
+                className="inline-flex items-center gap-1.5 bg-[#FAF7F2] hover:bg-[#F4EEDB] text-[#5C1027] border border-[#C89B3C]/60 text-xs sm:text-sm font-black px-3 py-2 rounded-xl shadow-2xs hover:shadow-xs transition-all active:scale-95"
+                title="تحميل منيو عروض ووجبات كاترنج سيلبر بصيغة PDF أو صورة JPG"
+              >
+                <FileDown className="w-4 h-4 text-[#C89B3C]" />
+                <span className="hidden md:inline">تحميل المنيو (PDF/JPG)</span>
+                <span className="md:hidden">المنيو 📄</span>
+              </button>
+            )}
+
             <button
               onClick={handleWhatsApp}
               className="hidden sm:inline-flex items-center gap-1.5 bg-[#25D366] hover:bg-[#20ba59] text-white text-xs sm:text-sm font-bold px-3.5 py-2 rounded-xl shadow-xs transition-all active:scale-95"
@@ -158,6 +173,22 @@ export const Navbar: React.FC<NavbarProps> = ({
       {/* Mobile Menu Dropdown */}
       {mobileMenuOpen && (
         <div className="lg:hidden bg-[#FAF7F2] border-b border-[#E8DFD1] px-4 py-4 space-y-3">
+          {onOpenMenu && (
+            <button
+              onClick={() => {
+                onOpenMenu();
+                setMobileMenuOpen(false);
+              }}
+              className="w-full text-right font-black text-[#5C1027] py-2.5 px-3.5 rounded-xl bg-gradient-to-r from-[#F4EEDB] to-white border border-[#C89B3C]/50 flex items-center justify-between shadow-2xs"
+            >
+              <span className="flex items-center gap-2">
+                <FileDown className="w-4 h-4 text-[#C89B3C]" />
+                <span>تحميل منيو العروض (PDF / JPG)</span>
+              </span>
+              <span className="text-[10px] bg-[#5C1027] text-white px-2 py-0.5 rounded-full font-bold">مُحدّث</span>
+            </button>
+          )}
+
           <button
             onClick={() => {
               onScrollToPackages();

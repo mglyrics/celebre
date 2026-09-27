@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from "react";
 import { 
   Search, SlidersHorizontal, Plus, Minus, ShoppingBag, Eye, 
-  ChevronDown, ChevronUp, Sparkles, CheckCircle2, ShieldCheck, Flame, Zap, Heart, Package
+  ChevronDown, ChevronUp, Sparkles, CheckCircle2, ShieldCheck, Flame, Zap, Heart, Package,
+  FileDown, Download
 } from "lucide-react";
 import { CateringPackage, DrinkModificationId } from "../types";
 import { DRINK_MODIFICATION_OPTIONS } from "../data/cateringData";
@@ -12,13 +13,15 @@ interface PackagesSectionProps {
   onSelectPackage: (pkg: CateringPackage) => void;
   onAddToCart: (pkg: CateringPackage, quantity: number, selectedDrink: DrinkModificationId) => void;
   onDirectOrder: (pkg: CateringPackage, quantity: number, selectedDrink: DrinkModificationId) => void;
+  onOpenMenu?: () => void;
 }
 
 export const PackagesSection: React.FC<PackagesSectionProps> = ({
   packages,
   onSelectPackage,
   onAddToCart,
-  onDirectOrder
+  onDirectOrder,
+  onOpenMenu
 }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
@@ -115,6 +118,34 @@ export const PackagesSection: React.FC<PackagesSectionProps> = ({
             جميع الوجبات مغلفة في علبة سيلبر الكرتونية المذهبة الرسمية المحكمة الإغلاق، تشمل الساندوتشات الطازجة مع قطعة جاتوه مثلثة مغلفة وعصير بخيرة مع شوكة ومنديل معقم.
           </p>
         </div>
+
+        {/* Interactive Menu Download Banner */}
+        {onOpenMenu && (
+          <div className="mb-6 p-4 rounded-2xl bg-gradient-to-r from-[#F4EEDB] via-white to-[#F4EEDB] border border-[#C89B3C]/50 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-right">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-[#5C1027] text-white flex items-center justify-center shrink-0 shadow-xs">
+                <FileDown className="w-5 h-5 text-[#C89B3C]" />
+              </div>
+              <div>
+                <h4 className="font-black text-sm text-[#221B17] flex items-center gap-1.5 justify-center sm:justify-start">
+                  <span>منيو عروض كاترنج سيلبر التفاعلي المحدث تلقائياً</span>
+                  <span className="text-[10px] bg-[#C89B3C] text-[#221B17] px-2 py-0.5 rounded-full font-black">جاهز للتحميل</span>
+                </h4>
+                <p className="text-xs text-[#7A6E65] mt-0.5">
+                  احفظ نسخة من العروض والأسعار لمشاركتها مع الأهل أو العريس بصيغة PDF للطباعة أو كصورة JPG فائقة الوضوح.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={onOpenMenu}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#5C1027] hover:bg-[#721832] text-white text-xs font-black shadow-xs hover:shadow-md transition-all shrink-0 active:scale-95"
+            >
+              <Download className="w-4 h-4 text-[#C89B3C]" />
+              <span>تحميل المنيو (PDF / JPG)</span>
+            </button>
+          </div>
+        )}
 
         {/* Search & Filter Bar */}
         <div className="bg-white rounded-2xl p-4 sm:p-5 border border-[#E8DFD1] shadow-sm mb-8 space-y-4">
