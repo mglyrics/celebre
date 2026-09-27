@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Sparkles, ArrowDown, CheckCircle2, Shield, HeartHandshake, PhoneCall, ChevronRight, Heart, Truck } from "lucide-react";
 import { CelebreLogo, CelebreClocheIcon, CelebreStarIcon, CelebreFlourishDivider } from "./CelebreLogo";
+import { LocationGreetingBar } from "./LocationGreetingBar";
 import heroImg from "../assets/images/celebre_hero_banner_1788037530778.jpg";
 import boxImg from "../assets/images/celebre_real_closed_box_1790336502952.jpg";
 import logoImg from "../assets/images/celebre_official_logo_transparent.png";
@@ -71,6 +72,11 @@ export const Hero: React.FC<HeroProps> = ({
                   <Truck className="w-3.5 h-3.5 text-amber-800" />
                   <span>التوصيل غير مشمول</span>
                 </div>
+              </div>
+
+              {/* Localized Greeting for Visitor's Geographic Region */}
+              <div className="mt-3.5">
+                <LocationGreetingBar variant="hero-badge" />
               </div>
             </div>
 

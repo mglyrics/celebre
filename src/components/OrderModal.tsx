@@ -7,6 +7,7 @@ import {
 import { CartItem, Order, OrderCustomerInfo, DrinkModificationId } from "../types";
 import { DRINK_MODIFICATION_OPTIONS } from "../data/cateringData";
 import { CelebreLogo, CelebreClocheIcon, CelebreStarIcon } from "./CelebreLogo";
+import { getSavedLocation } from "../utils/locationService";
 
 interface OrderModalProps {
   isOpen: boolean;
@@ -39,7 +40,13 @@ export const OrderModal: React.FC<OrderModalProps> = ({
     return d.toISOString().split("T")[0];
   });
   const [eventTime, setEventTime] = useState("بعد صلاة العصر (5:00 مساءً)");
-  const [governorate, setGovernorate] = useState("بني سويف - مدينة بني سويف");
+  const [governorate, setGovernorate] = useState(() => {
+    const saved = getSavedLocation();
+    if (saved && saved.governorate) {
+      return `${saved.governorate} - ${saved.locationName}`;
+    }
+    return "بني سويف - مدينة بني سويف";
+  });
   const [address, setAddress] = useState("");
   const [notes, setNotes] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<'instapay' | 'vodafone_cash' | 'cash_on_delivery'>('instapay');

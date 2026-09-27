@@ -20,6 +20,7 @@ import { InvoiceModal } from "./components/InvoiceModal";
 import { PrivacyPolicyModal } from "./components/PrivacyPolicyModal";
 import { FloatingQuickBar } from "./components/FloatingQuickBar";
 import { AdminBookingsDashboard } from "./components/AdminBookingsDashboard";
+import { LocationGreetingBar } from "./components/LocationGreetingBar";
 
 export const App: React.FC = () => {
   const [packages] = useState<CateringPackage[]>(CATERING_PACKAGES);
@@ -121,6 +122,9 @@ export const App: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-[#FAF7F2] text-[#221B17]">
+      {/* Localized Hospitality Bar for Client's Detected Geographic Location */}
+      <LocationGreetingBar variant="topbar" />
+
       {/* Navbar with Slogan */}
       <Navbar
         cartCount={cart.reduce((sum, it) => sum + it.quantity, 0)}

@@ -59,6 +59,162 @@ function getGeminiClient(): GoogleGenAI | null {
   return aiClient;
 }
 
+// Arabic governorate and city normalizer for localized welcoming
+function normalizeLocationToArabic(city?: string, region?: string, country?: string): { locationName: string; greeting: string } {
+  const combined = `${city || ""} ${region || ""}`.toLowerCase();
+  
+  if (combined.includes("beni suef") || combined.includes("بني سويف") || combined.includes("biba") || combined.includes("nasser") || combined.includes("fashn") || combined.includes("wasta") || combined.includes("somosta") || combined.includes("ahnasea")) {
+    return { locationName: "بني سويف", greeting: "أهلاً.. بأهل بني سويف الكرام 🌹" };
+  }
+  if (combined.includes("cairo") || combined.includes("قاهرة") || combined.includes("qahirah") || combined.includes("nasr city") || combined.includes("maadi") || combined.includes("heliopolis")) {
+    return { locationName: "القاهرة", greeting: "أهلاً.. بأهل القاهرة الكرام 🌹" };
+  }
+  if (combined.includes("giza") || combined.includes("جيزة") || combined.includes("jizah") || combined.includes("october") || combined.includes("zayed") || combined.includes("haram") || combined.includes("dokki")) {
+    return { locationName: "الجيزة", greeting: "أهلاً.. بأهل الجيزة الكرام 🌹" };
+  }
+  if (combined.includes("faiyum") || combined.includes("fayoum") || combined.includes("فيوم")) {
+    return { locationName: "الفيوم", greeting: "أهلاً.. بأهل الفيوم الكرام 🌹" };
+  }
+  if (combined.includes("minya") || combined.includes("منيا") || combined.includes("mallawi") || combined.includes("samalut") || combined.includes("maghagha")) {
+    return { locationName: "المنيا", greeting: "أهلاً.. بأهل المنيا الكرام 🌹" };
+  }
+  if (combined.includes("asyut") || combined.includes("assiut") || combined.includes("أسيوط")) {
+    return { locationName: "أسيوط", greeting: "أهلاً.. بأهل أسيوط الكرام 🌹" };
+  }
+  if (combined.includes("alexandria") || combined.includes("إسكندرية") || combined.includes("اسكندرية")) {
+    return { locationName: "الإسكندرية", greeting: "أهلاً.. بأهل الإسكندرية الكرام 🌹" };
+  }
+  if (combined.includes("sohag") || combined.includes("سوهاج")) {
+    return { locationName: "سوهاج", greeting: "أهلاً.. بأهل سوهاج الكرام 🌹" };
+  }
+  if (combined.includes("qena") || combined.includes("قنا")) {
+    return { locationName: "قنا", greeting: "أهلاً.. بأهل قنا الكرام 🌹" };
+  }
+  if (combined.includes("luxor") || combined.includes("أقصر") || combined.includes("اقصر")) {
+    return { locationName: "الأقصر", greeting: "أهلاً.. بأهل الأقصر الكرام 🌹" };
+  }
+  if (combined.includes("aswan") || combined.includes("أسوان") || combined.includes("اسوان")) {
+    return { locationName: "أسوان", greeting: "أهلاً.. بأهل أسوان الكرام 🌹" };
+  }
+  if (combined.includes("sharqia") || combined.includes("الشرقية") || combined.includes("zagazig") || combined.includes("10th of ramadan")) {
+    return { locationName: "الشرقية", greeting: "أهلاً.. بأهل الشرقية الكرام 🌹" };
+  }
+  if (combined.includes("dakahlia") || combined.includes("الدقهلية") || combined.includes("mansoura")) {
+    return { locationName: "الدقهلية", greeting: "أهلاً.. بأهل الدقهلية والمنصورة الكرام 🌹" };
+  }
+  if (combined.includes("gharbia") || combined.includes("الغربية") || combined.includes("tanta") || combined.includes("mahalla")) {
+    return { locationName: "الغربية", greeting: "أهلاً.. بأهل الغربية الكرام 🌹" };
+  }
+  if (combined.includes("qalyubia") || combined.includes("القليوبية") || combined.includes("banha") || combined.includes("shubra")) {
+    return { locationName: "القليوبية", greeting: "أهلاً.. بأهل القليوبية وبنها الكرام 🌹" };
+  }
+  if (combined.includes("monufia") || combined.includes("المنوفية") || combined.includes("shibin") || combined.includes("menouf")) {
+    return { locationName: "المنوفية", greeting: "أهلاً.. بأهل المنوفية الكرام 🌹" };
+  }
+  if (combined.includes("kafr") || combined.includes("كفر الشيخ")) {
+    return { locationName: "كفر الشيخ", greeting: "أهلاً.. بأهل كفر الشيخ الكرام 🌹" };
+  }
+  if (combined.includes("beheira") || combined.includes("البحيرة") || combined.includes("damanhur")) {
+    return { locationName: "البحيرة", greeting: "أهلاً.. بأهل البحيرة ودمنهور الكرام 🌹" };
+  }
+  if (combined.includes("damietta") || combined.includes("دمياط")) {
+    return { locationName: "دمياط", greeting: "أهلاً.. بأهل دمياط الكرام 🌹" };
+  }
+  if (combined.includes("ismailia") || combined.includes("الإسماعيلية") || combined.includes("اسماعيلية") || combined.includes("suez") || combined.includes("السويس") || combined.includes("port said") || combined.includes("بورسعيد")) {
+    return { locationName: "مدن القناة", greeting: "أهلاً.. بأهل مدن القناة الكرام 🌹" };
+  }
+  if (combined.includes("red sea") || combined.includes("hurghada") || combined.includes("الغردقة") || combined.includes("البحر الأحمر")) {
+    return { locationName: "البحر الأحمر والغردقة", greeting: "أهلاً.. بأهل البحر الأحمر والغردقة الكرام 🌹" };
+  }
+  if (combined.includes("matrouh") || combined.includes("مطروح") || combined.includes("sahel")) {
+    return { locationName: "مطروح والساحل", greeting: "أهلاً.. بأهل مطروح والساحل الكرام 🌹" };
+  }
+
+  if (city && city.trim() && city.trim().length > 1) {
+    return { locationName: city.trim(), greeting: `أهلاً.. بأهل ${city.trim()} الكرام 🌹` };
+  }
+  if (region && region.trim() && region.trim().length > 1) {
+    return { locationName: region.trim(), greeting: `أهلاً.. بأهل ${region.trim()} الكرام 🌹` };
+  }
+  if (country && country.trim() && country.trim().length > 1) {
+    return { locationName: country.trim(), greeting: `أهلاً.. بأهل ${country.trim()} الكرام 🌹` };
+  }
+
+  return { locationName: "بني سويف", greeting: "أهلاً.. بأهل بني سويف ومصر الكرام 🌹" };
+}
+
+// API: Detect Client Location
+app.get("/api/detect-location", async (req, res) => {
+  try {
+    const headerCity = (req.headers["cf-ipcity"] || req.headers["x-appengine-city"] || req.headers["x-client-city"] || "") as string;
+    const headerRegion = (req.headers["cf-region"] || req.headers["x-appengine-region"] || req.headers["x-client-region"] || "") as string;
+    const headerCountry = (req.headers["cf-ipcountry"] || req.headers["x-appengine-country"] || req.headers["x-client-country"] || "") as string;
+
+    if (headerCity || headerRegion) {
+      const normalized = normalizeLocationToArabic(headerCity, headerRegion, headerCountry);
+      return res.json({
+        success: true,
+        source: "headers",
+        locationName: normalized.locationName,
+        greeting: normalized.greeting,
+        rawCity: headerCity,
+        rawRegion: headerRegion,
+        country: headerCountry
+      });
+    }
+
+    const rawIp = req.headers["x-forwarded-for"] || req.socket.remoteAddress || "";
+    const ip = typeof rawIp === "string" ? rawIp.split(",")[0].trim() : Array.isArray(rawIp) ? rawIp[0].trim() : "";
+
+    const isPrivate = !ip || ip === "127.0.0.1" || ip === "::1" || ip.startsWith("10.") || ip.startsWith("192.168.");
+
+    if (!isPrivate) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 2000);
+        const geoRes = await fetch(`https://ipwho.is/${ip}?lang=ar`, { signal: controller.signal });
+        clearTimeout(timeoutId);
+        if (geoRes.ok) {
+          const geoData = await geoRes.json();
+          if (geoData.success) {
+            const city = geoData.city || geoData.region || "";
+            const region = geoData.region || "";
+            const country = geoData.country || "مصر";
+            const normalized = normalizeLocationToArabic(city, region, country);
+            return res.json({
+              success: true,
+              source: "ipwho",
+              locationName: normalized.locationName,
+              greeting: normalized.greeting,
+              rawCity: city,
+              rawRegion: region,
+              country
+            });
+          }
+        }
+      } catch (err) {
+        // Fall through
+      }
+    }
+
+    const normalized = normalizeLocationToArabic("Beni Suef", "بني سويف", "مصر");
+    res.json({
+      success: true,
+      source: "default",
+      locationName: normalized.locationName,
+      greeting: normalized.greeting
+    });
+  } catch (e) {
+    console.error("Location detect error:", e);
+    res.json({
+      success: true,
+      source: "fallback",
+      locationName: "بني سويف",
+      greeting: "أهلاً.. بأهل بني سويف ومصر الكرام 🌹"
+    });
+  }
+});
+
 // API: Health check
 app.get("/api/health", (_req, res) => {
   res.json({ status: "ok", brand: "Celebre Catering Packages", contact: "01284484868" });
