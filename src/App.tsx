@@ -122,6 +122,24 @@ export const App: React.FC = () => {
     }
   };
 
+  const handleScrollToBoxMix = () => {
+    const el = document.getElementById("section-box-mix");
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+    } else {
+      handleScrollToPackages();
+    }
+  };
+
+  const handleScrollToBoxSandwich = () => {
+    const el = document.getElementById("section-box-sandwich");
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+    } else {
+      handleScrollToPackages();
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-[#FAF7F2] text-[#221B17]">
       {/* Localized Hospitality Bar for Client's Detected Geographic Location */}
@@ -135,6 +153,8 @@ export const App: React.FC = () => {
         onOpenCalculator={() => setIsCalculatorOpen(true)}
         onScrollToPackages={handleScrollToPackages}
         onOpenMenu={() => setIsMenuOpen(true)}
+        onScrollToBoxMix={handleScrollToBoxMix}
+        onScrollToBoxSandwich={handleScrollToBoxSandwich}
       />
 
       {/* Main Content */}
@@ -144,6 +164,8 @@ export const App: React.FC = () => {
           onExplorePackages={handleScrollToPackages}
           onOpenAdvisor={() => setIsAdvisorOpen(true)}
           onOpenMenu={() => setIsMenuOpen(true)}
+          onScrollToBoxMix={handleScrollToBoxMix}
+          onScrollToBoxSandwich={handleScrollToBoxSandwich}
         />
 
         {/* Packages Section (12 meals, expandable details accordion, in-card drink customizer, in-card quantity > 300 flexible input, 1-click order) */}

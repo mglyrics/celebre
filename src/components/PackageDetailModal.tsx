@@ -154,7 +154,10 @@ export const PackageDetailModal: React.FC<PackageDetailModalProps> = ({
                 <img src="/logo.png" alt="شعار سيلبر المعتمد" className="w-6 h-6 object-contain" />
                 <div>
                   <strong className="text-[#221B17]">التغليف الرسمي:</strong>{" "}
-                  <span className="text-[#5C1027] font-bold">علبة كرتونية مذهبة فاخرة تحمل شعار سيلبر الملكي المعتمد</span>
+                  <span className="text-[#5C1027] font-bold">علبة كرتونية مذهبة فاخرة تحمل شعار سيلبر الملكي</span>
+                  <div className="font-['Dancing_Script',cursive] text-sm text-[#5C1027] font-bold mt-0.5" dir="ltr">
+                    with you in all happy moments
+                  </div>
                 </div>
               </div>
               <div className="text-emerald-700 font-bold flex items-center gap-1">

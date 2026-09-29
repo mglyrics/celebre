@@ -9,6 +9,8 @@ interface NavbarProps {
   onOpenCalculator: () => void;
   onScrollToPackages: () => void;
   onOpenMenu?: () => void;
+  onScrollToBoxMix?: () => void;
+  onScrollToBoxSandwich?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -17,7 +19,9 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenAdvisor,
   onOpenCalculator,
   onScrollToPackages,
-  onOpenMenu
+  onOpenMenu,
+  onScrollToBoxMix,
+  onScrollToBoxSandwich
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -92,13 +96,42 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* Desktop Nav Links */}
           <nav className="hidden lg:flex items-center gap-7 text-[#221B17] font-semibold text-sm">
-            <button
-              onClick={onScrollToPackages}
-              className="hover:text-[#5C1027] transition-colors py-2 flex items-center gap-1.5"
-            >
-              <span>قائمة الوجبات والعبوات</span>
-              <span className="text-[10px] bg-[#5C1027]/10 text-[#5C1027] px-2 py-0.5 rounded-full font-bold">12 وجبة</span>
-            </button>
+            {/* Dual Direct Category Navigation */}
+            <div className="flex items-center gap-1.5 bg-[#F4EEDB]/60 p-1 rounded-xl border border-[#C89B3C]/40">
+              <button
+                type="button"
+                onClick={() => {
+                  if (onScrollToBoxMix) onScrollToBoxMix();
+                  else {
+                    const el = document.getElementById("section-box-mix");
+                    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+                    else onScrollToPackages();
+                  }
+                }}
+                className="hover:text-[#5C1027] hover:bg-white transition-all py-1 px-2.5 rounded-lg flex items-center gap-1.5 text-xs font-black text-[#5C1027]"
+                title="الانتقال المباشر لقائمة عروض بوكس ميكس (12 عرض)"
+              >
+                <span>🍰 بوكس ميكس</span>
+                <span className="text-[10px] bg-[#5C1027] text-white px-1.5 py-0.2 rounded-full font-bold">12</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (onScrollToBoxSandwich) onScrollToBoxSandwich();
+                  else {
+                    const el = document.getElementById("section-box-sandwich");
+                    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+                    else onScrollToPackages();
+                  }
+                }}
+                className="hover:text-[#2A170F] hover:bg-white transition-all py-1 px-2.5 rounded-lg flex items-center gap-1.5 text-xs font-black text-[#2A170F]"
+                title="الانتقال المباشر لقائمة عروض بوكس ساندوتش (6 عروض)"
+              >
+                <span>🥪 بوكس ساندوتش</span>
+                <span className="text-[10px] bg-[#C89B3C] text-[#221B17] px-1.5 py-0.2 rounded-full font-bold">6</span>
+              </button>
+            </div>
             <button
               onClick={onOpenCalculator}
               className="hover:text-[#5C1027] transition-colors py-2 flex items-center gap-1 text-[#4A3E38]"
@@ -189,6 +222,49 @@ export const Navbar: React.FC<NavbarProps> = ({
             </button>
           )}
 
+          {/* Direct Category Links in Mobile */}
+          <div className="grid grid-cols-2 gap-2 pt-1 pb-1">
+            <button
+              type="button"
+              onClick={() => {
+                if (onScrollToBoxMix) onScrollToBoxMix();
+                else {
+                  const el = document.getElementById("section-box-mix");
+                  if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+                  else onScrollToPackages();
+                }
+                setMobileMenuOpen(false);
+              }}
+              className="p-2.5 rounded-xl bg-[#FAF7F2] border border-[#5C1027]/30 text-right"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black text-[#5C1027]">🍰 بوكس ميكس</span>
+                <span className="text-[10px] bg-[#5C1027] text-white px-1.5 py-0.2 rounded-full font-bold">12 عرض</span>
+              </div>
+              <p className="text-[10px] text-[#7A6E65] mt-0.5 truncate">أول 12 عرض رسمي</p>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                if (onScrollToBoxSandwich) onScrollToBoxSandwich();
+                else {
+                  const el = document.getElementById("section-box-sandwich");
+                  if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+                  else onScrollToPackages();
+                }
+                setMobileMenuOpen(false);
+              }}
+              className="p-2.5 rounded-xl bg-[#FAF7F2] border border-[#2A170F]/30 text-right"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black text-[#2A170F]">🥪 بوكس ساندوتش</span>
+                <span className="text-[10px] bg-[#C89B3C] text-[#221B17] px-1.5 py-0.2 rounded-full font-bold">6 عروض</span>
+              </div>
+              <p className="text-[10px] text-[#7A6E65] mt-0.5 truncate">العروض 13 إلى 18</p>
+            </button>
+          </div>
+
           <button
             onClick={() => {
               onScrollToPackages();
@@ -196,8 +272,8 @@ export const Navbar: React.FC<NavbarProps> = ({
             }}
             className="w-full text-right font-bold text-[#221B17] py-2 px-3 rounded-lg hover:bg-[#EFE8DD] flex items-center justify-between"
           >
-            <span>قائمة الوجبات والعبوات المعتمدة (12 وجبة)</span>
-            <span className="text-xs bg-[#5C1027] text-white px-2 py-0.5 rounded-full">المنيو</span>
+            <span>استعراض كافة العروض الـ 18</span>
+            <span className="text-xs bg-[#5C1027] text-white px-2 py-0.5 rounded-full">الكل</span>
           </button>
           <button
             onClick={() => {

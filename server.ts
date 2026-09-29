@@ -236,6 +236,8 @@ interface AdminBookingRecord {
   drinkOption: 'juice_included' | 'pepsi_added' | 'no_juice' | 'custom';
   drinkOptionLabel: string;
   drinkPriceDelta: number;
+  unitDiscount?: number;
+  totalDiscount?: number;
   unitPrice: number;
   quantity: number;
   totalPrice: number;
@@ -363,6 +365,8 @@ app.post("/api/orders", (req, res) => {
       drinkOption: 'juice_included',
       drinkOptionLabel: 'عصير بخيرة مشمول',
       drinkPriceDelta: 0,
+      unitDiscount: 0,
+      totalDiscount: 0,
       unitPrice,
       quantity,
       totalPrice,
@@ -691,10 +695,12 @@ app.get("/api/admin/bookings/live-stream", (req, res) => {
 app.post("/api/admin/bookings", (req, res) => {
   try {
     const data = req.body;
+    const unitDiscount = Math.max(0, Number(data.unitDiscount) || 0);
     const basePrice = Number(data.basePrice) || 50;
     const drinkPriceDelta = Number(data.drinkPriceDelta) || 0;
-    const unitPrice = Number(data.unitPrice) || (basePrice + drinkPriceDelta);
+    const unitPrice = data.unitPrice !== undefined ? Number(data.unitPrice) : Math.max(0, basePrice + drinkPriceDelta - unitDiscount);
     const quantity = Number(data.quantity) || 50;
+    const totalDiscount = Number(data.totalDiscount) || (unitDiscount * quantity);
     const totalPrice = Number(data.totalPrice) || (unitPrice * quantity);
     const depositPaid = Number(data.depositPaid) || 0;
     const remainingAmount = totalPrice - depositPaid;
@@ -712,6 +718,8 @@ app.post("/api/admin/bookings", (req, res) => {
       drinkOption: data.drinkOption || "juice_included",
       drinkOptionLabel: data.drinkOptionLabel || "عصير بخيرة مشمول",
       drinkPriceDelta,
+      unitDiscount,
+      totalDiscount,
       unitPrice,
       quantity,
       totalPrice,
@@ -748,10 +756,12 @@ app.put("/api/admin/bookings/:id", (req, res) => {
     const current = adminBookings[index];
     const update = req.body;
 
+    const unitDiscount = update.unitDiscount !== undefined ? Math.max(0, Number(update.unitDiscount)) : (current.unitDiscount || 0);
     const basePrice = update.basePrice !== undefined ? Number(update.basePrice) : current.basePrice;
     const drinkPriceDelta = update.drinkPriceDelta !== undefined ? Number(update.drinkPriceDelta) : current.drinkPriceDelta;
-    const unitPrice = update.unitPrice !== undefined ? Number(update.unitPrice) : (basePrice + drinkPriceDelta);
+    const unitPrice = update.unitPrice !== undefined ? Number(update.unitPrice) : Math.max(0, basePrice + drinkPriceDelta - unitDiscount);
     const quantity = update.quantity !== undefined ? Number(update.quantity) : current.quantity;
+    const totalDiscount = update.totalDiscount !== undefined ? Number(update.totalDiscount) : (unitDiscount * quantity);
     const totalPrice = update.totalPrice !== undefined ? Number(update.totalPrice) : (unitPrice * quantity);
     const depositPaid = update.depositPaid !== undefined ? Number(update.depositPaid) : current.depositPaid;
     const remainingAmount = update.remainingAmount !== undefined ? Number(update.remainingAmount) : Math.max(0, totalPrice - depositPaid);
@@ -771,6 +781,8 @@ app.put("/api/admin/bookings/:id", (req, res) => {
       ...update,
       basePrice,
       drinkPriceDelta,
+      unitDiscount,
+      totalDiscount,
       unitPrice,
       quantity,
       totalPrice,

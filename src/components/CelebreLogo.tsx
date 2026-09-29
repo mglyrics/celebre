@@ -17,7 +17,7 @@ export const CelebreLogo: React.FC<CelebreLogoProps> = ({
   size = "md",
   showSlogan = false,
   showEnglishSubtitles = false,
-  sloganText = "سيلبر شريك مؤسس لمناساباتك السعيدة",
+  sloganText = "سيلبر شريك مؤسس لمناسباتك السعيدة",
   variant = "transparent",
   onClick
 }) => {
@@ -47,7 +47,7 @@ export const CelebreLogo: React.FC<CelebreLogoProps> = ({
 
         <img
           src={imageSrc}
-          alt="سيلبر شريك مؤسس لمناساباتك السعيدة - Celebre Catering Packages for Weddings & Special Occasions"
+          alt="سيلبر شريك مؤسس لمناسباتك السعيدة - Celebre Catering Packages for Weddings & Special Occasions"
           className={`${sizeMap[size]} object-contain filter drop-shadow-md transition-transform duration-300 ${
             onClick ? "group-hover:scale-105" : ""
           }`}

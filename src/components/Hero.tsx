@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Sparkles, ArrowDown, CheckCircle2, Shield, HeartHandshake, PhoneCall, ChevronRight, Heart, Truck, FileText } from "lucide-react";
+import { Sparkles, ArrowDown, CheckCircle2, Shield, HeartHandshake, PhoneCall, ChevronRight, ChevronLeft, Heart, Truck, FileText } from "lucide-react";
 import { CelebreLogo, CelebreClocheIcon, CelebreStarIcon, CelebreFlourishDivider } from "./CelebreLogo";
 import { LocationGreetingBar } from "./LocationGreetingBar";
 import heroImg from "../assets/images/celebre_hero_banner_1788037530778.jpg";
@@ -11,12 +11,16 @@ interface HeroProps {
   onOpenAdvisor: () => void;
   onOpenMenu?: () => void;
   onQuickOrderWithCount?: (count: number) => void;
+  onScrollToBoxMix?: () => void;
+  onScrollToBoxSandwich?: () => void;
 }
 
 export const Hero: React.FC<HeroProps> = ({
   onExplorePackages,
   onOpenAdvisor,
-  onOpenMenu
+  onOpenMenu,
+  onScrollToBoxMix,
+  onScrollToBoxSandwich
 }) => {
   // Quick cost simulator state
   const [guestCount, setGuestCount] = useState<number>(100);
@@ -92,9 +96,98 @@ export const Hero: React.FC<HeroProps> = ({
             </div>
 
             {/* Description */}
-            <p className="text-sm sm:text-base md:text-lg text-[#55463E] max-w-2xl leading-relaxed mb-6 font-medium">
-              نصنع ونقدم عبوات كاترنج فردية فاخرة تحمل علامة سيلبر الرسمية بتغليف كرتوني مذهب محكم الغلق، تشمل ساندوتشات بتي بان وفرنساوي (كفتة ع الفحم، بانيه بلدي مقرمش، رومي)، مع قطع جاتوه مثلثة مغلفة وعصير بخيرة وشوكة ومناديل معقمة، جاهزة للتوزيع الفوري السريع داخل المساجد والقاعات.
+            <p className="text-base sm:text-xl md:text-2xl text-[#5C1027] font-black max-w-2xl leading-relaxed mb-5">
+              سيليبر.. معكم في كل لحظاتكم السعيدة
             </p>
+
+            {/* Direct Gateway to the 2 Offer Categories: بوكس ميكس vs بوكس ساندوتش */}
+            <div className="w-full max-w-2xl mb-6 p-3.5 sm:p-4 rounded-3xl bg-white/95 backdrop-blur-md border-2 border-[#C89B3C]/60 shadow-md">
+              <div className="flex items-center justify-between gap-2 mb-2.5 pb-2 border-b border-[#F0EAE1]">
+                <div className="flex items-center gap-2">
+                  <span className="flex h-2.5 w-2.5 rounded-full bg-[#5C1027] animate-ping" />
+                  <span className="text-xs sm:text-sm font-black text-[#5C1027]">
+                    تصفح مسار العروض مباشرة (18 عرض رسمي):
+                  </span>
+                </div>
+                <span className="text-[10px] sm:text-xs text-[#8C6D28] font-bold">
+                  اختر قائمتك دون عناء التمرير ⬇️
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {/* Link 1: بوكس ميكس */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (onScrollToBoxMix) {
+                      onScrollToBoxMix();
+                    } else {
+                      const el = document.getElementById("section-box-mix");
+                      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+                      else onExplorePackages();
+                    }
+                  }}
+                  className="group relative flex items-center gap-3 p-3 rounded-2xl bg-gradient-to-r from-[#FAF7F2] to-white hover:from-[#F4EEDB] hover:to-[#FAF7F2] border-2 border-[#5C1027]/30 hover:border-[#5C1027] transition-all duration-300 shadow-xs hover:shadow-md active:scale-98 text-right"
+                >
+                  <div className="w-11 h-11 rounded-2xl bg-[#5C1027] text-white flex items-center justify-center text-xl shrink-0 shadow-xs group-hover:scale-110 transition-transform">
+                    🍰
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="font-black text-sm text-[#5C1027] group-hover:text-[#721832]">
+                        عروض «بوكس ميكس»
+                      </span>
+                      <span className="text-[10px] bg-[#5C1027] text-white px-2 py-0.2 rounded-full font-black">
+                        12 عرض
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-[#61534B] mt-0.5 truncate font-medium">
+                      جاتوه + ساندوتشات + مخبوزات وعصير
+                    </p>
+                    <div className="text-[10px] text-[#C89B3C] font-bold mt-1 flex items-center gap-1">
+                      <span>أول 12 عرض (Sale 01 - 12)</span>
+                      <ChevronLeft className="w-3.5 h-3.5 group-hover:-translate-x-1 transition-transform" />
+                    </div>
+                  </div>
+                </button>
+
+                {/* Link 2: بوكس ساندوتش */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (onScrollToBoxSandwich) {
+                      onScrollToBoxSandwich();
+                    } else {
+                      const el = document.getElementById("section-box-sandwich");
+                      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+                      else onExplorePackages();
+                    }
+                  }}
+                  className="group relative flex items-center gap-3 p-3 rounded-2xl bg-gradient-to-r from-[#FAF7F2] to-white hover:from-[#F4EEDB] hover:to-[#FAF7F2] border-2 border-[#2A170F]/30 hover:border-[#2A170F] transition-all duration-300 shadow-xs hover:shadow-md active:scale-98 text-right"
+                >
+                  <div className="w-11 h-11 rounded-2xl bg-[#2A170F] text-white flex items-center justify-center text-xl shrink-0 shadow-xs group-hover:scale-110 transition-transform">
+                    🥪
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="font-black text-sm text-[#2A170F] group-hover:text-[#422214]">
+                        عروض «بوكس ساندوتش»
+                      </span>
+                      <span className="text-[10px] bg-[#C89B3C] text-[#221B17] px-2 py-0.2 rounded-full font-black">
+                        6 عروض
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-[#61534B] mt-0.5 truncate font-medium">
+                      كفتة مشوية وبانيه وجبنة بالعيش الفرنساوي
+                    </p>
+                    <div className="text-[10px] text-[#8C6D28] font-bold mt-1 flex items-center gap-1">
+                      <span>العروض 13 إلى 18 (Sale 13 - 18)</span>
+                      <ChevronLeft className="w-3.5 h-3.5 group-hover:-translate-x-1 transition-transform" />
+                    </div>
+                  </div>
+                </button>
+              </div>
+            </div>
 
             {/* Value Props Pills */}
             <div className="flex flex-wrap gap-2.5 sm:gap-3 mb-8 justify-center lg:justify-start">

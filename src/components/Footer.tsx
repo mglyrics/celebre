@@ -18,7 +18,7 @@ export const Footer: React.FC<FooterProps> = ({ onOpenPrivacy, onOpenAdmin }) =>
               size="lg"
               showSlogan={true}
               showEnglishSubtitles={true}
-              sloganText="سيلبر شريك مؤسس لمناساباتك السعيدة"
+              sloganText="سيلبر شريك مؤسس لمناسباتك السعيدة"
               className="items-center md:items-start"
             />
             <p className="text-xs text-[#A89D93] mt-4 leading-relaxed max-w-sm">
@@ -91,7 +91,7 @@ export const Footer: React.FC<FooterProps> = ({ onOpenPrivacy, onOpenAdmin }) =>
           <div className="flex items-center gap-1">
             <span>جميع الحقوق محفوظة لـ Celebre سيلبر © {new Date().getFullYear()}</span>
             <span>•</span>
-            <span className="text-[#C89B3C]">شريك مؤسس لمناساباتك السعيدة</span>
+            <span className="text-[#C89B3C]">شريك مؤسس لمناسباتك السعيدة</span>
           </div>
 
           <div className="flex items-center gap-4">

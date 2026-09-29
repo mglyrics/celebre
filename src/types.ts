@@ -29,7 +29,8 @@ export interface CateringPackage {
   name: string;
   nameEn: string;
   tagline: string;
-  category: 'katb_ketab' | 'wedding' | 'engagement_henna' | 'corporate_special' | 'vip_reception' | 'all' | string;
+  category: 'katb_ketab' | 'wedding' | 'engagement_henna' | 'corporate_special' | 'vip_reception' | 'sandwich_box' | 'box_mix' | 'box_sandwich' | 'all' | string;
+  boxType?: 'box_mix' | 'box_sandwich';
   pricePerBox: number;
   originalPrice?: number;
   minOrder: number;
@@ -102,7 +103,9 @@ export interface AdminBooking {
   drinkOption: 'juice_included' | 'pepsi_added' | 'no_juice' | 'custom'; // تعديل المشروب
   drinkOptionLabel: string; // نص المشروب
   drinkPriceDelta: number; // +5 أو -5 أو 0
-  unitPrice: number; // سعر العلبة الصافي بعد تعديل المشروب
+  unitDiscount?: number; // خصم الإدارة لكل وجبة/علبة (مثلاً 1 ج أو 2 ج أو أكثر)
+  totalDiscount?: number; // إجمالي قيمة الخصم الممنوح للعميل = unitDiscount * quantity
+  unitPrice: number; // سعر العلبة الصافي بعد تعديل المشروب وخصم الإدارة
   quantity: number; // عدد الوجبات
   totalPrice: number; // الإجمالي = unitPrice * quantity
   depositPaid: number; // مبلغ الحجز / العربون المسدد

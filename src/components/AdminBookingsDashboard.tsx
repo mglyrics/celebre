@@ -585,6 +585,8 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
       drinkOption: "juice_included",
       drinkOptionLabel: "عصير بخيرة مشمول",
       drinkPriceDelta: 0,
+      unitDiscount: 0,
+      totalDiscount: 0,
       unitPrice: defaultPkg.pricePerBox,
       quantity: 100,
       totalPrice: defaultPkg.pricePerBox * 100,
@@ -604,7 +606,13 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
 
   // Open Edit Booking
   const handleOpenEdit = (booking: AdminBooking) => {
-    setEditingBooking({ ...booking });
+    const unitDiscount = booking.unitDiscount || 0;
+    const totalDiscount = booking.totalDiscount !== undefined ? booking.totalDiscount : (unitDiscount * booking.quantity);
+    setEditingBooking({
+      ...booking,
+      unitDiscount,
+      totalDiscount
+    });
     setIsNewBooking(false);
     setIsEditModalOpen(true);
   };
@@ -735,23 +743,62 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
     }
   };
 
+  // Dynamic calculations when admin grants/changes meal unit discount (صلاحية خصم الإدارة)
+  const handleDiscountChangeInModal = (discountPerBox: number) => {
+    if (!editingBooking) return;
+    const safeDiscount = Math.max(0, Math.floor(discountPerBox));
+    const basePrice = editingBooking.basePrice;
+    const drinkPriceDelta = editingBooking.drinkPriceDelta;
+    const originalUnitPrice = basePrice + drinkPriceDelta;
+    const unitPrice = Math.max(0, originalUnitPrice - safeDiscount);
+    const totalDiscount = safeDiscount * editingBooking.quantity;
+    const totalPrice = unitPrice * editingBooking.quantity;
+    const remainingAmount = Math.max(0, totalPrice - editingBooking.depositPaid);
+    const paymentStatus = editingBooking.depositPaid >= totalPrice && totalPrice > 0 
+      ? "fully_paid" 
+      : editingBooking.depositPaid > 0 
+      ? "deposit_paid" 
+      : "pending_payment";
+
+    setEditingBooking({
+      ...editingBooking,
+      unitDiscount: safeDiscount,
+      totalDiscount,
+      unitPrice,
+      totalPrice,
+      remainingAmount,
+      paymentStatus
+    });
+  };
+
   // Dynamic calculations when selecting a package in the modal
   const handlePackageSelectInModal = (pkgCode: string) => {
     if (!editingBooking) return;
     const found = CATERING_PACKAGES.find(p => p.saleCode === pkgCode);
     if (found) {
       const basePrice = found.pricePerBox;
-      const unitPrice = basePrice + editingBooking.drinkPriceDelta;
+      const unitDiscount = editingBooking.unitDiscount || 0;
+      const unitPrice = Math.max(0, basePrice + editingBooking.drinkPriceDelta - unitDiscount);
+      const totalDiscount = unitDiscount * editingBooking.quantity;
       const totalPrice = unitPrice * editingBooking.quantity;
       const remainingAmount = Math.max(0, totalPrice - editingBooking.depositPaid);
+      const paymentStatus = editingBooking.depositPaid >= totalPrice && totalPrice > 0 
+        ? "fully_paid" 
+        : editingBooking.depositPaid > 0 
+        ? "deposit_paid" 
+        : "pending_payment";
+
       setEditingBooking({
         ...editingBooking,
         packageCode: found.saleCode,
         packageName: found.name,
         basePrice,
+        unitDiscount,
+        totalDiscount,
         unitPrice,
         totalPrice,
-        remainingAmount
+        remainingAmount,
+        paymentStatus
       });
     }
   };
@@ -772,31 +819,51 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
       drinkOptionLabel = "تعديل مخصص بالاتفاق";
     }
 
-    const unitPrice = editingBooking.basePrice + drinkPriceDelta;
+    const unitDiscount = editingBooking.unitDiscount || 0;
+    const unitPrice = Math.max(0, editingBooking.basePrice + drinkPriceDelta - unitDiscount);
+    const totalDiscount = unitDiscount * editingBooking.quantity;
     const totalPrice = unitPrice * editingBooking.quantity;
     const remainingAmount = Math.max(0, totalPrice - editingBooking.depositPaid);
+    const paymentStatus = editingBooking.depositPaid >= totalPrice && totalPrice > 0 
+      ? "fully_paid" 
+      : editingBooking.depositPaid > 0 
+      ? "deposit_paid" 
+      : "pending_payment";
 
     setEditingBooking({
       ...editingBooking,
       drinkOption: opt,
       drinkOptionLabel,
       drinkPriceDelta,
+      unitDiscount,
+      totalDiscount,
       unitPrice,
       totalPrice,
-      remainingAmount
+      remainingAmount,
+      paymentStatus
     });
   };
 
   const handleQuantityChangeInModal = (qty: number) => {
     if (!editingBooking) return;
     const safeQty = Math.max(1, qty);
+    const unitDiscount = editingBooking.unitDiscount || 0;
+    const totalDiscount = unitDiscount * safeQty;
     const totalPrice = editingBooking.unitPrice * safeQty;
     const remainingAmount = Math.max(0, totalPrice - editingBooking.depositPaid);
+    const paymentStatus = editingBooking.depositPaid >= totalPrice && totalPrice > 0 
+      ? "fully_paid" 
+      : editingBooking.depositPaid > 0 
+      ? "deposit_paid" 
+      : "pending_payment";
+
     setEditingBooking({
       ...editingBooking,
       quantity: safeQty,
+      totalDiscount,
       totalPrice,
-      remainingAmount
+      remainingAmount,
+      paymentStatus
     });
   };
 
@@ -1752,13 +1819,19 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
                           <div className="text-[10px] text-[#64748B]">{b.eventTime}</div>
                         </td>
 
-                        {/* 7. Package Name & Customization (بيان نصي واختيار من 12 وجبة وتخصيصها) */}
+                        {/* 7. Package Name & Customization */}
                         <td className="p-2 border-r border-[#E2E8F0] text-[#0F172A]">
                           <div className="flex items-center gap-1 mb-0.5">
                             <span className="font-black text-[#C89B3C] bg-[#5C1027]/5 px-1.5 py-0.2 rounded text-[10px] border border-[#C89B3C]/30 shrink-0">
                               {b.packageCode}
                             </span>
-                            <span className="font-bold text-[11px] text-[#5C1027]">وجبة الموقع</span>
+                            {["Sale - 13", "Sale - 14", "Sale - 15", "Sale - 16", "Sale - 17", "Sale - 18"].includes(b.packageCode) ? (
+                              <span className="font-bold text-[10px] text-amber-800 bg-amber-100 px-1 rounded border border-amber-300">
+                                Box سندوتش
+                              </span>
+                            ) : (
+                              <span className="font-bold text-[11px] text-[#5C1027]">وجبة الموقع</span>
+                            )}
                           </div>
                           <div className="text-[11px] font-semibold text-[#1E293B] leading-tight line-clamp-2">
                             {b.packageName}
@@ -1780,7 +1853,15 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
 
                         {/* 9. Unit Price (سعر الوجبة) */}
                         <td className="p-2 border-r border-[#E2E8F0] text-center font-bold text-[#334155]">
-                          {b.unitPrice} ج
+                          <div>{b.unitPrice} ج</div>
+                          {b.unitDiscount && b.unitDiscount > 0 ? (
+                            <div 
+                              className="text-[9px] text-amber-800 bg-amber-100 border border-amber-300 px-1.5 py-0.5 rounded font-black inline-block mt-0.5" 
+                              title={`خصم إداري: ${b.unitDiscount} ج لكل علبة (إجمالي الوفر: ${b.totalDiscount || (b.unitDiscount * b.quantity)} ج)`}
+                            >
+                              خصم {b.unitDiscount} ج
+                            </div>
+                          ) : null}
                         </td>
 
                         {/* 10. Quantity (بيان رقمي) */}
@@ -2021,24 +2102,38 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
                 </div>
               </div>
 
-              {/* Package Selection from the 12 packages */}
+              {/* Package Selection from the 18 packages */}
               <div className="space-y-2 p-3 bg-[#FAF7F2] border border-[#E8DFD1] rounded-2xl">
-                <label className="block text-xs font-black text-[#5C1027]">
-                  اختيار الوجبة من قائمة الموقع الرسمية (12 وجبة):
-                </label>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-black text-[#5C1027]">
+                    اختيار الوجبة من قائمة الموقع الرسمية ({CATERING_PACKAGES.length} وجبة):
+                  </label>
+                  <span className="text-[10px] text-[#7A6E65] font-bold">
+                    يشمل الوجبات الرسمية (Sale 01-12) وساندوتش Box (Sale 13-18)
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-60 overflow-y-auto p-1 border border-[#E8DFD1]/60 rounded-xl bg-white/70">
                   {CATERING_PACKAGES.map((pkg) => (
                     <button
                       key={pkg.id}
                       type="button"
                       onClick={() => handlePackageSelectInModal(pkg.saleCode)}
-                      className={`p-2 rounded-xl border text-right transition-all ${
+                      className={`p-2 rounded-xl border text-right transition-all relative ${
                         editingBooking.packageCode === pkg.saleCode
                           ? "bg-[#5C1027] text-white border-[#5C1027] shadow-xs"
                           : "bg-white text-[#221B17] border-[#E8DFD1] hover:bg-[#F3E7D3]"
                       }`}
                     >
-                      <div className="text-[10px] font-black text-[#C89B3C]">{pkg.saleCode}</div>
+                      <div className="flex items-center justify-between gap-1">
+                        <span className="text-[10px] font-black text-[#C89B3C]">{pkg.saleCode}</span>
+                        {pkg.category === "sandwich_box" && (
+                          <span className={`text-[9px] px-1.5 py-0.2 rounded font-black ${
+                            editingBooking.packageCode === pkg.saleCode ? "bg-[#C89B3C] text-black" : "bg-amber-100 text-amber-900 border border-amber-300"
+                          }`}>
+                            Box سندوتش
+                          </span>
+                        )}
+                      </div>
                       <div className="text-xs font-bold line-clamp-1">{pkg.name}</div>
                       <div className={`text-[11px] font-black ${editingBooking.packageCode === pkg.saleCode ? "text-[#F4EEDB]" : "text-[#5C1027]"}`}>
                         {pkg.pricePerBox} ج
@@ -2106,6 +2201,60 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
                     <div className="text-xs font-bold">بدون عصير</div>
                     <div className="text-[10px] font-bold text-emerald-700">(-5 ج للعلبة)</div>
                   </button>
+                </div>
+              </div>
+
+              {/* Admin Unit Discount Grant (صلاحية خصم الإدارة لكل وجبة) */}
+              <div className="p-3.5 bg-gradient-to-r from-amber-50/90 via-white to-amber-50/90 border-2 border-amber-300 rounded-2xl shadow-xs">
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-xs font-black text-[#5C1027] flex items-center gap-1.5">
+                    <Sparkles className="w-4 h-4 text-[#C89B3C]" />
+                    <span>صلاحية منح خصم الإدارة على سعر الوجبة (مبلغ معين مثلاً جنية أو أكثر):</span>
+                  </label>
+                  <span className="text-[10px] bg-amber-100 text-amber-900 border border-amber-300 px-2 py-0.5 rounded-full font-bold">
+                    خاص بالإدارة فقط (سري)
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-center">
+                  <div>
+                    <label className="block text-[11px] font-bold text-[#4A3E38] mb-1">
+                      قيمة الخصم للوجبة الواحدة (جنيه):
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min="0"
+                        value={editingBooking.unitDiscount ?? 0}
+                        onChange={(e) => handleDiscountChangeInModal(Number(e.target.value))}
+                        placeholder="مثال: 1 أو 2 أو 5"
+                        className="w-full text-center py-2 px-3 bg-white border-2 border-amber-400 rounded-xl text-sm font-black text-[#5C1027] focus:outline-hidden focus:ring-2 focus:ring-amber-400"
+                      />
+                      <span className="absolute left-3 top-2.5 text-xs text-[#7A6E65] font-bold">ج.م</span>
+                    </div>
+                  </div>
+
+                  <div className="bg-white p-2.5 rounded-xl border border-[#E8DFD1] text-center shadow-2xs">
+                    <div className="text-[10px] text-[#7A6E65] font-semibold">سعر الوجبة بعد الخصم الإداري</div>
+                    <div className="text-base font-black text-emerald-700">
+                      {editingBooking.unitPrice} ج.م
+                    </div>
+                    {(editingBooking.unitDiscount ?? 0) > 0 && (
+                      <div className="text-[10px] text-stone-400 line-through">
+                        السعر قبل الخصم: {editingBooking.basePrice + (editingBooking.drinkPriceDelta || 0)} ج
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="bg-white p-2.5 rounded-xl border border-[#E8DFD1] text-center shadow-2xs">
+                    <div className="text-[10px] text-[#7A6E65] font-semibold">إجمالي التخفيض الممنوح بالحجز</div>
+                    <div className="text-base font-black text-[#5C1027]">
+                      {((editingBooking.unitDiscount ?? 0) * editingBooking.quantity).toLocaleString()} ج.م
+                    </div>
+                    <div className="text-[10px] text-[#7A6E65]">
+                      وفر للعميل على {editingBooking.quantity} علبة
+                    </div>
+                  </div>
                 </div>
               </div>
 

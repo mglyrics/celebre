@@ -1,13 +1,13 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useMemo } from "react";
 import { 
-  X, Download, FileText, Image as ImageIcon, Printer, Share2, 
+  X, Download, FileText, Image as ImageIcon, Printer, 
   Phone, MessageCircle, MapPin, Truck, ShieldCheck, Sparkles, 
-  CheckCircle2, Clock, Calendar, AlertCircle, Loader2, ArrowDown
+  Calendar, Loader2, ArrowLeft, CheckCircle2, ChevronLeft
 } from "lucide-react";
 import html2canvas from "html2canvas-pro";
 import jsPDF from "jspdf";
 import { CateringPackage } from "../types";
-import { DRINK_MODIFICATION_OPTIONS } from "../data/cateringData";
+import { DRINK_MODIFICATION_OPTIONS, isBoxMix, isBoxSandwich } from "../data/cateringData";
 import { CelebreLogo, CelebreClocheIcon, CelebreStarIcon, CelebreFlourishDivider } from "./CelebreLogo";
 
 interface InteractiveMenuModalProps {
@@ -23,10 +23,8 @@ export const InteractiveMenuModal: React.FC<InteractiveMenuModalProps> = ({
 }) => {
   const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [isExportingJpg, setIsExportingJpg] = useState(false);
-  const [activeCategoryFilter, setActiveCategoryFilter] = useState<string>("all");
+  const [activeTab, setActiveTab] = useState<"both" | "page1" | "page2">("both");
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
-
-  const menuPrintRef = useRef<HTMLDivElement>(null);
 
   if (!isOpen) return null;
 
@@ -34,12 +32,9 @@ export const InteractiveMenuModal: React.FC<InteractiveMenuModalProps> = ({
     dateStyle: "long"
   }).format(new Date());
 
-  const filteredList = packages.filter((pkg) => {
-    if (activeCategoryFilter === "economy") return pkg.pricePerBox <= 45;
-    if (activeCategoryFilter === "classic") return pkg.pricePerBox >= 50 && pkg.pricePerBox <= 60;
-    if (activeCategoryFilter === "vip") return pkg.pricePerBox >= 65;
-    return true;
-  });
+  // Split packages into the two official website lists
+  const mixPackages = packages.filter(isBoxMix); // 12 packages: Sale-01 to Sale-12
+  const sandwichPackages = packages.filter(isBoxSandwich); // 6 packages: Sale-13 to Sale-18
 
   // Helper to convert any modern oklab/oklch colors to standard sRGB before html2canvas parses styles
   const sanitizeClonedMenu = (clonedDoc: Document) => {
@@ -60,14 +55,7 @@ export const InteractiveMenuModal: React.FC<InteractiveMenuModalProps> = ({
       }
     };
 
-    const container = clonedDoc.getElementById("celebre-printable-menu");
-    if (!container) return;
-
-    // Force explicit safe background and text color on root
-    container.style.backgroundColor = "#FAF7F2";
-    container.style.color = "#221B17";
-
-    const elements = [container, ...Array.from(container.querySelectorAll("*"))] as HTMLElement[];
+    const elements = [clonedDoc.body, ...Array.from(clonedDoc.body.querySelectorAll("*"))] as HTMLElement[];
     const colorProps = [
       "color",
       "background-color",
@@ -104,62 +92,38 @@ export const InteractiveMenuModal: React.FC<InteractiveMenuModalProps> = ({
     }
   };
 
-  // Download as High Resolution JPG
-  const handleDownloadJpg = async () => {
-    if (!menuPrintRef.current) return;
-    setIsExportingJpg(true);
-    setStatusMessage("جاري إنشاء صورة المنيو بدقة فائقة...");
-
-    try {
-      const canvas = await html2canvas(menuPrintRef.current, {
-        scale: 2, // High resolution (Retina quality)
-        useCORS: true,
-        logging: false,
-        backgroundColor: "#FAF7F2",
-        windowWidth: 1200,
-        onclone: (clonedDoc) => {
-          sanitizeClonedMenu(clonedDoc);
-        }
-      });
-
-      const imgData = canvas.toDataURL("image/jpeg", 0.95);
-      const link = document.createElement("a");
-      link.href = imgData;
-      link.download = `منيو-عروض-سيلبر-للكاترنج-${new Date().toISOString().split("T")[0]}.jpg`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-
-      setStatusMessage("تم تحميل المنيو كصورة JPG بنجاح! 📸");
-      setTimeout(() => setStatusMessage(null), 4000);
-    } catch (err) {
-      console.error("JPG export error:", err);
-      setStatusMessage("حدث خطأ أثناء تحميل الصورة، يرجى المحاولة ثانية.");
-      setTimeout(() => setStatusMessage(null), 4000);
-    } finally {
-      setIsExportingJpg(false);
-    }
-  };
-
-  // Download as Multipage/High Resolution PDF
+  // Download both pages as a 2-page PDF
   const handleDownloadPdf = async () => {
-    if (!menuPrintRef.current) return;
+    const p1 = document.getElementById("celebre-menu-page-1");
+    const p2 = document.getElementById("celebre-menu-page-2");
+    if (!p1 || !p2) return;
+
     setIsExportingPdf(true);
-    setStatusMessage("جاري معالجة وتصدير ملف PDF عالي الجودة...");
+    setStatusMessage("جاري تصدير الصفحة الأولى (Box ميكس)... 📄");
 
     try {
-      const canvas = await html2canvas(menuPrintRef.current, {
+      // Capture Page 1
+      const canvas1 = await html2canvas(p1, {
         scale: 2,
         useCORS: true,
         logging: false,
         backgroundColor: "#FAF7F2",
-        windowWidth: 1200,
-        onclone: (clonedDoc) => {
-          sanitizeClonedMenu(clonedDoc);
-        }
+        windowWidth: 950,
+        onclone: (clonedDoc) => sanitizeClonedMenu(clonedDoc)
       });
 
-      const imgData = canvas.toDataURL("image/jpeg", 0.95);
+      setStatusMessage("جاري تصدير الصفحة الثانية (Box ساندوتش)... 📄");
+
+      // Capture Page 2
+      const canvas2 = await html2canvas(p2, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: "#FAF7F2",
+        windowWidth: 950,
+        onclone: (clonedDoc) => sanitizeClonedMenu(clonedDoc)
+      });
+
       const pdf = new jsPDF({
         orientation: "portrait",
         unit: "mm",
@@ -167,30 +131,93 @@ export const InteractiveMenuModal: React.FC<InteractiveMenuModalProps> = ({
       });
 
       const pdfWidth = 210; // A4 width in mm
-      const pageHeight = 297; // A4 height in mm
-      const imgHeight = (canvas.height * pdfWidth) / canvas.width;
-      let heightLeft = imgHeight;
-      let position = 0;
+      const pdfHeight = 297; // A4 height in mm
 
-      pdf.addImage(imgData, "JPEG", 0, position, pdfWidth, imgHeight, undefined, "FAST");
-      heightLeft -= pageHeight;
+      // Add Page 1
+      const img1 = canvas1.toDataURL("image/jpeg", 0.95);
+      const h1 = (canvas1.height * pdfWidth) / canvas1.width;
+      pdf.addImage(img1, "JPEG", 0, 0, pdfWidth, Math.min(pdfHeight, h1), undefined, "FAST");
 
-      while (heightLeft > 0) {
-        position = heightLeft - imgHeight;
-        pdf.addPage();
-        pdf.addImage(imgData, "JPEG", 0, position, pdfWidth, imgHeight, undefined, "FAST");
-        heightLeft -= pageHeight;
-      }
+      // Add Page 2
+      pdf.addPage();
+      const img2 = canvas2.toDataURL("image/jpeg", 0.95);
+      const h2 = (canvas2.height * pdfWidth) / canvas2.width;
+      pdf.addImage(img2, "JPEG", 0, 0, pdfWidth, Math.min(pdfHeight, h2), undefined, "FAST");
 
-      pdf.save(`منيو-عروض-سيلبر-للكاترنج-${new Date().toISOString().split("T")[0]}.pdf`);
-      setStatusMessage("تم تحميل المنيو بصيغة PDF بنجاح! 📄");
-      setTimeout(() => setStatusMessage(null), 4000);
+      const dateStr = new Date().toISOString().split("T")[0];
+      pdf.save(`منيو-عروض-سيلبر-للكاترنج-صفحتين-${dateStr}.pdf`);
+
+      setStatusMessage("تم تحميل المنيو كملف PDF مكوّن من صفحتين بنجاح! 📄✨");
+      setTimeout(() => setStatusMessage(null), 4500);
     } catch (err) {
       console.error("PDF export error:", err);
-      setStatusMessage("حدث خطأ أثناء توليد ملف PDF.");
+      setStatusMessage("حدث خطأ أثناء تصدير ملف PDF، يرجى المحاولة مجدداً.");
       setTimeout(() => setStatusMessage(null), 4000);
     } finally {
       setIsExportingPdf(false);
+    }
+  };
+
+  // Download as JPG (supports downloading both pages as 2 separate high-res images or single page)
+  const handleDownloadJpg = async (target: "all" | "page1" | "page2" = "all") => {
+    const p1 = document.getElementById("celebre-menu-page-1");
+    const p2 = document.getElementById("celebre-menu-page-2");
+    if (!p1 || !p2) return;
+
+    setIsExportingJpg(true);
+    const dateStr = new Date().toISOString().split("T")[0];
+
+    const triggerDownload = (canvas: HTMLCanvasElement, filename: string) => {
+      const link = document.createElement("a");
+      link.href = canvas.toDataURL("image/jpeg", 0.95);
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    };
+
+    try {
+      if (target === "all" || target === "page1") {
+        setStatusMessage("جاري إنشاء صورة الصفحة الأولى (Box ميكس)... 📸");
+        const canvas1 = await html2canvas(p1, {
+          scale: 2,
+          useCORS: true,
+          logging: false,
+          backgroundColor: "#FAF7F2",
+          windowWidth: 950,
+          onclone: (clonedDoc) => sanitizeClonedMenu(clonedDoc)
+        });
+        triggerDownload(canvas1, `منيو-سيلبر-صفحة-1-Box-ميكس-${dateStr}.jpg`);
+      }
+
+      if (target === "all" || target === "page2") {
+        if (target === "all") {
+          setStatusMessage("جاري إنشاء صورة الصفحة الثانية (Box ساندوتش)... 📸");
+          await new Promise((resolve) => setTimeout(resolve, 600));
+        }
+        const canvas2 = await html2canvas(p2, {
+          scale: 2,
+          useCORS: true,
+          logging: false,
+          backgroundColor: "#FAF7F2",
+          windowWidth: 950,
+          onclone: (clonedDoc) => sanitizeClonedMenu(clonedDoc)
+        });
+        triggerDownload(canvas2, `منيو-سيلبر-صفحة-2-Box-ساندوتش-${dateStr}.jpg`);
+      }
+
+      setStatusMessage(
+        target === "all"
+          ? "تم تحميل المنيو صفحتين كصورتين JPG عالية الوضوح بنجاح! 📸"
+          : "تم تحميل صفحة المنيو بصيغة JPG بنجاح! 📸"
+      );
+      setTimeout(() => setStatusMessage(null), 4500);
+    } catch (err) {
+      console.error("JPG export error:", err);
+      setStatusMessage("حدث خطأ أثناء تحميل صور المنيو.");
+      setTimeout(() => setStatusMessage(null), 4000);
+    } finally {
+      setIsExportingJpg(false);
     }
   };
 
@@ -199,10 +226,10 @@ export const InteractiveMenuModal: React.FC<InteractiveMenuModalProps> = ({
     window.print();
   };
 
-  // Direct WhatsApp Share
+  // WhatsApp Share
   const handleShareWhatsApp = () => {
     const text = encodeURIComponent(
-      `السلام عليكم، تفضل بالاطلاع على منيو عروض ووجبات كاترنج سيلبر الرسمي لمناسبات كتب الكتاب والأفراح:\n` +
+      `السلام عليكم، تفضل بالاطلاع على منيو عروض ووجبات كاترنج سيلبر الرسمي (صفحة 1: Box ميكس & صفحة 2: Box ساندوتش):\n` +
       `📞 للحجز والاستفسار: 01284484868\n` +
       `🌐 رابط الموقع: ${window.location.origin}`
     );
@@ -222,14 +249,14 @@ export const InteractiveMenuModal: React.FC<InteractiveMenuModalProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-base sm:text-lg font-black tracking-tight">
-                  منيو عروض كاترنج سيلبر المحدث
+                  منيو كاترنج سيلبر المعتمد (صفحتين)
                 </h3>
-                <span className="hidden sm:inline-block px-2 py-0.5 rounded-full bg-[#C89B3C] text-[#221B17] font-black text-[10px]">
-                  مُحدّث تلقائياً ({packages.length} وجبة)
+                <span className="hidden sm:inline-block px-2.5 py-0.5 rounded-full bg-[#C89B3C] text-[#221B17] font-black text-[11px]">
+                  مُقسّم صفحتين: Box ميكس & Box ساندوتش
                 </span>
               </div>
-              <p className="text-[11px] text-[#F4EEDB]/80">
-                جاهز للتحميل المباشر بصيغة PDF أو صورة عالية الجودة JPG
+              <p className="text-[11px] text-[#F4EEDB]/85">
+                جاهز للتصدير كملف PDF مكوّن من صفحتين أو صورتين JPG عاليتي الجودة
               </p>
             </div>
           </div>
@@ -244,61 +271,62 @@ export const InteractiveMenuModal: React.FC<InteractiveMenuModalProps> = ({
         </div>
 
         {/* Modal Quick Actions Ribbon */}
-        <div className="bg-white/80 backdrop-blur-xs px-4 sm:px-6 py-2.5 border-b border-[#E8DFD1] flex items-center justify-between gap-3 flex-wrap shrink-0">
-          {/* Category filter tabs */}
+        <div className="bg-white/90 backdrop-blur-xs px-4 sm:px-6 py-2.5 border-b border-[#E8DFD1] flex items-center justify-between gap-3 flex-wrap shrink-0">
+          {/* Page view tabs */}
           <div className="flex items-center gap-1.5 text-xs font-bold overflow-x-auto">
-            <span className="text-[#7A6E65] ml-1 shrink-0">عرض الوجبات:</span>
+            <span className="text-[#7A6E65] ml-1 shrink-0">معاينة:</span>
             {[
-              { id: "all", label: "جميع الوجبات (12)" },
-              { id: "economy", label: "اقتصادي (35 - 45 ج)" },
-              { id: "classic", label: "كلاسيك (50 - 60 ج)" },
-              { id: "vip", label: "VIP فاخر (65 - 80 ج)" }
-            ].map(cat => (
+              { id: "both", label: "كلا الصفحتين (1 و 2)" },
+              { id: "page1", label: "صفحة 1: Box ميكس (12 عرض) 🍰" },
+              { id: "page2", label: "صفحة 2: Box ساندوتش (6 عروض) 🥪" }
+            ].map(tab => (
               <button
-                key={cat.id}
+                key={tab.id}
                 type="button"
-                onClick={() => setActiveCategoryFilter(cat.id)}
+                onClick={() => setActiveTab(tab.id as any)}
                 className={`px-3 py-1 rounded-full text-xs font-bold transition-all shrink-0 ${
-                  activeCategoryFilter === cat.id
+                  activeTab === tab.id
                     ? "bg-[#5C1027] text-white shadow-xs"
                     : "bg-[#F3E7D3]/60 text-[#5C1027] hover:bg-[#F3E7D3]"
                 }`}
               >
-                {cat.label}
+                {tab.label}
               </button>
             ))}
           </div>
 
           {/* Action Download Buttons */}
           <div className="flex items-center gap-2 flex-wrap">
-            {/* Download PDF button */}
+            {/* Download PDF button (2 pages) */}
             <button
               type="button"
               onClick={handleDownloadPdf}
               disabled={isExportingPdf || isExportingJpg}
               className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#5C1027] hover:bg-[#721832] text-white text-xs font-black shadow-xs transition-all disabled:opacity-50"
+              title="تصدير المنيو كامل صفحتين بصيغة PDF للطباعة"
             >
               {isExportingPdf ? (
                 <Loader2 className="w-4 h-4 animate-spin text-[#C89B3C]" />
               ) : (
                 <Download className="w-4 h-4 text-[#C89B3C]" />
               )}
-              <span>تحميل PDF 📄</span>
+              <span>تحميل صفحتين PDF 📄</span>
             </button>
 
-            {/* Download JPG button */}
+            {/* Download JPG button (both pages) */}
             <button
               type="button"
-              onClick={handleDownloadJpg}
+              onClick={() => handleDownloadJpg("all")}
               disabled={isExportingPdf || isExportingJpg}
               className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-[#C89B3C] to-[#DFB76C] hover:from-[#B8892C] hover:to-[#CF9F53] text-[#221B17] text-xs font-black shadow-xs transition-all disabled:opacity-50"
+              title="تحميل الصفحتين معاً كصورتين JPG"
             >
               {isExportingJpg ? (
                 <Loader2 className="w-4 h-4 animate-spin text-[#5C1027]" />
               ) : (
                 <ImageIcon className="w-4 h-4 text-[#5C1027]" />
               )}
-              <span>تحميل JPG 📸</span>
+              <span>تحميل صفحتين JPG 📸</span>
             </button>
 
             {/* Print button */}
@@ -332,226 +360,422 @@ export const InteractiveMenuModal: React.FC<InteractiveMenuModalProps> = ({
         )}
 
         {/* Scrollable Printable/Exportable Canvas Container */}
-        <div className="flex-1 overflow-y-auto p-3 sm:p-6 bg-[#EBE4D5]/40">
-          {/* Printable Sheet Wrapper */}
-          <div
-            ref={menuPrintRef}
-            id="celebre-printable-menu"
-            className="w-full max-w-4xl mx-auto bg-[#FAF7F2] rounded-2xl border-2 border-[#C89B3C]/40 p-5 sm:p-8 shadow-md"
-            style={{ direction: "rtl", fontFamily: "inherit" }}
-          >
-            {/* Header Section */}
-            <div className="border-b-2 border-[#C89B3C]/40 pb-5 mb-5">
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-right">
-                
-                {/* Official Logo Display */}
-                <div className="flex flex-col items-center sm:items-start">
-                  <div className="p-2 rounded-xl bg-white border border-[#C89B3C]/30 shadow-xs inline-block">
-                    <CelebreLogo size="md" showSlogan={false} showEnglishSubtitles={true} />
-                  </div>
-                  <div className="flex items-center gap-1.5 mt-2 text-[#5C1027] font-black text-xs">
-                    <CelebreStarIcon className="w-3 h-3 text-[#C89B3C]" />
-                    <span>سيلبر شريك مؤسس لمناسباتك السعيدة</span>
-                    <CelebreClocheIcon className="w-3.5 h-3.5 text-[#C89B3C]" />
-                  </div>
-                </div>
-
-                {/* Title & Date Details */}
-                <div className="sm:text-left flex flex-col sm:items-end">
-                  <span className="inline-block px-3 py-1 rounded-full bg-[#5C1027] text-white text-[11px] font-black tracking-wide shadow-2xs mb-1">
-                    قائمة الأسعار والوجبات الرسمية المعتمدة
-                  </span>
-                  <h1 className="text-xl sm:text-2xl font-black text-[#221B17]">
-                    منيو كاترنج المناسبات والضيافة
-                  </h1>
-                  <p className="text-xs text-[#7A6E65] font-semibold mt-0.5">
-                    كتب الكتاب • عقد القران • حفلات الزفاف • الخطوبة • استقبال VIP
-                  </p>
-                  <div className="flex items-center gap-2 mt-2 text-[11px] font-bold text-[#5C1027]">
-                    <Calendar className="w-3.5 h-3.5 text-[#C89B3C]" />
-                    <span>تاريخ التحديث التلقائي: {todayDateStr}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Crucial Delivery Notice Banner */}
-              <div className="mt-4 p-2.5 rounded-xl bg-[#FFFBEB] border border-[#FCD34D] flex items-center justify-between gap-2 flex-wrap text-[#451A03] text-xs font-black">
-                <div className="flex items-center gap-2">
-                  <Truck className="w-4 h-4 text-[#92400E] shrink-0" />
-                  <span>تنويه هام: التوصيل غير مشمول في سعر الوجبات ويتم تحديده بالاتفاق حسب مكان القاعة أو المسجد.</span>
-                </div>
-                <div className="flex items-center gap-1 text-[11px] text-[#78350F]">
-                  <ShieldCheck className="w-3.5 h-3.5 text-[#B45309]" />
-                  <span>الحد الأدنى للطلب: 50 وجبة</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Menu Items Grid */}
-            <div className="mb-6">
-              <div className="flex items-center justify-between mb-3 border-b border-[#E8DFD1] pb-1.5">
-                <h2 className="text-sm sm:text-base font-black text-[#5C1027] flex items-center gap-1.5">
-                  <Sparkles className="w-4 h-4 text-[#C89B3C]" />
-                  <span>عروض الوجبات المتاحة حالياً ({filteredList.length} وجبة)</span>
-                </h2>
-                <span className="text-[11px] text-[#7A6E65] font-bold">
-                  جميع الأسعار بالجنيه المصري (EGP)
-                </span>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-                {filteredList.map((pkg) => (
-                  <div
-                    key={pkg.id}
-                    className="p-3.5 rounded-xl bg-white border border-[#E8DFD1] hover:border-[#C89B3C] transition-all shadow-2xs flex flex-col justify-between"
-                  >
-                    <div>
-                      {/* Package Header Row */}
-                      <div className="flex items-start justify-between gap-2 border-b border-[#F4EEDB] pb-2 mb-2">
-                        <div>
-                          <div className="flex items-center gap-1.5">
-                            <span className="px-2 py-0.5 rounded-md bg-[#5C1027] text-white text-[11px] font-black">
-                              {pkg.saleCode}
-                            </span>
-                            {pkg.isBestseller && (
-                              <span className="px-1.5 py-0.5 rounded-md bg-[#FEF3C7] text-[#78350F] text-[10px] font-black">
-                                الأكثر طلباً ⭐
-                              </span>
-                            )}
-                            {pkg.isLuxury && (
-                              <span className="px-1.5 py-0.5 rounded-md bg-[#F3E8FF] text-[#581C87] text-[10px] font-black">
-                                VIP 👑
-                              </span>
-                            )}
-                          </div>
-                          <h3 className="text-xs sm:text-sm font-black text-[#221B17] mt-1">
-                            {pkg.name}
-                          </h3>
+        <div className="flex-1 overflow-y-auto p-3 sm:p-6 bg-[#EBE4D5]/40 space-y-8">
+          
+          {/* ======================================================== */}
+          {/* PAGE 1: قائمة Box ميكس (أول 12 عرض: Sale-01 إلى Sale-12) */}
+          {/* ======================================================== */}
+          {(activeTab === "both" || activeTab === "page1") && (
+            <div
+              id="celebre-menu-page-1"
+              className="w-full max-w-4xl mx-auto bg-[#FAF7F2] rounded-3xl border-2 border-[#C89B3C]/50 p-5 sm:p-8 shadow-lg relative flex flex-col justify-between"
+              style={{ direction: "rtl", fontFamily: "inherit" }}
+            >
+              <div>
+                {/* Page 1 Header */}
+                <div className="border-b-2 border-[#C89B3C]/50 pb-4 mb-4 bg-white/70 p-4 sm:p-5 rounded-2xl border border-[#E8DFD1] shadow-2xs">
+                  {/* Top Bar: Official Royal Brand + Handwriting Slogan + Page Metadata */}
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-3.5 pb-3 border-b border-[#F0EAE1]">
+                    {/* Logo & Handwriting Signature */}
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-xl bg-white border border-[#C89B3C]/40 shadow-xs">
+                        <CelebreLogo size="sm" showSlogan={false} showEnglishSubtitles={true} />
+                      </div>
+                      <div className="text-right">
+                        <div className="font-['Cinzel',serif] text-xs font-black tracking-widest text-[#5C1027]">
+                          CÉLÈBRE CATERING
                         </div>
-
-                        {/* Price Tag */}
-                        <div className="text-left shrink-0">
-                          <div className="text-lg sm:text-xl font-black text-[#5C1027] leading-none">
-                            {pkg.pricePerBox} <span className="text-[10px] font-bold text-[#7A6E65]">ج</span>
-                          </div>
-                          {pkg.originalPrice && pkg.originalPrice > pkg.pricePerBox && (
-                            <div className="text-[10px] text-[#A8A29E] line-through">
-                              {pkg.originalPrice} ج
-                            </div>
-                          )}
+                        <div className="font-['Dancing_Script',cursive] text-base text-[#5C1027] font-bold" dir="ltr">
+                          with you in all happy moments
                         </div>
                       </div>
+                    </div>
 
-                      {/* Package Tagline / Content */}
-                      <p className="text-[11px] text-[#55473F] leading-relaxed mb-2 font-medium">
-                        {pkg.tagline}
+                    {/* Page Badges & Release Date */}
+                    <div className="flex items-center gap-2 flex-wrap justify-center sm:justify-end">
+                      <span className="px-3 py-1 rounded-full bg-[#5C1027] text-white text-xs font-black shadow-xs border border-[#C89B3C]/50 flex items-center gap-1.5">
+                        <span>🍰</span>
+                        <span>الصفحة 1 من 2 • Box ميكس</span>
+                      </span>
+                      <span className="px-3 py-1 rounded-full bg-[#FAF7F2] text-[#5C1027] text-xs font-bold border border-[#E8DFD1]">
+                        12 عرض رسمي معتمد
+                      </span>
+                      <span className="px-2.5 py-1 rounded-full bg-white text-[#7A6E65] text-[11px] font-semibold border border-[#E8DFD1] flex items-center gap-1">
+                        <Calendar className="w-3.5 h-3.5 text-[#C89B3C]" />
+                        <span>تاريخ الإصدار: {todayDateStr}</span>
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Title & Description Row */}
+                  <div className="pt-3 text-center sm:text-right flex flex-col sm:flex-row items-center justify-between gap-2">
+                    <div>
+                      <h1 className="text-xl sm:text-2xl font-black text-[#221B17] tracking-tight flex items-center gap-2 justify-center sm:justify-start">
+                        <span>قائمة عروض «Box ميكس» الفاخرة</span>
+                        <span className="text-[11px] bg-[#C89B3C] text-[#221B17] px-2 py-0.5 rounded-md font-black">Sale 01 - 12</span>
+                      </h1>
+                      <p className="text-xs text-[#61534B] mt-0.5 font-medium">
+                        تشكيلة كاترنج متكاملة تجمع بين الساندوتشات والجاتوه والمخبوزات والحلويات وعصير بخيرة
                       </p>
+                    </div>
+                    <div className="text-left shrink-0 text-xs font-bold text-[#5C1027] bg-[#FAF7F2] px-3 py-1.5 rounded-xl border border-[#E8DFD1]">
+                      <div>الحد الأدنى: 50 علبة</div>
+                      <div className="text-[10px] text-[#7A6E65]">عقود القران • الأفراح • المناسبات</div>
+                    </div>
+                  </div>
 
-                      {/* Components Bullet List */}
-                      {pkg.sections && pkg.sections[0] && (
-                        <div className="bg-[#FAF7F2] p-2 rounded-lg border border-[#F0EAE1] space-y-1">
-                          <span className="text-[10px] font-bold text-[#7A6E65] block">
-                            محتويات العلبة بالتفصيل:
-                          </span>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
+                  {/* Coordinated Notice Ribbon */}
+                  <div className="mt-3 p-2.5 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-between gap-2 flex-wrap text-xs text-amber-950 font-bold">
+                    <div className="flex items-center gap-1.5">
+                      <Truck className="w-4 h-4 text-amber-800 shrink-0" />
+                      <span>تنويه التوصيل: تكلفة التوصيل غير مشمولة بأسعار الوجبات وتحدد بالتنسيق المباشر وفقاً لموقع المناسبة.</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-[11px] text-[#5C1027]">
+                      <ShieldCheck className="w-3.5 h-3.5 text-[#C89B3C]" />
+                      <span>علب كرتونية مذهبة محكمة الإغلاق</span>
+                      <span className="border-r border-amber-300 pr-2 font-black">هاتف الحجز: 01284484868</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Page 1 Grid: 12 Meals (Sale-01 to Sale-12) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+                  {mixPackages.map((pkg) => (
+                    <div
+                      key={pkg.id}
+                      className="p-3 sm:p-3.5 rounded-2xl bg-white border border-[#E8DFD1] shadow-2xs flex flex-col justify-between"
+                    >
+                      <div>
+                        {/* Header: Code + Name + Price */}
+                        <div className="flex items-start justify-between gap-2 border-b border-[#F4EEDB] pb-2 mb-2">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-1.5 mb-1">
+                              <span className="px-2 py-0.5 rounded-md bg-[#5C1027] text-white text-[11px] font-black tracking-wide">
+                                {pkg.saleCode}
+                              </span>
+                              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#5C1027]/10 text-[#5C1027]">
+                                Box ميكس
+                              </span>
+                              {pkg.isBestseller && (
+                                <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-amber-100 text-amber-900 border border-amber-300">
+                                  الأكثر طلباً ⭐
+                                </span>
+                              )}
+                            </div>
+                            <h4 className="text-xs sm:text-sm font-black text-[#221B17] leading-snug">
+                              {pkg.name.replace(/\([^)]+\)/g, "").trim()}
+                            </h4>
+                          </div>
+
+                          <div className="text-left shrink-0 bg-[#FAF7F2] px-2.5 py-1 rounded-xl border border-[#F0EAE1]">
+                            <div className="flex items-baseline gap-0.5 justify-end">
+                              <span className="text-base sm:text-lg font-black text-[#5C1027] leading-none">
+                                {pkg.pricePerBox}
+                              </span>
+                              <span className="text-[10px] font-bold text-[#7A6E65]">ج.م</span>
+                            </div>
+                            {pkg.originalPrice && pkg.originalPrice > pkg.pricePerBox && (
+                              <div className="text-[9px] text-[#A8A29E] line-through text-left">
+                                {pkg.originalPrice} ج
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Items list */}
+                        {pkg.sections && pkg.sections[0] && (
+                          <div className="space-y-1 mb-2">
                             {pkg.sections[0].items.map((it, idx) => (
-                              <div key={idx} className="flex items-center gap-1 text-[11px] font-bold text-[#221B17]">
-                                <CheckCircle2 className="w-3 h-3 text-[#C89B3C] shrink-0" />
-                                <span className="truncate">{it}</span>
+                              <div 
+                                key={idx} 
+                                className="flex items-center gap-1.5 text-[11px] font-bold text-[#3E342F]"
+                              >
+                                <span className="w-1.5 h-1.5 rounded-full bg-[#C89B3C] shrink-0" />
+                                <span className="truncate leading-tight">{it}</span>
                               </div>
                             ))}
                           </div>
+                        )}
+                      </div>
+
+                      {/* Card Footnote with Handwriting Signature */}
+                      <div className="pt-2 border-t border-[#F0EAE1] flex items-center justify-between text-[10px] text-[#7A6E65]">
+                        <span className="text-[#5C1027] font-bold">
+                          شامل عصير بخيرة وشوكة ومناديل
+                        </span>
+                        <span className="font-['Dancing_Script',cursive] text-xs text-[#5C1027] font-bold" dir="ltr">
+                          with you in all happy moments
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Page 1 Bottom Navigation / Footer */}
+              <div className="pt-3 border-t-2 border-[#C89B3C]/30 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-[#7A6E65]">
+                <div className="flex items-center gap-2 font-bold text-[#5C1027]">
+                  <span className="w-2 h-2 rounded-full bg-[#5C1027]" />
+                  <span>علب كرتونية مذهبة معتمدة من سيلبر ومحكمة الإغلاق</span>
+                </div>
+                <div className="flex items-center gap-1 font-black text-[#5C1027]">
+                  <span>صفحة 1 من 2</span>
+                  <ChevronLeft className="w-4 h-4 text-[#C89B3C]" />
+                  <span className="text-[#7A6E65]">تابع عروض Box ساندوتش بالصفحة 2</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ======================================================== */}
+          {/* PAGE 2: قائمة Box ساندوتش (العروض من 13 إلى 18) + المشروبات والحجز */}
+          {/* ======================================================== */}
+          {(activeTab === "both" || activeTab === "page2") && (
+            <div
+              id="celebre-menu-page-2"
+              className="w-full max-w-4xl mx-auto bg-[#FAF7F2] rounded-3xl border-2 border-[#C89B3C]/50 p-5 sm:p-8 shadow-lg relative flex flex-col justify-between"
+              style={{ direction: "rtl", fontFamily: "inherit" }}
+            >
+              <div>
+                {/* Page 2 Header */}
+                <div className="border-b-2 border-[#C89B3C]/50 pb-4 mb-4 bg-white/70 p-4 sm:p-5 rounded-2xl border border-[#E8DFD1] shadow-2xs">
+                  {/* Top Bar: Official Royal Brand + Handwriting Slogan + Page Metadata */}
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-3.5 pb-3 border-b border-[#F0EAE1]">
+                    {/* Logo & Handwriting Signature */}
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-xl bg-white border border-[#C89B3C]/40 shadow-xs">
+                        <CelebreLogo size="sm" showSlogan={false} showEnglishSubtitles={true} />
+                      </div>
+                      <div className="text-right">
+                        <div className="font-['Cinzel',serif] text-xs font-black tracking-widest text-[#2A170F]">
+                          CÉLÈBRE CATERING
                         </div>
-                      )}
+                        <div className="font-['Dancing_Script',cursive] text-base text-[#5C1027] font-bold" dir="ltr">
+                          with you in all happy moments
+                        </div>
+                      </div>
                     </div>
 
-                    {/* Packaging specs footnote */}
-                    <div className="mt-2 pt-2 border-t border-[#F0EAE1] flex items-center justify-between text-[10px] text-[#7A6E65]">
-                      <span>{pkg.packaging.type}</span>
-                      <span className="font-bold text-[#5C1027]">شامل شوكة ومناديل وعصير</span>
+                    {/* Page Badges & Release Date */}
+                    <div className="flex items-center gap-2 flex-wrap justify-center sm:justify-end">
+                      <span className="px-3 py-1 rounded-full bg-[#2A170F] text-white text-xs font-black shadow-xs border border-[#C89B3C]/50 flex items-center gap-1.5">
+                        <span>🥪</span>
+                        <span>الصفحة 2 من 2 • Box ساندوتش</span>
+                      </span>
+                      <span className="px-3 py-1 rounded-full bg-[#FAF7F2] text-[#2A170F] text-xs font-bold border border-[#E8DFD1]">
+                        6 عروض ساندوتشات فاخرة
+                      </span>
+                      <span className="px-2.5 py-1 rounded-full bg-white text-[#7A6E65] text-[11px] font-semibold border border-[#E8DFD1] flex items-center gap-1">
+                        <Calendar className="w-3.5 h-3.5 text-[#C89B3C]" />
+                        <span>تاريخ الإصدار: {todayDateStr}</span>
+                      </span>
                     </div>
                   </div>
-                ))}
-              </div>
-            </div>
 
-            {/* Drink Modification Table */}
-            <div className="mb-6 p-3.5 rounded-xl bg-[#F3E7D3]/40 border border-[#C89B3C]/30">
-              <h3 className="text-xs sm:text-sm font-black text-[#5C1027] mb-2 flex items-center gap-1">
-                <span>🥤 خيارات المشروبات والعصائر بالوجبة:</span>
-              </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
-                {DRINK_MODIFICATION_OPTIONS.map((opt) => (
-                  <div key={opt.id} className="p-2 rounded-lg bg-white border border-[#E8DFD1] text-center">
-                    <div className="font-black text-[#221B17]">{opt.label}</div>
-                    <div className={`text-[11px] font-bold mt-0.5 ${opt.priceDelta > 0 ? "text-[#B45309]" : opt.priceDelta < 0 ? "text-[#047857]" : "text-[#5C1027]"}`}>
-                      {opt.sublabel}
+                  {/* Title & Description Row */}
+                  <div className="pt-3 text-center sm:text-right flex flex-col sm:flex-row items-center justify-between gap-2">
+                    <div>
+                      <h1 className="text-xl sm:text-2xl font-black text-[#221B17] tracking-tight flex items-center gap-2 justify-center sm:justify-start">
+                        <span>قائمة عروض «Box ساندوتش» الفاخرة</span>
+                        <span className="text-[11px] bg-[#C89B3C] text-[#221B17] px-2 py-0.5 rounded-md font-black">Sale 13 - 18</span>
+                      </h1>
+                      <p className="text-xs text-[#61534B] mt-0.5 font-medium">
+                        تشكيلة ساندوتشات كفتة مشوية وبانيه دجاج وجبنة رومي بالخبز الفرنسي الطازج مع عصير بخيرة ومنديل معطر
+                      </p>
+                    </div>
+                    <div className="text-left shrink-0 text-xs font-bold text-[#2A170F] bg-[#FAF7F2] px-3 py-1.5 rounded-xl border border-[#E8DFD1]">
+                      <div>الحد الأدنى: 50 علبة</div>
+                      <div className="text-[10px] text-[#7A6E65]">عقود القران • الأفراح • المناسبات</div>
                     </div>
                   </div>
-                ))}
-              </div>
-            </div>
 
-            {/* Official Contact & Booking Channels Footer (Clear and Prominent) */}
-            <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-[#5C1027] via-[#480c1e] to-[#2b0712] text-white border-2 border-[#C89B3C]/60 shadow-lg">
-              <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-                
-                {/* Contact numbers */}
-                <div className="text-center md:text-right">
-                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#C89B3C] text-[#221B17] font-black text-xs mb-2">
-                    <Sparkles className="w-3.5 h-3.5" />
-                    <span>سبل التواصل والحجز المباشر مع سيلبر</span>
-                  </div>
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-center md:justify-start gap-2">
-                      <Phone className="w-4 h-4 text-[#C89B3C]" />
-                      <span className="font-bold text-sm">الاتصال الهاتفي المباشر:</span>
-                      <a href="tel:01284484868" className="text-base sm:text-lg font-black text-[#F4EEDB] hover:text-[#C89B3C] transition-colors" dir="ltr">
-                        01284484868
-                      </a>
+                  {/* Coordinated Notice Ribbon */}
+                  <div className="mt-3 p-2.5 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-between gap-2 flex-wrap text-xs text-amber-950 font-bold">
+                    <div className="flex items-center gap-1.5">
+                      <Truck className="w-4 h-4 text-amber-800 shrink-0" />
+                      <span>تنويه التوصيل: تكلفة التوصيل غير مشمولة بأسعار الوجبات وتحدد بالتنسيق المباشر وفقاً لموقع المناسبة.</span>
                     </div>
-                    <div className="flex items-center justify-center md:justify-start gap-2">
-                      <MessageCircle className="w-4 h-4 text-[#34D399]" />
-                      <span className="font-bold text-sm">واتساب الحجز السريع:</span>
-                      <a href="https://wa.me/201284484868" target="_blank" rel="noreferrer" className="text-base sm:text-lg font-black text-[#6EE7B7] hover:text-[#A7F3D0] transition-colors" dir="ltr">
-                        01284484868
-                      </a>
+                    <div className="flex items-center gap-2 text-[11px] text-[#5C1027]">
+                      <ShieldCheck className="w-3.5 h-3.5 text-[#C89B3C]" />
+                      <span>علب كرتونية مذهبة محكمة الإغلاق</span>
+                      <span className="border-r border-amber-300 pr-2 font-black">هاتف الحجز: 01284484868</span>
                     </div>
                   </div>
                 </div>
 
-                {/* Headquarters & Payment */}
-                <div className="text-center md:text-left text-xs space-y-1 text-[#F4EEDB]/90 border-t md:border-t-0 md:border-r border-[#C89B3C]/30 pt-3 md:pt-0 md:pr-6">
-                  <div className="flex items-center justify-center md:justify-start gap-1 font-bold">
-                    <MapPin className="w-3.5 h-3.5 text-[#C89B3C]" />
-                    <span>المقر الرئيسي: محافظة بني سويف</span>
+                {/* Page 2 Grid: 6 Meals (Sale-13 to Sale-18) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 mb-5">
+                  {sandwichPackages.map((pkg) => (
+                    <div
+                      key={pkg.id}
+                      className="p-3.5 sm:p-4 rounded-2xl bg-white border border-[#E8DFD1] shadow-2xs flex flex-col justify-between"
+                    >
+                      <div>
+                        {/* Header: Code + Name + Price */}
+                        <div className="flex items-start justify-between gap-2 border-b border-[#F4EEDB] pb-2 mb-2">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-1.5 mb-1">
+                              <span className="px-2 py-0.5 rounded-md bg-[#2A170F] text-white text-[11px] font-black tracking-wide">
+                                {pkg.saleCode}
+                              </span>
+                              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                                Box ساندوتش 🥪
+                              </span>
+                              {pkg.isBestseller && (
+                                <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-amber-200 text-amber-950">
+                                  الأكثر طلباً ⭐
+                                </span>
+                              )}
+                              {pkg.isLuxury && (
+                                <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-purple-100 text-purple-900">
+                                  عرض VIP 👑
+                                </span>
+                              )}
+                            </div>
+                            <h4 className="text-xs sm:text-sm font-black text-[#221B17] leading-snug">
+                              {pkg.name.replace(/\([^)]+\)/g, "").trim()}
+                            </h4>
+                          </div>
+
+                          <div className="text-left shrink-0 bg-[#FAF7F2] px-2.5 py-1 rounded-xl border border-[#F0EAE1]">
+                            <div className="flex items-baseline gap-0.5 justify-end">
+                              <span className="text-base sm:text-lg font-black text-[#5C1027] leading-none">
+                                {pkg.pricePerBox}
+                              </span>
+                              <span className="text-[10px] font-bold text-[#7A6E65]">ج.م</span>
+                            </div>
+                            {pkg.originalPrice && pkg.originalPrice > pkg.pricePerBox && (
+                              <div className="text-[9px] text-[#A8A29E] line-through text-left">
+                                {pkg.originalPrice} ج
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Items list */}
+                        {pkg.sections && pkg.sections[0] && (
+                          <div className="space-y-1 mb-2">
+                            {pkg.sections[0].items.map((it, idx) => (
+                              <div 
+                                key={idx} 
+                                className="flex items-center gap-1.5 text-[11px] font-bold text-[#3E342F]"
+                              >
+                                <span className="w-1.5 h-1.5 rounded-full bg-[#C89B3C] shrink-0" />
+                                <span className="truncate leading-tight">{it}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Card Footnote with Handwriting Signature */}
+                      <div className="pt-2 border-t border-[#F0EAE1] flex items-center justify-between text-[10px] text-[#7A6E65]">
+                        <span className="text-[#5C1027] font-bold">
+                          شامل عصير بخيرة ومنديل معطر
+                        </span>
+                        <span className="font-['Dancing_Script',cursive] text-xs text-[#5C1027] font-bold" dir="ltr">
+                          with you in all happy moments
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Drink Options Table */}
+                <div className="mb-5 p-3 rounded-2xl bg-[#F3E7D3]/40 border border-[#C89B3C]/30">
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="text-xs sm:text-sm font-black text-[#5C1027]">
+                      🥤 خيارات المشروبات والعصائر بالعلبة:
+                    </h4>
+                    <span className="text-[10px] text-[#7A6E65] font-bold">
+                      مشمول عصير بخيرة بقيمة 5 ج بكافة الوجبات، ومتاح الترقية
+                    </span>
                   </div>
-                  <p className="text-[11px] text-[#F4EEDB]/70">
-                    متاح التوصيل لكافة المحافظات والقاعات والمساجد بالاتفاق
-                  </p>
-                  <div className="text-[11px] font-bold text-[#C89B3C] pt-1">
-                    طرق الدفع: إنستاباي InstaPay • فودافون كاش • كاش عند الاستلام
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+                    {DRINK_MODIFICATION_OPTIONS.map((opt) => (
+                      <div key={opt.id} className="p-2 rounded-xl bg-white border border-[#E8DFD1] text-center shadow-2xs">
+                        <div className="font-black text-[#221B17] text-xs">{opt.label}</div>
+                        <div className={`text-[10px] font-bold mt-0.5 ${
+                          opt.priceDelta > 0 ? "text-[#B45309]" : opt.priceDelta < 0 ? "text-emerald-700" : "text-[#5C1027]"
+                        }`}>
+                          {opt.sublabel}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Official Contact & Booking Channels Footer */}
+                <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-[#5C1027] via-[#480c1e] to-[#2A0813] text-white border-2 border-[#C89B3C]/60 shadow-md">
+                  <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+                    
+                    {/* Contact numbers */}
+                    <div className="text-center md:text-right">
+                      <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-[#C89B3C] text-[#221B17] font-black text-[11px] mb-2">
+                        <Sparkles className="w-3.5 h-3.5" />
+                        <span>سبل التواصل والحجز المباشر مع سيلبر</span>
+                      </div>
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-center md:justify-start gap-2">
+                          <Phone className="w-4 h-4 text-[#C89B3C]" />
+                          <span className="font-bold text-xs sm:text-sm">الاتصال الهاتفي المباشر:</span>
+                          <a href="tel:01284484868" className="text-base sm:text-lg font-black text-[#F4EEDB] hover:text-[#C89B3C] transition-colors" dir="ltr">
+                            01284484868
+                          </a>
+                        </div>
+                        <div className="flex items-center justify-center md:justify-start gap-2">
+                          <MessageCircle className="w-4 h-4 text-[#34D399]" />
+                          <span className="font-bold text-xs sm:text-sm">واتساب الحجز السريع:</span>
+                          <a href="https://wa.me/201284484868" target="_blank" rel="noreferrer" className="text-base sm:text-lg font-black text-[#6EE7B7] hover:text-[#A7F3D0] transition-colors" dir="ltr">
+                            01284484868
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Headquarters & Payment */}
+                    <div className="text-center md:text-left text-xs space-y-1 text-[#F4EEDB]/90 border-t md:border-t-0 md:border-r border-[#C89B3C]/30 pt-3 md:pt-0 md:pr-6">
+                      <div className="flex items-center justify-center md:justify-start gap-1 font-bold">
+                        <MapPin className="w-3.5 h-3.5 text-[#C89B3C]" />
+                        <span>المقر الرئيسي: محافظة بني سويف</span>
+                      </div>
+                      <p className="text-[11px] text-[#F4EEDB]/70">
+                        متاح التوصيل لكافة المحافظات والقاعات والمساجد بالاتفاق
+                      </p>
+                      <div className="text-[11px] font-bold text-[#C89B3C] pt-1">
+                        طرق الدفع: إنستاباي InstaPay • فودافون كاش • كاش عند الاستلام
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Bottom Copyright & Handwriting signature */}
+                  <div className="mt-3 pt-2.5 border-t border-white/10 flex items-center justify-between text-[10px] text-[#F4EEDB]/70 flex-wrap gap-2">
+                    <span>سيلبر - علامة تجارية مسجلة لتجهيز كاترنج المناسبات والأفراح</span>
+                    <span className="font-['Dancing_Script',cursive] text-sm text-[#F4EEDB] font-bold" dir="ltr">
+                      with you in all happy moments
+                    </span>
                   </div>
                 </div>
               </div>
 
-              {/* Bottom Copyright & Guarantee */}
-              <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between text-[10px] text-[#F4EEDB]/60 flex-wrap gap-2">
-                <span>سيلبر - علامة تجارية مسجلة لتجهيز كاترنج المناسبات والأفراح</span>
-                <span>علب كرتونية فاخرة مجهزة لحفظ الحرارة وجودة الأطعمة</span>
+              {/* Page 2 Bottom Footer */}
+              <div className="mt-3 pt-3 border-t-2 border-[#C89B3C]/30 flex items-center justify-between text-xs text-[#7A6E65]">
+                <span className="font-bold text-[#5C1027]">سيلبر • شريك مناسباتكم السعيدة</span>
+                <span className="font-black text-[#5C1027]">صفحة 2 من 2 • نهاية قائمة كاترنج سيلبر 2026</span>
               </div>
             </div>
+          )}
 
-          </div>
         </div>
 
-        {/* Modal Bottom Footer Actions */}
+        {/* Modal Bottom Sticky Ribbon */}
         <div className="p-3 sm:p-4 bg-white border-t border-[#E8DFD1] flex items-center justify-between gap-3 flex-wrap shrink-0">
           <div className="text-xs text-[#7A6E65] font-semibold">
-            💡 يمكنك تحميل المنيو وإرساله لأهلك أو العريس لاختيار الوجبة الأنسب بكل راحة.
+            💡 يمكنك تحميل المنيو المكوّن من صفحتين بصيغة PDF للطباعة أو كصور JPG لمشاركتها عبر واتساب.
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Download PDF button */}
             <button
               type="button"
               onClick={handleDownloadPdf}
@@ -559,19 +783,21 @@ export const InteractiveMenuModal: React.FC<InteractiveMenuModalProps> = ({
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#5C1027] hover:bg-[#721832] text-white text-xs font-black shadow-xs transition-all disabled:opacity-50"
             >
               {isExportingPdf ? <Loader2 className="w-4 h-4 animate-spin text-[#C89B3C]" /> : <FileText className="w-4 h-4 text-[#C89B3C]" />}
-              <span>تحميل كـ PDF</span>
+              <span>تحميل صفحتين (PDF)</span>
             </button>
 
+            {/* Download JPG button */}
             <button
               type="button"
-              onClick={handleDownloadJpg}
+              onClick={() => handleDownloadJpg("all")}
               disabled={isExportingPdf || isExportingJpg}
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-[#C89B3C] to-[#DFB76C] hover:from-[#B8892C] hover:to-[#CF9F53] text-[#221B17] text-xs font-black shadow-xs transition-all disabled:opacity-50"
             >
               {isExportingJpg ? <Loader2 className="w-4 h-4 animate-spin text-[#5C1027]" /> : <ImageIcon className="w-4 h-4 text-[#5C1027]" />}
-              <span>تحميل كـ صورة JPG</span>
+              <span>تحميل صفحتين (JPG)</span>
             </button>
 
+            {/* Close */}
             <button
               type="button"
               onClick={onClose}

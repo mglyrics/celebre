@@ -71,7 +71,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 </div>
                 <h4 className="font-bold text-base text-[#221B17]">السلة فارغة حالياً</h4>
                 <p className="text-xs text-[#7A6E65] max-w-xs mx-auto">
-                  اختر من بين 12 وجبة رسمية معتمدة من سيلبر وأضف الكمية المناسبة لمناسبتك السعيدة.
+                  اختر من بين 18 وجبة رسمية معتمدة من سيلبر وأضف الكمية المناسبة لمناسبتك السعيدة.
                 </p>
                 <button
                   type="button"
