@@ -71,8 +71,9 @@ export interface Order {
   items: CartItem[];
   totalBoxes: number;
   totalPrice: number;
-  depositAmount: number; // 50% deposit
-  remainingAmount: number;
+  depositAmount: number; // مقدم الحجز (0 جنيه عند تقديم الطلب)
+  remainingAmount: number; // كامل المبلغ المتبقي
+  shippingFee?: number; // مصاريف الشحن تعبأ وتحدد من قبل الأدمن
   status: 'pending' | 'confirmed' | 'in_preparation' | 'delivered';
   createdAt: string;
 }
@@ -108,8 +109,9 @@ export interface AdminBooking {
   unitPrice: number; // سعر العلبة الصافي بعد تعديل المشروب وخصم الإدارة
   quantity: number; // عدد الوجبات
   totalPrice: number; // الإجمالي = unitPrice * quantity
-  depositPaid: number; // مبلغ الحجز / العربون المسدد
-  remainingAmount: number; // الباقي = totalPrice - depositPaid
+  depositPaid: number; // مبلغ الحجز / العربون المسدد (0 عند التقديم)
+  remainingAmount: number; // الباقي = totalPrice + shippingFee - depositPaid
+  shippingFee?: number; // خانة مصاريف الشحن والتوصيل (تعبأ من قبل الـ admin)
   paymentStatus: 'deposit_paid' | 'fully_paid' | 'pending_payment' | 'refunded';
   orderStatus: 'confirmed' | 'in_preparation' | 'delivered' | 'cancelled';
   deliveryAddress: string; // مكان المناسبة / التسليم

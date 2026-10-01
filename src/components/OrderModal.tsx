@@ -67,8 +67,9 @@ export const OrderModal: React.FC<OrderModalProps> = ({
     const drinkDelta = DRINK_MODIFICATION_OPTIONS.find(d => d.id === (item.selectedDrink || "default_juice"))?.priceDelta || 0;
     return sum + (item.package.pricePerBox + drinkDelta) * item.quantity;
   }, 0);
-  const depositAmount = Math.round(totalPrice * 0.5);
-  const remainingAmount = totalPrice - depositAmount;
+  // Zero down-payment required: depositAmount is 0, full amount is remaining
+  const depositAmount = 0;
+  const remainingAmount = totalPrice;
 
   // Validation
   const validateStep1 = () => {
@@ -108,13 +109,14 @@ export const OrderModal: React.FC<OrderModalProps> = ({
       items,
       totalBoxes,
       totalPrice,
-      depositAmount,
-      remainingAmount,
+      depositAmount: 0,
+      remainingAmount: totalPrice,
+      shippingFee: 0,
       status: "pending",
       createdAt: new Date().toISOString()
     };
 
-    // Save to server
+    // Save permanently to server database
     try {
       await fetch("/api/orders", {
         method: "POST",
@@ -124,25 +126,31 @@ export const OrderModal: React.FC<OrderModalProps> = ({
           phone,
           occasion,
           eventDate,
+          eventTime,
           location: address,
           governorate,
           totalPrice,
           totalBoxes,
+          depositPaid: 0,
+          remainingAmount: totalPrice,
+          shippingFee: 0,
           paymentMethod,
           notes,
           packages: items.map(it => ({
             id: it.package.id,
             name: it.package.name,
+            packageCode: it.package.saleCode,
             quantity: it.quantity,
-            pricePerUnit: it.package.pricePerBox
+            pricePerUnit: it.package.pricePerBox,
+            selectedDrink: it.selectedDrink
           }))
         })
       });
     } catch (e) {
-      console.error(e);
+      console.error("Order save error:", e);
     }
 
-    // WhatsApp Direct Message Generation
+    // WhatsApp Direct Message Generation for management review
     const packagesSummaryText = items.map((it, idx) => {
       const drinkName = DRINK_MODIFICATION_OPTIONS.find(d => d.id === (it.selectedDrink || "default_juice"))?.label || "عصير بخيرة";
       return `${idx + 1}. *${it.package.saleCode} - ${it.package.name}*:\n   - الكمية: ${it.quantity} وجبة\n   - المشروب: ${drinkName}\n   - الإجمالي: ${(it.quantity * it.package.pricePerBox).toLocaleString()} ج`;
@@ -164,14 +172,13 @@ ${packagesSummaryText}
 
 *الحساب المالي:*
 - إجمالي عدد الوجبات: ${totalBoxes} علبة
-- إجمالي المبلغ: ${totalPrice.toLocaleString()} جنيه
-- مصاريف التوصيل: ⚠️ *التوصيل غير مشمول*
-- العربون المطلوب (50%): ${depositAmount.toLocaleString()} جنيه
-- المتبقي عند الاستلام: ${remainingAmount.toLocaleString()} جنيه
-- طريقة السداد: ${paymentMethod === "instapay" ? "إنستاباي (InstaPay)" : paymentMethod === "vodafone_cash" ? "فودافون كاش" : "سداد كاش"}
+- إجمالي قيمة الوجبات: ${totalPrice.toLocaleString()} جنيه
+- مقدم الحجز المدفوع: 0 جنيه (لا يتطلب رسوم مقدمة)
+- مصاريف الشحن والتوصيل: (تعبأ وتحدد من قِبل إدارة المشروع لاحقاً)
+- إجمالي المبلغ المستحق: كامل مبلغ الحجز (${totalPrice.toLocaleString()} جنيه) + مصاريف الشحن
+- طريقة السداد المختارة: ${paymentMethod === "instapay" ? "إنستاباي (InstaPay)" : paymentMethod === "vodafone_cash" ? "فودافون كاش" : "كاش عند الاستلام"}
 ${notes ? `- ملاحظات العميل: ${notes}\n` : ""}-----------------------------
-⚠️ *ملاحظة هامة: التوصيل غير مشمول* في سعر الوجبات ويتم التنسيق بشأنه.
-يرجى تأكيد الحجز وإرسال تفاصيل تحويل العربون. شكراً لاختياركم سيلبر! ✨`;
+⚠️ *ملاحظة هامة:* تم حفظ الحجز بشكل دائم في قاعدة بيانات سيلبر، ومصاريف الشحن يحددها أدمن الموقع عند استعراض الحجز وتأكيده. شكراً لاختياركم سيلبر! ✨`;
 
     const encoded = encodeURIComponent(whatsappMessage);
     window.open(`https://wa.me/201284484868?text=${encoded}`, "_blank");
@@ -225,6 +232,17 @@ ${notes ? `- ملاحظات العميل: ${notes}\n` : ""}---------------------
             </span>
             <span>مراجعة الوجبات والعربون</span>
           </div>
+        </div>
+
+        {/* Security & Convenience Notice: No login required + Permanent DB storage + Admin Exclusive WhatsApp Review */}
+        <div className="bg-emerald-50/90 border-b border-emerald-200/90 px-5 py-2 flex flex-wrap items-center justify-between gap-2 text-xs text-emerald-950 font-bold">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span>حجز مباشر دون الحاجة لتسجيل دخول • يُحفظ حجزك بشكل دائم في قاعدة بيانات سيلبر</span>
+          </div>
+          <span className="text-[11px] text-emerald-800 bg-white/90 px-2.5 py-0.5 rounded-full border border-emerald-300 flex items-center gap-1 shadow-2xs">
+            <span>المتابعة والاستعراض مسؤولية أدمن الموقع الوحيد عبر الواتساب</span>
+          </span>
         </div>
 
         {/* Step 1: Customer & Event Details */}
@@ -493,22 +511,31 @@ ${notes ? `- ملاحظات العميل: ${notes}\n` : ""}---------------------
                 <span className="font-bold text-[#221B17]">{totalPrice.toLocaleString()} جنيه</span>
               </div>
               <div className="flex justify-between text-xs text-[#4A3E38] items-center">
-                <span>مصاريف التوصيل:</span>
-                <span className="font-black text-amber-900 bg-amber-100 border border-amber-300 px-2.5 py-0.5 rounded text-[11px]">
-                  التوصيل غير مشمول
+                <span>مصاريف الشحن والتوصيل:</span>
+                <span className="font-bold text-[#5C1027] bg-[#FAF7F2] border border-[#C89B3C] px-2.5 py-0.5 rounded-lg text-[11px]">
+                  تعبأ وتحدد بواسطة الـ Admin
                 </span>
               </div>
               <div className="pt-2 border-t border-[#E8DFD1] flex justify-between items-center">
-                <span className="font-bold text-sm text-[#221B17]">المبلغ الإجمالي:</span>
+                <span className="font-bold text-sm text-[#221B17]">إجمالي قيمة الوجبات:</span>
                 <span className="font-black text-lg text-[#5C1027]">{totalPrice.toLocaleString()} جنيه</span>
               </div>
-              <div className="bg-white p-3 rounded-xl border border-[#C89B3C]/40 flex items-center justify-between">
+              <div className="bg-emerald-50/90 p-3 rounded-xl border border-emerald-300 flex items-center justify-between">
                 <div>
-                  <div className="text-xs font-black text-[#5C1027]">العربون المطلوب لتأكيد الحجز (50%):</div>
-                  <div className="text-[11px] text-[#7A6E65]">المتبقي ({remainingAmount.toLocaleString()} ج) يُسدد عند الاستلام</div>
+                  <div className="text-xs font-black text-emerald-950">مقدم الحجز المطلوب الآن:</div>
+                  <div className="text-[11px] text-emerald-800">حجز فوري ومؤكد • لا يتطلب تسديد أي رسوم مسبقة</div>
                 </div>
-                <div className="text-lg font-black text-[#C89B3C]">
-                  {depositAmount.toLocaleString()} جنيه
+                <div className="text-lg font-black text-emerald-700">
+                  0 جنيه
+                </div>
+              </div>
+              <div className="bg-white p-3 rounded-xl border border-[#C89B3C]/50 flex items-center justify-between">
+                <div>
+                  <div className="text-xs font-black text-[#5C1027]">المبلغ المتبقي لكامل الحجز:</div>
+                  <div className="text-[11px] text-[#7A6E65]">كامل مبلغ الحجز يُسدد لاحقاً عند الاستلام + مصاريف الشحن</div>
+                </div>
+                <div className="text-lg font-black text-[#5C1027]">
+                  {totalPrice.toLocaleString()} جنيه
                 </div>
               </div>
             </div>
@@ -516,7 +543,7 @@ ${notes ? `- ملاحظات العميل: ${notes}\n` : ""}---------------------
             {/* Payment Method Selector */}
             <div className="space-y-2">
               <label className="block text-xs font-bold text-[#4A3E38]">
-                طريقة سداد العربون المعتمدة:
+                طريقة السداد المفضلة لتسوية الحساب:
               </label>
               <div className="grid grid-cols-3 gap-2">
                 <button
@@ -567,6 +594,19 @@ ${notes ? `- ملاحظات العميل: ${notes}\n` : ""}---------------------
                   </div>
                 </button>
               </div>
+            </div>
+
+            {/* Direct Admin Review & Permanent Storage Assurance Box */}
+            <div className="p-3.5 bg-gradient-to-r from-emerald-50 via-amber-50 to-emerald-50 border border-emerald-300 rounded-2xl text-xs space-y-1.5 shadow-xs">
+              <div className="flex items-center gap-2 font-black text-emerald-950">
+                <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>نظام الحفظ الدائم والمراجعة المعتمدة:</span>
+              </div>
+              <p className="text-[11px] text-emerald-900 leading-relaxed">
+                • يتم حفظ تفاصيل حجزك بشكل دائم وآمن في قاعدة بيانات سيلبر كاترنج فور الضغط على زر الإرسال دون الحاجة لتسجيل دخول.
+                <br />
+                • بعد الإرسال، تكون مسؤولية استعراض الحجز المرسل عبر الواتساب مسؤولية <strong>أدمن الموقع الوحيد</strong> لاعتماده وتنسيق التسليم.
+              </p>
             </div>
           </div>
         )}

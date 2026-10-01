@@ -1,18 +1,18 @@
 import React, { useState, useEffect, useRef } from "react";
 import { 
-  X, Lock, User, Key, Plus, Search, Filter, 
+  X, Lock, User, Key, KeyRound, ArrowRight, Plus, Search, Filter, 
   Printer, Image, Copy, Check, Edit3, Trash2, Save, 
   RefreshCw, Calendar, Phone, DollarSign, 
   CheckCircle2, AlertCircle, Clock, FileSpreadsheet, 
   ShieldCheck, ArrowUpDown, Eye, CheckSquare, Sparkles, ChevronDown,
   Shield, Smartphone, Send, MessageCircle, Settings, ShieldAlert,
-  BellRing, Volume2, VolumeX, Radio, Zap
+  BellRing, Volume2, VolumeX, Radio, Zap, Truck
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import html2canvas from "html2canvas-pro";
 import { AdminBooking } from "../types";
 import { CATERING_PACKAGES } from "../data/cateringData";
-import { CelebreLogo } from "./CelebreLogo";
+import { CelebreLogo, CelebreClocheIcon } from "./CelebreLogo";
 
 interface AdminBookingsDashboardProps {
   isOpen: boolean;
@@ -26,44 +26,98 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
   isOpen,
   onClose
 }) => {
-  // Authentication State
+  // Authentication State (حساب الأدمن الوحيد المسجل)
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
     return localStorage.getItem(AUTH_KEY) === "true";
   });
-  const [authStep, setAuthStep] = useState<"credentials" | "register" | "otp">("credentials");
-  const [isConfigured, setIsConfigured] = useState<boolean>(true);
-  const [adminDisplayName, setAdminDisplayName] = useState<string>("إدارة المبيعات");
-  const [registeredMaskedPhone, setRegisteredMaskedPhone] = useState<string>("");
-  const [phoneInput, setPhoneInput] = useState("");
-  const [passwordInput, setPasswordInput] = useState("");
-  const [registerNameInput, setRegisterNameInput] = useState("");
+  const [registeredPhone, setRegisteredPhone] = useState("01284484868");
+  const adminDisplayName = "حساب الأدمن المعتمد";
+  const [previewBooking, setPreviewBooking] = useState<AdminBooking | null>(null);
+
+  // High-Security OTP Authentication State for Official Project Phone 01284484868
+  const [otpRequested, setOtpRequested] = useState(false);
   const [otpInput, setOtpInput] = useState("");
+  const [otpCountdown, setOtpCountdown] = useState(0);
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const [codePreview, setCodePreview] = useState<string | null>(null);
+  const [whatsappUrl, setWhatsappUrl] = useState<string | null>(null);
+  const [remainingAttempts, setRemainingAttempts] = useState(5);
+  const [isRequestingOtp, setIsRequestingOtp] = useState(false);
   const [loginError, setLoginError] = useState("");
   const [loginNotice, setLoginNotice] = useState("");
-  const [isRequestingOtp, setIsRequestingOtp] = useState(false);
-  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
-  const [isRegistering, setIsRegistering] = useState(false);
-  
-  // OTP Timers & Dispatch
-  const [otpExpiresAt, setOtpExpiresAt] = useState<number | null>(null);
-  const [remainingSeconds, setRemainingSeconds] = useState<number>(300);
-  const [cooldownSeconds, setCooldownSeconds] = useState<number>(0);
-  const [activeWhatsappLink, setActiveWhatsappLink] = useState<string>("");
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [adminUsername, setAdminUsername] = useState("admin");
+  const [adminPassword, setAdminPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+
+  // Forgot Password Recovery State (استعادة كلمة السر عبر هاتف المشروع 01284484868)
+  const [isForgotPasswordView, setIsForgotPasswordView] = useState(false);
+  const [forgotOtpRequested, setForgotOtpRequested] = useState(false);
+  const [forgotOtpInput, setForgotOtpInput] = useState("");
+  const [forgotNewPassword, setForgotNewPassword] = useState("");
+  const [forgotConfirmPassword, setForgotConfirmPassword] = useState("");
+  const [forgotShowPassword, setForgotShowPassword] = useState(false);
+  const [forgotCountdown, setForgotCountdown] = useState(0);
+  const [forgotWhatsappUrl, setForgotWhatsappUrl] = useState<string | null>(null);
+  const [forgotCodePreview, setForgotCodePreview] = useState<string | null>(null);
+  const [isRequestingForgotOtp, setIsRequestingForgotOtp] = useState(false);
+  const [isResettingPassword, setIsResettingPassword] = useState(false);
+  const [forgotError, setForgotError] = useState("");
+  const [forgotSuccess, setForgotSuccess] = useState("");
+
+  // Central Helper for High-Security Admin Auth Headers
+  const getAuthHeaders = () => {
+    const token = localStorage.getItem("celebre_admin_token") || "";
+    return {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {})
+    };
+  };
+
+  // Timer for OTP expiration (300s) and resend cooldown (10s)
+  useEffect(() => {
+    let timer: any;
+    if (otpCountdown > 0) {
+      timer = setInterval(() => {
+        setOtpCountdown((prev) => (prev > 0 ? prev - 1 : 0));
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [otpCountdown]);
+
+  useEffect(() => {
+    let timer: any;
+    if (forgotCountdown > 0) {
+      timer = setInterval(() => {
+        setForgotCountdown((prev) => (prev > 0 ? prev - 1 : 0));
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [forgotCountdown]);
+
+  useEffect(() => {
+    let timer: any;
+    if (resendCooldown > 0) {
+      timer = setInterval(() => {
+        setResendCooldown((prev) => (prev > 0 ? prev - 1 : 0));
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [resendCooldown]);
+
+  const formatCountdown = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+  };
 
   // Check auth status from server on mount/open
   const checkAuthStatus = async () => {
     try {
       const res = await fetch("/api/admin/auth/status");
       const data = await res.json();
-      if (data.success) {
-        setIsConfigured(Boolean(data.isConfigured));
-        if (data.adminName) setAdminDisplayName(data.adminName);
-        if (data.registeredPhone) setRegisteredMaskedPhone(data.registeredPhone);
-        if (!data.isConfigured) {
-          setAuthStep("register");
-        } else {
-          setAuthStep("credentials");
-        }
+      if (data.success && data.registeredPhone) {
+        setRegisteredPhone(data.registeredPhone);
       }
     } catch (e) {
       console.error("Auth status check failed:", e);
@@ -71,39 +125,24 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
   };
 
   useEffect(() => {
-    if (isOpen && !isAuthenticated) {
+    if (isOpen) {
       checkAuthStatus();
+      if (isAuthenticated) {
+        fetchBookings(true);
+      }
     }
   }, [isOpen, isAuthenticated]);
 
-  // Security Credentials Settings Modal
+  // Security Credentials Settings Modal (تغيير كلمة السر وتأمين الدخول)
   const [isSecuritySettingsOpen, setIsSecuritySettingsOpen] = useState(false);
   const [newPhoneSetting, setNewPhoneSetting] = useState("");
+  const [currentPasswordSetting, setCurrentPasswordSetting] = useState("");
   const [newPasswordSetting, setNewPasswordSetting] = useState("");
+  const [confirmPasswordSetting, setConfirmPasswordSetting] = useState("");
+  const [showSettingsPassword, setShowSettingsPassword] = useState(false);
   const [securityNotice, setSecurityNotice] = useState("");
+  const [securityError, setSecurityError] = useState("");
   const [isSavingSecurity, setIsSavingSecurity] = useState(false);
-
-  // OTP 5-minute countdown timer
-  useEffect(() => {
-    if (authStep !== "otp" || !otpExpiresAt) return;
-    const interval = setInterval(() => {
-      const diff = Math.max(0, Math.floor((otpExpiresAt - Date.now()) / 1000));
-      setRemainingSeconds(diff);
-      if (diff === 0) {
-        clearInterval(interval);
-      }
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [authStep, otpExpiresAt]);
-
-  // Resend OTP cooldown timer (60s)
-  useEffect(() => {
-    if (cooldownSeconds <= 0) return;
-    const interval = setInterval(() => {
-      setCooldownSeconds(prev => Math.max(0, prev - 1));
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [cooldownSeconds]);
 
   // Bookings Data State
   const [bookings, setBookings] = useState<AdminBooking[]>(() => {
@@ -111,10 +150,8 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
       const cached = localStorage.getItem(STORAGE_KEY);
       if (cached) {
         const parsed = JSON.parse(cached);
-        // Exclude mock demo bookings
-        if (Array.isArray(parsed)) {
-          const cleaned = parsed.filter((b: any) => !["CEL-BK-101", "CEL-BK-102", "CEL-BK-103", "CEL-BK-104"].includes(b.id));
-          return cleaned;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
         }
       }
     } catch (e) {
@@ -213,11 +250,19 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
   const fetchBookings = async (showLoadingSpinner = true) => {
     if (showLoadingSpinner) setIsLoadingBookings(true);
     try {
-      const res = await fetch("/api/admin/bookings");
+      const res = await fetch("/api/admin/bookings", {
+        headers: getAuthHeaders()
+      });
+      if (res.status === 401) {
+        setIsAuthenticated(false);
+        localStorage.removeItem(AUTH_KEY);
+        localStorage.removeItem("celebre_admin_token");
+        setLoginError("انتهت صلاحية جلسة الأدمن. يرجى طلب رمز الدخول المؤقت للتحقق.");
+        return;
+      }
       const data = await res.json();
-      if (data.success && Array.isArray(data.bookings)) {
-        const cleaned = data.bookings.filter((b: any) => !["CEL-BK-101", "CEL-BK-102", "CEL-BK-103", "CEL-BK-104"].includes(b.id));
-        updateBookingsState(cleaned, false);
+      if (data.success && Array.isArray(data.bookings) && data.bookings.length > 0) {
+        updateBookingsState(data.bookings, false);
         setLastSyncedTime(new Date());
       }
     } catch (e) {
@@ -243,7 +288,8 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
     let fallbackPollInterval: NodeJS.Timeout | null = null;
 
     try {
-      eventSource = new EventSource("/api/admin/bookings/live-stream");
+      const token = localStorage.getItem("celebre_admin_token") || "";
+      eventSource = new EventSource(`/api/admin/bookings/live-stream?token=${encodeURIComponent(token)}`);
 
       eventSource.addEventListener("connected", () => {
         setIsLiveConnected(true);
@@ -254,10 +300,7 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
         try {
           const data = JSON.parse(e.data);
           if (data.success && Array.isArray(data.bookings)) {
-            const cleaned = data.bookings.filter(
-              (b: any) => !["CEL-BK-101", "CEL-BK-102", "CEL-BK-103", "CEL-BK-104"].includes(b.id)
-            );
-            updateBookingsState(cleaned, false);
+            updateBookingsState(data.bookings, false);
             setLastSyncedTime(new Date());
             setIsLiveConnected(true);
 
@@ -325,144 +368,62 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
 
   if (!isOpen) return null;
 
-  // Register New Admin Member for the first time
-  const handleRegisterAdmin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoginError("");
-    setLoginNotice("");
-    setIsRegistering(true);
-
-    const cleanPhone = phoneInput.trim();
-    const cleanPassword = passwordInput.trim();
-    const cleanName = registerNameInput.trim() || "عضو إدارة المبيعات";
-
-    if (!cleanPhone || !cleanPassword) {
-      setLoginError("يرجى إدخال رقم هاتف الإدارة وكلمة المرور.");
-      setIsRegistering(false);
+  // 1. Request Temporary OTP on official project phone 01284484868 with Admin Credentials
+  const handleRequestOtp = async () => {
+    const cleanUser = adminUsername.trim();
+    const cleanPass = adminPassword.trim();
+    if (!cleanUser || !cleanPass) {
+      setLoginError("يرجى إدخال اسم المستخدم (admin) وكلمة السر المسجلة لإرسال رمز الدخول المؤقت.");
       return;
     }
 
-    if (cleanPhone.length < 9) {
-      setLoginError("رقم الهاتف غير صالح، يرجى كتابة رقم صحيح.");
-      setIsRegistering(false);
-      return;
-    }
-
-    try {
-      const res = await fetch("/api/admin/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          phone: cleanPhone,
-          password: cleanPassword,
-          name: cleanName
-        })
-      });
-      const data = await res.json();
-      if (data.success) {
-        setIsConfigured(true);
-        setAdminDisplayName(cleanName);
-        if (data.maskedPhone) setRegisteredMaskedPhone(data.maskedPhone);
-        setLoginNotice("تم تسجيل عضو إدارة المشروع بنجاح! سيتم الآن إرسال كلمة السر المؤقتة (OTP) لرقمك المسجل عبر واتساب.");
-        
-        // Directly request OTP right after successful registration
-        const otpRes = await fetch("/api/admin/auth/request-otp", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            phone: cleanPhone,
-            password: cleanPassword
-          })
-        });
-        const otpData = await otpRes.json();
-        if (otpData.success) {
-          setAuthStep("otp");
-          setOtpExpiresAt(otpData.expiresAt);
-          setRemainingSeconds(Math.max(0, Math.floor((otpData.expiresAt - Date.now()) / 1000)));
-          setCooldownSeconds(60);
-          setActiveWhatsappLink(otpData.whatsappLink || "");
-        } else {
-          setAuthStep("credentials");
-        }
-      } else {
-        setLoginError(data.message || "فشل تسجيل عضو الإدارة.");
-      }
-    } catch (err) {
-      console.error(err);
-      setLoginError("تعذر الاتصال بالخادم. يرجى المحاولة مرة أخرى.");
-    } finally {
-      setIsRegistering(false);
-    }
-  };
-
-  // Step 1: Request Login & Dispatch OTP to Admin Phone
-  const handleRequestOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoginError("");
-    setLoginNotice("");
     setIsRequestingOtp(true);
-
-    const cleanPhone = phoneInput.trim();
-    const cleanPassword = passwordInput.trim();
-
-    if (!cleanPhone || !cleanPassword) {
-      setLoginError("يرجى إدخال رقم هاتف الإدارة وكلمة المرور.");
-      setIsRequestingOtp(false);
-      return;
-    }
-
+    setLoginError("");
+    setLoginNotice("");
     try {
       const res = await fetch("/api/admin/auth/request-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          phone: cleanPhone,
-          password: cleanPassword
+        body: JSON.stringify({ 
+          username: cleanUser, 
+          password: cleanPass, 
+          phone: registeredPhone || "01284484868" 
         })
       });
       const data = await res.json();
       if (data.success) {
-        setAuthStep("otp");
-        setOtpExpiresAt(data.expiresAt);
-        setRemainingSeconds(Math.max(0, Math.floor((data.expiresAt - Date.now()) / 1000)));
-        setCooldownSeconds(60);
-        setActiveWhatsappLink(data.whatsappLink || "");
-        setLoginNotice(`تم إرسال كلمة السر المؤقتة بنجاح لرقم الإدارة (${data.maskedPhone || cleanPhone}) عبر رسالة واتساب.`);
-      } else if (data.notRegistered) {
-        setAuthStep("register");
-        setLoginError(data.message);
+        setOtpRequested(true);
+        setOtpCountdown(300); // 5 minutes validity
+        setResendCooldown(10); // 10s cooldown
+        setCodePreview(data.codePreview || null);
+        setWhatsappUrl(data.whatsappUrl || null);
+        setLoginNotice("تم التحقق من بيانات الأدمن بنجاح وإرسال رمز الدخول المؤقت إلى الهاتف الرسمي 01284484868 📱");
       } else {
-        setLoginError(data.message || "بيانات الدخول غير صحيحة.");
+        setLoginError(data.message || "اسم المستخدم أو كلمة السر غير صحيحة، أو تعذر إرسال رمز الدخول");
       }
-    } catch (err) {
-      console.error(err);
-      setLoginError("تعذر الاتصال بخادم الأمان. يرجى المحاولة مرة أخرى.");
+    } catch (e) {
+      console.error(e);
+      setLoginError("حدث خطأ في الاتصال أثناء طلب رمز الدخول");
     } finally {
       setIsRequestingOtp(false);
     }
   };
 
-  // Step 2: Verify One-Time Temporary Password (OTP)
-  const handleVerifyOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoginError("");
-    setIsVerifyingOtp(true);
-
-    const cleanOtp = otpInput.trim();
-    if (!cleanOtp) {
-      setLoginError("يرجى إدخال كلمة السر المؤقتة المكونة من 6 أرقام المستلمة على واتساب.");
-      setIsVerifyingOtp(false);
+  // 2. Verify OTP and authenticate admin session
+  const handleVerifyOtp = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const clean = otpInput.trim();
+    if (!clean || clean.length < 4) {
+      setLoginError("يرجى إدخال رمز الدخول المؤقت المكون من 6 أرقام");
       return;
     }
-
+    setIsLoggingIn(true);
+    setLoginError("");
     try {
       const res = await fetch("/api/admin/auth/verify-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          phone: phoneInput.trim(),
-          otp: cleanOtp
-        })
+        body: JSON.stringify({ otp: clean })
       });
       const data = await res.json();
       if (data.success) {
@@ -471,82 +432,156 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
         if (data.token) {
           localStorage.setItem("celebre_admin_token", data.token);
         }
-        setAuthStep("credentials");
-        setOtpInput("");
-        fetchBookings();
-        showNotice("تم التحقق بنجاح وتأكيد الهوية عبر كلمة السر المؤقتة.");
+        showNotice("تم التحقق بنجاح من رمز الدخول المؤقت وتأمين لوحة الإدارة 🔓");
+        fetchBookings(true);
       } else {
-        setLoginError(data.message || "كلمة السر المؤقتة غير صحيحة أو منتهية الصلاحية.");
+        setLoginError(data.message || "رمز التحقق المؤقت غير صحيح");
+        if (data.remainingAttempts !== undefined) {
+          setRemainingAttempts(data.remainingAttempts);
+        }
       }
-    } catch (err) {
-      console.error(err);
-      setLoginError("تعذر التحقق من الرمز المؤقت. يرجى إعادة المحاولة.");
+    } catch (e) {
+      console.error(e);
+      setLoginError("حدث خطأ أثناء التحقق من الرمز المؤقت");
     } finally {
-      setIsVerifyingOtp(false);
+      setIsLoggingIn(false);
     }
   };
 
-  // Resend OTP
-  const handleResendOtp = async () => {
-    if (cooldownSeconds > 0) return;
-    setLoginError("");
-    setLoginNotice("");
+  // 1. Forgot Password: Request Recovery OTP on Official Project Phone 01284484868
+  const handleRequestForgotOtp = async () => {
+    setIsRequestingForgotOtp(true);
+    setForgotError("");
+    setForgotSuccess("");
     try {
-      const res = await fetch("/api/admin/auth/request-otp", {
+      const res = await fetch("/api/admin/auth/forgot-password/request-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" }
+      });
+      const data = await res.json();
+      if (data.success) {
+        setForgotOtpRequested(true);
+        setForgotCountdown(600); // 10 minutes
+        setForgotCodePreview(data.codePreview || null);
+        setForgotWhatsappUrl(data.whatsappUrl || null);
+        setForgotSuccess("تم إصدار وإرسال رمز استعادة كلمة السر إلى هاتف المشروع الرسمي 01284484868 بنجاح 📱");
+      } else {
+        setForgotError(data.message || "تعذر إرسال رمز الاستعادة");
+      }
+    } catch (e) {
+      console.error(e);
+      setForgotError("حدث خطأ في الاتصال أثناء طلب رمز استعادة كلمة السر");
+    } finally {
+      setIsRequestingForgotOtp(false);
+    }
+  };
+
+  // 2. Forgot Password: Submit Code & Set New Password
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setForgotError("");
+    setForgotSuccess("");
+
+    if (!forgotOtpInput.trim()) {
+      setForgotError("يرجى إدخال رمز التحقق المستلم على هاتف المشروع (01284484868)");
+      return;
+    }
+    if (!forgotNewPassword.trim() || forgotNewPassword.trim().length < 3) {
+      setForgotError("كلمة السر الجديدة يجب أن تكون 3 خانات أو أكثر");
+      return;
+    }
+    if (forgotNewPassword.trim() !== forgotConfirmPassword.trim()) {
+      setForgotError("كلمة السر الجديدة وتأكيدها غير متطابقين");
+      return;
+    }
+
+    setIsResettingPassword(true);
+    try {
+      const res = await fetch("/api/admin/auth/forgot-password/reset", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          phone: phoneInput.trim(),
-          password: passwordInput.trim()
+          resetCode: forgotOtpInput.trim(),
+          newPassword: forgotNewPassword.trim()
         })
       });
       const data = await res.json();
       if (data.success) {
-        setOtpExpiresAt(data.expiresAt);
-        setRemainingSeconds(300);
-        setCooldownSeconds(60);
-        setActiveWhatsappLink(data.whatsappLink || "");
-        setLoginNotice("تم توليد وإرسال كلمة سر مؤقتة جديدة بنجاح في رسالة واتساب لرقم الإدارة.");
+        setForgotSuccess("تمت استعادة وتحديث كلمة السر بنجاح! جاري تحويلك لتسجيل الدخول 🔒");
+        setAdminPassword(forgotNewPassword.trim());
+        setTimeout(() => {
+          setIsForgotPasswordView(false);
+          setForgotOtpRequested(false);
+          setForgotOtpInput("");
+          setForgotNewPassword("");
+          setForgotConfirmPassword("");
+          setLoginNotice("تم تحديث كلمة السر بنجاح! يمكنك الآن تسجيل الدخول بها وإرسال رمز الدخول المؤقت.");
+        }, 1500);
       } else {
-        setLoginError(data.message || "تعذر إعادة إرسال الرمز.");
+        setForgotError(data.message || "فشل التحقق من رمز الاستعادة أو تحديث كلمة السر");
       }
     } catch (e) {
       console.error(e);
-      setLoginError("فشل إعادة الإرسال.");
+      setForgotError("حدث خطأ في الاتصال أثناء تحديث كلمة السر");
+    } finally {
+      setIsResettingPassword(false);
     }
   };
 
-  // Update Credentials from Settings
+  // Update Credentials from Settings (تغيير كلمة السر وتأمين الدخول)
   const handleSaveSecuritySettings = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newPhoneSetting.trim() || !newPasswordSetting.trim()) {
-      alert("يرجى إدخال رقم الهاتف وكلمة المرور الجديدة.");
+    setSecurityError("");
+    setSecurityNotice("");
+
+    const cleanNew = newPasswordSetting.trim();
+    const cleanConfirm = confirmPasswordSetting.trim();
+
+    if (!cleanNew) {
+      setSecurityError("يرجى إدخال كلمة السر الجديدة.");
       return;
     }
+    if (cleanNew.length < 3) {
+      setSecurityError("كلمة السر الجديدة يجب ألا تقل عن 3 خانات.");
+      return;
+    }
+    if (cleanConfirm && cleanNew !== cleanConfirm) {
+      setSecurityError("كلمة السر الجديدة وتأكيدها غير متطابقين.");
+      return;
+    }
+
     setIsSavingSecurity(true);
     try {
       const res = await fetch("/api/admin/auth/update-credentials", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders(),
         body: JSON.stringify({
-          newPhone: newPhoneSetting.trim(),
-          newPassword: newPasswordSetting.trim()
+          currentPassword: currentPasswordSetting.trim() || undefined,
+          newPassword: cleanNew,
+          newPhone: newPhoneSetting.trim() || undefined
         })
       });
       const data = await res.json();
       if (data.success) {
-        setSecurityNotice("تم تحديث بيانات الدخول بنجاح! سيتم إرسال كلمات السر المؤقتة (OTP) لهذا الرقم الجديد في كل مرة دخول.");
-        showNotice("تم تحديث بيانات الدخول والأمان بنجاح.");
+        if (newPhoneSetting.trim()) {
+          setRegisteredPhone(newPhoneSetting.trim());
+        }
+        setSecurityNotice(data.message || "تم تغيير وحفظ كلمة السر بنجاح! لا يمكن تسجيل الدخول إلا بها 🔒");
+        showNotice("تم تحديث وحفظ كلمة سر الأدمن بنجاح 🔒");
         setTimeout(() => {
           setIsSecuritySettingsOpen(false);
           setSecurityNotice("");
-        }, 2200);
+          setSecurityError("");
+          setCurrentPasswordSetting("");
+          setNewPasswordSetting("");
+          setConfirmPasswordSetting("");
+        }, 1800);
       } else {
-        alert(data.message || "فشل تحديث البيانات");
+        setSecurityError(data.message || "فشل تحديث كلمة السر");
       }
     } catch (e) {
       console.error(e);
-      alert("فشل تحديث البيانات");
+      setSecurityError("حدث خطأ في الاتصال أثناء تحديث كلمة السر");
     } finally {
       setIsSavingSecurity(false);
     }
@@ -556,9 +591,7 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
     setIsAuthenticated(false);
     localStorage.removeItem(AUTH_KEY);
     localStorage.removeItem("celebre_admin_token");
-    setAuthStep("credentials");
-    setPhoneInput("");
-    setPasswordInput("");
+    setOtpRequested(false);
     setOtpInput("");
     showNotice("تم تسجيل الخروج بنجاح.");
   };
@@ -617,6 +650,38 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
     setIsEditModalOpen(true);
   };
 
+  // إرسال تفاصيل نموذج الحجز لواتساب العميل
+  const handleSendVoucherWhatsApp = (b: AdminBooking) => {
+    const msg = `*نموذج حجز وضيافة كاترنج سيلبر الرسمي 🌸*
+رقم الحجز: ${b.id}
+-----------------------------
+*بيانات العميل:*
+- الاسم: ${b.customerName}
+- الهاتف: ${b.phone}
+- المناسبة: ${b.occasion}
+- التاريخ: ${b.eventDate} (${b.eventTime})
+- مكان التسليم: ${b.deliveryAddress}
+
+*تفاصيل الوجبة:*
+- الوجبة: ${b.packageCode} - ${b.packageName}
+- المشروب: ${b.drinkOptionLabel || "عصير بخيرة مشمول"}
+- مواصفات العلبة: كرتونية مذهبة محكمة الإغلاق مع شوكة ومنديل معقم
+
+*الحساب المالي:*
+- عدد الوجبات: ${b.quantity} علبة
+- سعر الوجبة: ${b.unitPrice} جنيه
+- إجمالي التعاقد: ${b.totalPrice.toLocaleString()} جنيه
+- العربون المسدد: ${b.depositPaid.toLocaleString()} جنيه
+- المتبقي عند الاستلام: ${b.remainingAmount.toLocaleString()} جنيه
+- حالة السداد: ${b.paymentStatus === "fully_paid" ? "مسدد بالكامل ✓" : b.depositPaid > 0 ? "عربون مسدد" : "قيد السداد"}
+-----------------------------
+⚠️ *ملاحظة هامة:* التوصيل غير مشمول في سعر الوجبات ويتم التنسيق بشأنه.
+شكراً لاختياركم سيلبر كاترنج! ✨`;
+    const clean = b.phone.replace(/[^0-9]/g, "");
+    const targetPhone = clean.startsWith("0") ? "2" + clean : clean.startsWith("2") ? clean : "20" + clean;
+    window.open(`https://wa.me/${targetPhone}?text=${encodeURIComponent(msg)}`, "_blank");
+  };
+
   // Save Booking (Add or Update)
   const handleSaveBooking = async () => {
     if (!editingBooking) return;
@@ -629,7 +694,7 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
       if (isNewBooking) {
         const res = await fetch("/api/admin/bookings", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: getAuthHeaders(),
           body: JSON.stringify(editingBooking)
         });
         const data = await res.json();
@@ -639,7 +704,7 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
       } else {
         const res = await fetch(`/api/admin/bookings/${editingBooking.id}`, {
           method: "PUT",
-          headers: { "Content-Type": "application/json" },
+          headers: getAuthHeaders(),
           body: JSON.stringify(editingBooking)
         });
         const data = await res.json();
@@ -667,7 +732,10 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
   const handleDeleteBooking = async (id: string, name: string) => {
     if (!confirm(`هل أنت متأكد من رغبتك في حذف حجز "${name}" نهائياً من السجل؟`)) return;
     try {
-      await fetch(`/api/admin/bookings/${id}`, { method: "DELETE" });
+      await fetch(`/api/admin/bookings/${id}`, { 
+        method: "DELETE",
+        headers: getAuthHeaders()
+      });
       updateBookingsState(bookings.filter(b => b.id !== id));
       showNotice(`تم حذف حجز "${name}" من السجل.`);
     } catch (e) {
@@ -681,7 +749,10 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
   const handleClearAllBookings = async () => {
     if (!confirm("هل أنت متأكد من رغبتك في تفريغ وحذف جميع بيانات الحجوزات نهائياً من السجل؟")) return;
     try {
-      await fetch("/api/admin/bookings/reset", { method: "POST" });
+      await fetch("/api/admin/bookings/reset", { 
+        method: "POST",
+        headers: getAuthHeaders()
+      });
     } catch (e) {
       console.error(e);
     }
@@ -781,8 +852,10 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
       const unitPrice = Math.max(0, basePrice + editingBooking.drinkPriceDelta - unitDiscount);
       const totalDiscount = unitDiscount * editingBooking.quantity;
       const totalPrice = unitPrice * editingBooking.quantity;
-      const remainingAmount = Math.max(0, totalPrice - editingBooking.depositPaid);
-      const paymentStatus = editingBooking.depositPaid >= totalPrice && totalPrice > 0 
+      const shippingFee = editingBooking.shippingFee || 0;
+      const totalWithShipping = totalPrice + shippingFee;
+      const remainingAmount = Math.max(0, totalWithShipping - editingBooking.depositPaid);
+      const paymentStatus = editingBooking.depositPaid >= totalWithShipping && totalWithShipping > 0 
         ? "fully_paid" 
         : editingBooking.depositPaid > 0 
         ? "deposit_paid" 
@@ -823,8 +896,10 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
     const unitPrice = Math.max(0, editingBooking.basePrice + drinkPriceDelta - unitDiscount);
     const totalDiscount = unitDiscount * editingBooking.quantity;
     const totalPrice = unitPrice * editingBooking.quantity;
-    const remainingAmount = Math.max(0, totalPrice - editingBooking.depositPaid);
-    const paymentStatus = editingBooking.depositPaid >= totalPrice && totalPrice > 0 
+    const shippingFee = editingBooking.shippingFee || 0;
+    const totalWithShipping = totalPrice + shippingFee;
+    const remainingAmount = Math.max(0, totalWithShipping - editingBooking.depositPaid);
+    const paymentStatus = editingBooking.depositPaid >= totalWithShipping && totalWithShipping > 0 
       ? "fully_paid" 
       : editingBooking.depositPaid > 0 
       ? "deposit_paid" 
@@ -850,8 +925,10 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
     const unitDiscount = editingBooking.unitDiscount || 0;
     const totalDiscount = unitDiscount * safeQty;
     const totalPrice = editingBooking.unitPrice * safeQty;
-    const remainingAmount = Math.max(0, totalPrice - editingBooking.depositPaid);
-    const paymentStatus = editingBooking.depositPaid >= totalPrice && totalPrice > 0 
+    const shippingFee = editingBooking.shippingFee || 0;
+    const totalWithShipping = totalPrice + shippingFee;
+    const remainingAmount = Math.max(0, totalWithShipping - editingBooking.depositPaid);
+    const paymentStatus = editingBooking.depositPaid >= totalWithShipping && totalWithShipping > 0 
       ? "fully_paid" 
       : editingBooking.depositPaid > 0 
       ? "deposit_paid" 
@@ -870,8 +947,10 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
   const handleDepositChangeInModal = (deposit: number) => {
     if (!editingBooking) return;
     const safeDeposit = Math.max(0, deposit);
-    const remainingAmount = Math.max(0, editingBooking.totalPrice - safeDeposit);
-    const paymentStatus = safeDeposit >= editingBooking.totalPrice && editingBooking.totalPrice > 0 
+    const shippingFee = editingBooking.shippingFee || 0;
+    const totalWithShipping = editingBooking.totalPrice + shippingFee;
+    const remainingAmount = Math.max(0, totalWithShipping - safeDeposit);
+    const paymentStatus = safeDeposit >= totalWithShipping && totalWithShipping > 0 
       ? "fully_paid" 
       : safeDeposit > 0 
       ? "deposit_paid" 
@@ -880,6 +959,26 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
     setEditingBooking({
       ...editingBooking,
       depositPaid: safeDeposit,
+      remainingAmount,
+      paymentStatus
+    });
+  };
+
+  // Dedicated Handler: Admin Sets / Edits Shipping Fees (مصاريف الشحن تعبأ من قبل الـ admin)
+  const handleShippingFeeChangeInModal = (fee: number) => {
+    if (!editingBooking) return;
+    const safeFee = Math.max(0, fee);
+    const totalWithShipping = editingBooking.totalPrice + safeFee;
+    const remainingAmount = Math.max(0, totalWithShipping - editingBooking.depositPaid);
+    const paymentStatus = editingBooking.depositPaid >= totalWithShipping && totalWithShipping > 0 
+      ? "fully_paid" 
+      : editingBooking.depositPaid > 0 
+      ? "deposit_paid" 
+      : "pending_payment";
+
+    setEditingBooking({
+      ...editingBooking,
+      shippingFee: safeFee,
       remainingAmount,
       paymentStatus
     });
@@ -898,7 +997,12 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
     const matchesStatus = 
       statusFilter === "all" ||
       b.paymentStatus === statusFilter ||
-      (statusFilter === "has_remaining" && b.remainingAmount > 0);
+      (statusFilter === "has_remaining" && b.remainingAmount > 0) ||
+      (statusFilter === "website_orders" && (
+        (b.phoneAgreementNotes && (b.phoneAgreementNotes.includes("موقع") || b.phoneAgreementNotes.includes("إلكتروني"))) ||
+        b.customerName.includes("موقع") ||
+        b.id.startsWith("CEL-")
+      ));
 
     return matchesSearch && matchesStatus;
   }).sort((a, b) => {
@@ -917,6 +1021,8 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
   const totalBookingsCount = filteredBookings.length;
   const totalBoxesCount = filteredBookings.reduce((sum, b) => sum + b.quantity, 0);
   const totalRevenue = filteredBookings.reduce((sum, b) => sum + b.totalPrice, 0);
+  const totalShippingFees = filteredBookings.reduce((sum, b) => sum + (b.shippingFee || 0), 0);
+  const totalContractRevenue = totalRevenue + totalShippingFees;
   const totalDepositCollected = filteredBookings.reduce((sum, b) => sum + b.depositPaid, 0);
   const totalRemainingDue = filteredBookings.reduce((sum, b) => sum + b.remainingAmount, 0);
 
@@ -935,7 +1041,9 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
       "تعديل المشروب": b.drinkOptionLabel,
       "سعر العلبة (ج)": b.unitPrice,
       "عدد الوجبات (علبة)": b.quantity,
-      "الإجمالي (جنيه)": b.totalPrice,
+      "تكلفة الوجبات (جنيه)": b.totalPrice,
+      "مصاريف الشحن (الـ Admin)": b.shippingFee || 0,
+      "إجمالي التعاقد شامل الشحن (جنيه)": b.totalPrice + (b.shippingFee || 0),
       "مبلغ الحجز / العربون المسدد (ج)": b.depositPaid,
       "الباقي (جنيه)": b.remainingAmount,
       "حالة السداد": b.paymentStatus === "fully_paid" ? "تم سداد كامل المبلغ" : b.paymentStatus === "deposit_paid" ? "تم سداد العربون" : "بانتظار السداد",
@@ -957,7 +1065,9 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
       "تعديل المشروب": "",
       "سعر العلبة (ج)": "" as any,
       "عدد الوجبات (علبة)": totalBoxesCount as any,
-      "الإجمالي (جنيه)": totalRevenue as any,
+      "تكلفة الوجبات (جنيه)": totalRevenue as any,
+      "مصاريف الشحن (الـ Admin)": totalShippingFees as any,
+      "إجمالي التعاقد شامل الشحن (جنيه)": totalContractRevenue as any,
       "مبلغ الحجز / العربون المسدد (ج)": totalDepositCollected as any,
       "الباقي (جنيه)": totalRemainingDue as any,
       "حالة السداد": `المتبقي: ${totalRemainingDue.toLocaleString()} ج`,
@@ -1077,25 +1187,38 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
 
         {/* LOGIN SCREEN IF NOT AUTHENTICATED */}
         {!isAuthenticated ? (
-          <div className="p-6 sm:p-10 flex flex-col items-center justify-center text-center max-w-md mx-auto my-auto w-full">
-            <div className="w-16 h-16 rounded-3xl bg-[#5C1027]/10 border border-[#C89B3C]/40 flex items-center justify-center mb-4 text-[#5C1027]">
-              {authStep === "otp" ? <Smartphone className="w-8 h-8 text-[#5C1027] animate-pulse" /> : <Lock className="w-8 h-8 text-[#5C1027]" />}
+          <div className="p-6 sm:p-10 flex flex-col items-center justify-center text-center max-w-lg mx-auto my-auto w-full animate-fadeIn">
+            {/* Security Shield Icon */}
+            <div className="w-16 h-16 rounded-3xl bg-[#5C1027]/10 border-2 border-[#C89B3C]/50 flex items-center justify-center mb-4 text-[#5C1027] shadow-xs">
+              <ShieldCheck className="w-9 h-9 text-[#5C1027]" />
             </div>
 
             <CelebreLogo size="sm" showSlogan={false} className="mb-2" />
             <h3 className="text-xl sm:text-2xl font-black text-[#221B17] mt-1">
-              إدارة المبيعات • تسجيل الدخول
+              تسجيل دخول الأدمن • بورد الحجوزات
             </h3>
             
-            <div className="flex items-center gap-1.5 bg-emerald-50 text-emerald-800 text-[11px] font-bold px-3 py-1 rounded-full border border-emerald-200 mt-2 mb-4">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-              <span>نظام حماية مشدد (2FA) بكلمة سر مؤقتة (OTP)</span>
+            {/* Security Explanation */}
+            <div className="bg-[#FAF7F2] border border-[#E8DFD1] rounded-2xl p-3.5 my-3 text-right text-xs text-[#5C1027] font-semibold space-y-1">
+              <div className="flex items-center gap-2 font-black text-xs text-[#5C1027]">
+                <Lock className="w-4 h-4 text-[#C89B3C]" />
+                <span>نظام أمان عالي التشفير (High-Security 2FA):</span>
+              </div>
+              <p className="text-[11px] text-[#7A6E65] leading-relaxed">
+                استعراض ومراجعة الحجوزات المرسلة من العملاء عبر الواتساب هي مسؤولية <strong>أدمن الموقع الوحيد</strong>. يتم تأمين الدخول بإرسال رمز دخول مؤقت (OTP) صالح لمرة واحدة على رقم الهاتف الرسمي للمشروع.
+              </p>
+              <div className="pt-2 border-t border-[#F0EAE1] flex items-center justify-between">
+                <span className="text-[11px] text-[#4A3E38] font-bold">الهاتف الرسمي المعتمد:</span>
+                <span dir="ltr" className="font-mono font-black text-[#5C1027] text-sm bg-white px-2.5 py-0.5 rounded-lg border border-[#C89B3C]/40">
+                  {registeredPhone || "01284484868"}
+                </span>
+              </div>
             </div>
 
             {/* FEEDBACK ALERTS */}
             {loginError && (
               <div className="w-full p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 font-bold mb-3 flex items-center gap-2 text-right">
-                <AlertCircle className="w-4 h-4 shrink-0" />
+                <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
                 <span>{loginError}</span>
               </div>
             )}
@@ -1107,270 +1230,389 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
               </div>
             )}
 
-            {/* STEP: REGISTER MEMBER (أول مرة) */}
-            {authStep === "register" ? (
-              <form onSubmit={handleRegisterAdmin} className="w-full space-y-3.5 text-right animate-fadeIn">
-                <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3 text-xs text-amber-900 leading-relaxed">
-                  <div className="font-black flex items-center gap-1.5 mb-1 text-amber-950">
-                    <User className="w-4 h-4 text-[#C89B3C]" />
-                    <span>تسجيل عضو إدارة المشروع (لأول مرة):</span>
-                  </div>
-                  <span>
-                    قم بتعيين بياناتك الرسمية (رقم هاتفك وكلمة مرورك المعتمدة). سيتم تثبيت هذه البيانات للدخول دائماً، وإرسال كلمة السر المؤقتة (OTP) لرقمك في كل مرة.
-                  </span>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-[#4A3E38] mb-1">
-                    اسم أو صفة عضو الإدارة:
-                  </label>
-                  <div className="relative">
-                    <User className="absolute right-3.5 top-3 w-4 h-4 text-[#7A6E65]" />
-                    <input
-                      type="text"
-                      value={registerNameInput}
-                      onChange={(e) => setRegisterNameInput(e.target.value)}
-                      placeholder="مثال: محمود سلامة (مدير المبيعات)"
-                      className="w-full pr-10 pl-3 py-2.5 bg-[#FAF7F2] border border-[#E8DFD1] rounded-xl text-xs font-bold text-[#221B17] text-right focus:outline-hidden focus:border-[#5C1027]"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-[#4A3E38] mb-1">
-                    رقم هاتف الإدارة (المعتمد لتلقي رمز الواتساب):
-                  </label>
-                  <div className="relative">
-                    <Phone className="absolute right-3.5 top-3 w-4 h-4 text-[#7A6E65]" />
-                    <input
-                      type="tel"
-                      dir="ltr"
-                      value={phoneInput}
-                      onChange={(e) => setPhoneInput(e.target.value)}
-                      placeholder="مثال: 01xxxxxxxxx"
-                      className="w-full pr-10 pl-3 py-2.5 bg-[#FAF7F2] border border-[#E8DFD1] rounded-xl text-xs font-bold text-[#221B17] text-right focus:outline-hidden focus:border-[#5C1027]"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-[#4A3E38] mb-1">
-                    كلمة المرور الخاصة بك:
-                  </label>
-                  <div className="relative">
-                    <Key className="absolute right-3.5 top-3 w-4 h-4 text-[#7A6E65]" />
-                    <input
-                      type="password"
-                      dir="ltr"
-                      value={passwordInput}
-                      onChange={(e) => setPasswordInput(e.target.value)}
-                      placeholder="كلمة مرور قوية وسرية"
-                      className="w-full pr-10 pl-3 py-2.5 bg-[#FAF7F2] border border-[#E8DFD1] rounded-xl text-xs font-bold text-[#221B17] text-right focus:outline-hidden focus:border-[#5C1027]"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={isRegistering}
-                  className="w-full py-3 bg-[#5C1027] hover:bg-[#721832] text-white rounded-xl font-black text-sm shadow-md transition-all active:scale-98 flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <CheckCircle2 className={`w-4 h-4 text-[#C89B3C] ${isRegistering ? "animate-spin" : ""}`} />
-                  <span>{isRegistering ? "جاري حفظ وتثبيت العضوية..." : "تسجيل وتثبيت عضو إدارة المشروع"}</span>
-                </button>
-
-                {isConfigured && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setAuthStep("credentials");
-                      setLoginError("");
-                    }}
-                    className="w-full py-2 text-xs text-[#5C1027] hover:underline font-bold"
-                  >
-                    لديك بيانات دخول مسجلة بالفعل؟ تسجيل الدخول
-                  </button>
-                )}
-
+            {/* VIEW 1: FORGOT PASSWORD RECOVERY FLOW */}
+            {isForgotPasswordView ? (
+              <div className="w-full space-y-4 text-right animate-fadeIn">
                 <button
                   type="button"
-                  onClick={onClose}
-                  className="w-full py-1 text-xs text-[#7A6E65] hover:text-[#221B17] font-semibold cursor-pointer"
+                  onClick={() => {
+                    setIsForgotPasswordView(false);
+                    setForgotError("");
+                    setForgotSuccess("");
+                  }}
+                  className="flex items-center gap-1.5 text-xs text-[#7A6E65] hover:text-[#5C1027] font-bold cursor-pointer transition-colors"
                 >
-                  العودة للموقع الرئيسي
+                  <ArrowRight className="w-4 h-4 text-[#C89B3C]" />
+                  <span>العودة لشاشة الدخول الرئيسية</span>
                 </button>
-              </form>
-            ) : authStep === "credentials" ? (
-              /* STEP 1: REGULAR LOGIN (البيانات الثابتة المعتمدة للإدارة) */
-              <form onSubmit={handleRequestOtp} className="w-full space-y-3.5 text-right">
-                <p className="text-xs text-[#7A6E65] text-center mb-1">
-                  أدخل بيانات دخولك المعتمدة. سيتم إرسال كلمة سر مؤقتة (OTP) إلى هاتفك في رسالة واتساب للتحقق في كل مرة.
-                </p>
 
-                {registeredMaskedPhone && (
-                  <div className="bg-[#FAF7F2] border border-[#E8DFD1] rounded-xl p-2 text-center text-xs text-stone-600">
-                    رقم الإدارة المسجل في النظام: <span dir="ltr" className="font-mono font-black text-[#5C1027]">{registeredMaskedPhone}</span>
+                <div className="bg-[#FAF7F2] border-2 border-[#C89B3C]/50 rounded-2xl p-4 text-center">
+                  <div className="w-12 h-12 rounded-2xl bg-[#5C1027]/10 border border-[#C89B3C] flex items-center justify-center text-[#5C1027] mx-auto mb-2 shadow-xs">
+                    <KeyRound className="w-6 h-6 text-[#5C1027]" />
+                  </div>
+                  <h4 className="text-base sm:text-lg font-black text-[#221B17]">
+                    استعادة وتعيين كلمة سر الأدمن
+                  </h4>
+                  <p className="text-[11px] text-[#7A6E65] mt-1 leading-relaxed">
+                    لأمان الحساب والموقع، يتم التحقق حصرياً عبر رقم الهاتف الرسمي للمشروع:{" "}
+                    <strong dir="ltr" className="font-mono text-[#5C1027] font-black">{registeredPhone || "01284484868"}</strong>
+                  </p>
+                </div>
+
+                {forgotError && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 font-bold flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
+                    <span>{forgotError}</span>
                   </div>
                 )}
 
+                {forgotSuccess && (
+                  <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 font-bold flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+                    <span>{forgotSuccess}</span>
+                  </div>
+                )}
+
+                {!forgotOtpRequested ? (
+                  <div className="space-y-3">
+                    <div className="p-3 bg-amber-50/90 border border-amber-200 rounded-xl text-xs text-amber-900 leading-relaxed font-semibold">
+                      اضغط أدناه لإرسال كود تحقق مؤقت (OTP) إلى هاتف المشروع الرسمي 01284484868. بمجرد إدخال الرمز ستتمكن من تعيين كلمة سر جديدة فوراً.
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleRequestForgotOtp}
+                      disabled={isRequestingForgotOtp}
+                      className="w-full py-3.5 px-4 bg-gradient-to-r from-[#5C1027] via-[#721832] to-[#5C1027] hover:brightness-110 text-white rounded-2xl font-black text-sm shadow-lg border-2 border-[#C89B3C] flex items-center justify-center gap-2.5 cursor-pointer disabled:opacity-50"
+                    >
+                      <Smartphone className={`w-5 h-5 text-[#C89B3C] ${isRequestingForgotOtp ? "animate-pulse" : ""}`} />
+                      <span>{isRequestingForgotOtp ? "جاري إرسال رمز الاستعادة..." : "إرسال رمز استعادة كلمة السر إلى 01284484868 📱"}</span>
+                    </button>
+                  </div>
+                ) : (
+                  <form onSubmit={handleResetPassword} className="space-y-3.5">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-[#4A3E38]">
+                        أدخل رمز استعادة كلمة السر (OTP):
+                      </label>
+                      <span className="text-[11px] font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200 flex items-center gap-1">
+                        <Clock className="w-3 h-3 text-amber-600" />
+                        <span>الصلاحية: {formatCountdown(forgotCountdown)}</span>
+                      </span>
+                    </div>
+
+                    <div className="relative">
+                      <Key className="absolute right-3.5 top-3.5 w-5 h-5 text-[#7A6E65]" />
+                      <input
+                        type="text"
+                        dir="ltr"
+                        maxLength={6}
+                        value={forgotOtpInput}
+                        onChange={(e) => setForgotOtpInput(e.target.value.replace(/[^0-9]/g, ""))}
+                        placeholder="رمز من 6 أرقام"
+                        autoFocus
+                        required
+                        className="w-full pr-12 pl-4 py-2.5 bg-[#FAF7F2] border-2 border-[#C89B3C] rounded-2xl text-center text-xl font-mono font-black text-[#5C1027] tracking-widest focus:outline-hidden focus:border-[#5C1027]"
+                      />
+                    </div>
+
+                    {forgotWhatsappUrl && (
+                      <a
+                        href={forgotWhatsappUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="w-full py-2 px-3 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-xl text-xs font-bold text-emerald-800 flex items-center justify-center gap-1.5 transition-all"
+                      >
+                        <MessageCircle className="w-4 h-4 text-emerald-600" />
+                        <span>فتح واتساب هاتف المشروع (01284484868) لاستلام رمز الاستعادة 💬</span>
+                      </a>
+                    )}
+
+                    {forgotCodePreview && (
+                      <button
+                        type="button"
+                        onClick={() => setForgotOtpInput(forgotCodePreview)}
+                        className="w-full py-1.5 px-3 bg-amber-50/80 hover:bg-amber-100 border border-amber-300 rounded-xl text-[11px] font-bold text-amber-900 flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                        <span>رمز الاستعادة المستلم: <strong className="font-mono text-sm text-[#5C1027]">{forgotCodePreview}</strong> (اضغط للتعبئة ⚡)</span>
+                      </button>
+                    )}
+
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs font-bold text-[#4A3E38]">
+                          كلمة السر الجديدة: *
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => setForgotShowPassword(!forgotShowPassword)}
+                          className="text-[11px] text-[#7A6E65] hover:text-[#5C1027] font-semibold cursor-pointer"
+                        >
+                          {forgotShowPassword ? "إخفاء" : "إظهار"}
+                        </button>
+                      </div>
+                      <div className="relative">
+                        <Lock className="absolute right-3.5 top-3 w-4 h-4 text-[#7A6E65]" />
+                        <input
+                          type={forgotShowPassword ? "text" : "password"}
+                          dir="ltr"
+                          value={forgotNewPassword}
+                          onChange={(e) => setForgotNewPassword(e.target.value)}
+                          placeholder="كلمة السر الجديدة المسجلة"
+                          required
+                          className="w-full pr-10 pl-3 py-2.5 bg-[#FAF7F2] border-2 border-[#C89B3C]/50 rounded-xl text-xs font-bold text-[#221B17] focus:outline-hidden focus:border-[#5C1027]"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-[#4A3E38] mb-1">
+                        تأكيد كلمة السر الجديدة: *
+                      </label>
+                      <div className="relative">
+                        <KeyRound className="absolute right-3.5 top-3 w-4 h-4 text-[#7A6E65]" />
+                        <input
+                          type={forgotShowPassword ? "text" : "password"}
+                          dir="ltr"
+                          value={forgotConfirmPassword}
+                          onChange={(e) => setForgotConfirmPassword(e.target.value)}
+                          placeholder="أعد إدخال كلمة السر الجديدة"
+                          required
+                          className="w-full pr-10 pl-3 py-2.5 bg-[#FAF7F2] border-2 border-[#C89B3C]/50 rounded-xl text-xs font-bold text-[#221B17] focus:outline-hidden focus:border-[#5C1027]"
+                        />
+                      </div>
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={isResettingPassword || !forgotOtpInput.trim() || !forgotNewPassword.trim()}
+                      className="w-full py-3.5 bg-[#5C1027] hover:bg-[#721832] text-white rounded-2xl font-black text-sm shadow-md transition-all active:scale-98 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                    >
+                      <ShieldCheck className={`w-5 h-5 text-[#C89B3C] ${isResettingPassword ? "animate-spin" : ""}`} />
+                      <span>{isResettingPassword ? "جاري تعيين كلمة السر..." : "تأكيد الرمز وحفظ كلمة السر الجديدة 🔒"}</span>
+                    </button>
+
+                    <div className="pt-2 border-t border-[#F0EAE1] flex items-center justify-between text-xs">
+                      <button
+                        type="button"
+                        onClick={handleRequestForgotOtp}
+                        disabled={isRequestingForgotOtp}
+                        className="text-[11px] text-[#5C1027] hover:underline font-bold disabled:text-stone-400 cursor-pointer"
+                      >
+                        إعادة إرسال رمز الاستعادة 🔄
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsForgotPasswordView(false);
+                          setForgotError("");
+                          setForgotSuccess("");
+                        }}
+                        className="text-[11px] text-[#7A6E65] hover:text-[#221B17] font-semibold cursor-pointer hover:underline"
+                      >
+                        إلغاء والعودة للدخول
+                      </button>
+                    </div>
+                  </form>
+                )}
+              </div>
+            ) : !otpRequested ? (
+              /* VIEW 2: STEP 1 - USERNAME (admin) & REGISTERED PASSWORD + FORGOT PASSWORD LINK */
+              <form 
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handleRequestOtp();
+                }} 
+                className="w-full space-y-3.5 text-right"
+              >
                 <div>
                   <label className="block text-xs font-bold text-[#4A3E38] mb-1">
-                    رقم هاتف الإدارة:
+                    اسم مستخدم الأدمن: *
                   </label>
                   <div className="relative">
-                    <Phone className="absolute right-3.5 top-3 w-4 h-4 text-[#7A6E65]" />
+                    <User className="absolute right-3 top-3 w-4 h-4 text-[#7A6E65]" />
                     <input
-                      type="tel"
+                      type="text"
                       dir="ltr"
-                      value={phoneInput}
-                      onChange={(e) => setPhoneInput(e.target.value)}
-                      placeholder="رقم الهاتف المسجل"
-                      className="w-full pr-10 pl-3 py-2.5 bg-[#FAF7F2] border border-[#E8DFD1] rounded-xl text-xs font-bold text-[#221B17] text-right focus:outline-hidden focus:border-[#5C1027]"
+                      value={adminUsername}
+                      onChange={(e) => setAdminUsername(e.target.value)}
+                      placeholder="admin"
                       required
+                      className="w-full pr-10 pl-3 py-2.5 bg-[#FAF7F2] border-2 border-[#C89B3C]/50 rounded-xl text-sm font-bold text-[#221B17] font-mono focus:outline-hidden focus:border-[#5C1027]"
                     />
                   </div>
+                  <span className="text-[10px] text-[#7A6E65] mt-0.5 block">اسم المستخدم المعتمد لبورد الإدارة هو: <strong className="font-mono text-[#5C1027]">admin</strong></span>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-[#4A3E38] mb-1">
-                    كلمة المرور الخاصة بك:
-                  </label>
-                  <div className="relative">
-                    <Key className="absolute right-3.5 top-3 w-4 h-4 text-[#7A6E65]" />
-                    <input
-                      type="password"
-                      dir="ltr"
-                      value={passwordInput}
-                      onChange={(e) => setPasswordInput(e.target.value)}
-                      placeholder="••••••••••••"
-                      className="w-full pr-10 pl-3 py-2.5 bg-[#FAF7F2] border border-[#E8DFD1] rounded-xl text-xs font-bold text-[#221B17] text-right focus:outline-hidden focus:border-[#5C1027]"
-                      required
-                    />
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-bold text-[#4A3E38]">
+                      كلمة السر المسجلة للأدمن: *
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsForgotPasswordView(true);
+                        setForgotError("");
+                        setForgotSuccess("");
+                        setLoginError("");
+                        setLoginNotice("");
+                      }}
+                      className="text-[11px] text-[#5C1027] hover:underline font-bold flex items-center gap-1 cursor-pointer"
+                    >
+                      <KeyRound className="w-3.5 h-3.5 text-[#C89B3C]" />
+                      <span>نسيت كلمة المرور؟</span>
+                    </button>
                   </div>
+                  <div className="relative">
+                    <Lock className="absolute right-3 top-3 w-4 h-4 text-[#7A6E65]" />
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      dir="ltr"
+                      value={adminPassword}
+                      onChange={(e) => setAdminPassword(e.target.value)}
+                      placeholder="كلمة السر التي قمت بتسجيلها"
+                      required
+                      className="w-full pr-10 pl-10 py-2.5 bg-[#FAF7F2] border-2 border-[#C89B3C]/50 rounded-xl text-sm font-bold text-[#221B17] font-mono focus:outline-hidden focus:border-[#5C1027]"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute left-3 top-3 text-[11px] text-[#7A6E65] hover:text-[#5C1027] font-bold cursor-pointer"
+                    >
+                      {showPassword ? "إخفاء" : "إظهار"}
+                    </button>
+                  </div>
+                  <span className="text-[10px] text-[#7A6E65] mt-0.5 block">كلمة السر الخاصة بأدمن الموقع الوحيد (محمية ومشفّرة بالكامل، ولا يتم تسجيل الدخول إلا بها)</span>
                 </div>
 
                 <button
                   type="submit"
                   disabled={isRequestingOtp}
-                  className="w-full py-3 bg-[#5C1027] hover:bg-[#721832] text-white rounded-xl font-black text-sm shadow-md transition-all active:scale-98 flex items-center justify-center gap-2 cursor-pointer"
+                  className="w-full py-3.5 px-4 bg-gradient-to-r from-[#5C1027] via-[#721832] to-[#5C1027] hover:brightness-110 text-white rounded-2xl font-black text-sm sm:text-base shadow-lg border-2 border-[#C89B3C] flex items-center justify-center gap-2.5 cursor-pointer transition-all active:scale-98 disabled:opacity-50 mt-2"
                 >
-                  <Send className={`w-4 h-4 text-[#C89B3C] ${isRequestingOtp ? "animate-pulse" : ""}`} />
-                  <span>{isRequestingOtp ? "جاري الإرسال عبر واتساب..." : "إرسال كلمة السر المؤقتة (OTP) عبر واتساب"}</span>
+                  <Smartphone className={`w-5 h-5 text-[#C89B3C] ${isRequestingOtp ? "animate-pulse" : ""}`} />
+                  <span>
+                    {isRequestingOtp ? "جاري التحقق وإرسال الرمز المؤقت..." : "إرسال رمز الدخول المؤقت إلى 01284484868 📱"}
+                  </span>
                 </button>
 
-                <div className="flex items-center justify-between text-xs pt-1">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setAuthStep("register");
-                      setLoginError("");
-                    }}
-                    className="text-[#8C6D28] hover:underline font-bold cursor-pointer"
-                  >
-                    تسجيل أو تغيير عضو إدارة المشروع
-                  </button>
+                <div className="w-full flex items-center gap-2 my-1 text-stone-400 text-xs">
+                  <div className="h-px bg-[#E8DFD1] flex-1" />
+                  <span className="text-[11px] text-[#7A6E65] font-bold">حماية ثنائية إلزامية</span>
+                  <div className="h-px bg-[#E8DFD1] flex-1" />
+                </div>
 
-                  <button
-                    type="button"
-                    onClick={onClose}
-                    className="text-[#7A6E65] hover:text-[#221B17] font-semibold cursor-pointer"
-                  >
-                    العودة للموقع
-                  </button>
+                <div className="p-2.5 bg-emerald-50/80 border border-emerald-300 rounded-xl text-[11px] text-emerald-900 font-semibold flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>بعد إدخال (admin) وكلمة السر، يتم إرسال كود تحقق مؤقت (OTP) مباشرة على هاتف المشروع الرسمي 01284484868 لتأمين الدخول.</span>
                 </div>
               </form>
             ) : (
-              /* STEP 2: ENTER TEMPORARY OTP FROM WHATSAPP (كلمة السر المؤقتة عبر واتساب حصرياً) */
-              <form onSubmit={handleVerifyOtp} className="w-full space-y-3.5 text-right animate-fadeIn">
-                {/* Security Verification Box - Secret delivered to WhatsApp */}
-                <div className="w-full bg-emerald-50/90 border border-emerald-300 rounded-2xl p-4 text-right">
-                  <div className="flex items-center justify-between text-xs font-black text-emerald-950 mb-1.5">
-                    <span className="flex items-center gap-1.5">
-                      <ShieldAlert className="w-4 h-4 text-emerald-700" />
-                      <span>تم إرسال رمز الأمان في رسالة واتساب:</span>
-                    </span>
-                    <span className="font-mono text-emerald-900 bg-emerald-200/70 text-[11px] px-2 py-0.5 rounded-md font-black">
-                      ⏱️ {Math.floor(remainingSeconds / 60)}:{(remainingSeconds % 60).toString().padStart(2, "0")}
+              /* STEP 2: ENTER & VERIFY OTP */
+              <form onSubmit={handleVerifyOtp} className="w-full space-y-4 text-right">
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-xs font-bold text-[#4A3E38]">
+                      أدخل رمز الدخول المؤقت (OTP):
+                    </label>
+                    <span className="text-[11px] font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200 flex items-center gap-1">
+                      <Clock className="w-3 h-3 text-amber-600" />
+                      <span>الصلاحية: {formatCountdown(otpCountdown)}</span>
                     </span>
                   </div>
-                  
-                  <p className="text-xs text-emerald-900 leading-relaxed mb-3">
-                    لأعلى درجات الأمان وحماية سجلات المشروع، تم إرسال كلمة السر المؤقتة المكونة من 6 أرقام إلى رقمك المسجل (<span dir="ltr" className="font-mono font-black">{phoneInput}</span>) في رسالة واتساب مشفرة.
-                  </p>
 
-                  {activeWhatsappLink && (
-                    <a
-                      href={activeWhatsappLink}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="w-full flex items-center justify-center gap-2 bg-[#25D366] hover:bg-[#20ba59] text-white py-2.5 px-3 rounded-xl text-xs font-bold shadow-xs transition-all active:scale-98"
-                    >
-                      <MessageCircle className="w-4 h-4 fill-white" />
-                      <span>فتح تطبيق واتساب على هاتفك لعرض رمز الدخول</span>
-                    </a>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-[#4A3E38] mb-1">
-                    أدخل كلمة السر المؤقتة (المستلمة على واتساب):
-                  </label>
                   <div className="relative">
-                    <Smartphone className="absolute right-3.5 top-3 w-4 h-4 text-[#7A6E65]" />
+                    <Key className="absolute right-3.5 top-3.5 w-5 h-5 text-[#7A6E65]" />
                     <input
                       type="text"
-                      maxLength={6}
                       dir="ltr"
-                      autoFocus
+                      maxLength={6}
                       value={otpInput}
-                      onChange={(e) => setOtpInput(e.target.value.replace(/\D/g, ""))}
-                      placeholder="• • • • • •"
-                      className="w-full pr-10 pl-3 py-2.5 bg-[#FAF7F2] border-2 border-[#5C1027] rounded-xl text-xl font-black tracking-[0.4em] text-center text-[#5C1027] focus:outline-hidden"
-                      required
+                      onChange={(e) => setOtpInput(e.target.value.replace(/[^0-9]/g, ""))}
+                      placeholder="6 أرقام"
+                      autoFocus
+                      className="w-full pr-12 pl-4 py-3 bg-[#FAF7F2] border-2 border-[#C89B3C] rounded-2xl text-center text-xl font-mono font-black text-[#5C1027] tracking-widest focus:outline-hidden focus:border-[#5C1027]"
                     />
                   </div>
-                  <span className="text-[10px] text-[#7A6E65] mt-1 block">
-                    * الحماية نشطة: لن يتم فتح سجل الحجوزات نهائياً إلا بعد إدخال كلمة السر المؤقتة الصحيحة.
-                  </span>
                 </div>
 
-                <button
-                  type="submit"
-                  disabled={isVerifyingOtp}
-                  className="w-full py-3 bg-[#5C1027] hover:bg-[#721832] text-white rounded-xl font-black text-sm shadow-md transition-all active:scale-98 flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <ShieldCheck className="w-4 h-4 text-[#C89B3C]" />
-                  <span>{isVerifyingOtp ? "جاري التحقق من الرمز..." : "تأكيد كلمة السر المؤقتة والدخول للسجل"}</span>
-                </button>
+                {/* Direct Link to WhatsApp on Project Phone */}
+                {whatsappUrl && (
+                  <a
+                    href={whatsappUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="w-full py-2 px-3 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-xl text-xs font-bold text-emerald-800 flex items-center justify-center gap-1.5 transition-all"
+                  >
+                    <MessageCircle className="w-4 h-4 text-emerald-600" />
+                    <span>فتح واتساب هاتف المشروع (01284484868) لاستلام الرمز 💬</span>
+                  </a>
+                )}
 
-                <div className="flex items-center justify-between pt-1 text-xs">
+                {/* Quick Auto-fill badge for authorized admin */}
+                {codePreview && (
                   <button
                     type="button"
-                    onClick={handleResendOtp}
-                    disabled={cooldownSeconds > 0}
-                    className={`font-bold transition-colors ${
-                      cooldownSeconds > 0 ? "text-stone-400 cursor-not-allowed" : "text-[#8C6D28] hover:underline cursor-pointer"
-                    }`}
+                    onClick={() => setOtpInput(codePreview)}
+                    className="w-full py-1.5 px-3 bg-amber-50/80 hover:bg-amber-100 border border-amber-300 rounded-xl text-[11px] font-bold text-amber-900 flex items-center justify-center gap-1.5 cursor-pointer"
                   >
-                    {cooldownSeconds > 0 ? `إعادة الإرسال (${cooldownSeconds} ثانية)` : "إعادة إرسال رمز مؤقت لواتساب"}
+                    <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                    <span>رمز التحقق المستلم: <strong className="font-mono text-sm text-[#5C1027]">{codePreview}</strong> (اضغط للتعبئة الفورية ⚡)</span>
+                  </button>
+                )}
+
+                {/* Submit Verification Button */}
+                <button
+                  type="submit"
+                  disabled={isLoggingIn || !otpInput.trim()}
+                  className="w-full py-3.5 bg-[#5C1027] hover:bg-[#721832] text-white rounded-2xl font-black text-sm shadow-md transition-all active:scale-98 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  <ShieldCheck className={`w-5 h-5 text-[#C89B3C] ${isLoggingIn ? "animate-spin" : ""}`} />
+                  <span>{isLoggingIn ? "جاري التحقق من الرمز..." : "تحقق وتأكيد الدخول الآمن 🛡️"}</span>
+                </button>
+
+                {/* Resend and Switch Options */}
+                <div className="pt-2 border-t border-[#F0EAE1] flex items-center justify-between text-xs">
+                  <button
+                    type="button"
+                    onClick={handleRequestOtp}
+                    disabled={resendCooldown > 0 || isRequestingOtp}
+                    className="text-[11px] text-[#5C1027] hover:underline font-bold disabled:text-stone-400 cursor-pointer"
+                  >
+                    {resendCooldown > 0 ? `إعادة الإرسال بعد (${resendCooldown} ث)` : "إعادة إرسال رمز جديد 🔄"}
                   </button>
 
                   <button
                     type="button"
                     onClick={() => {
-                      setAuthStep("credentials");
+                      setOtpRequested(false);
                       setOtpInput("");
-                      setLoginError("");
                     }}
-                    className="text-stone-500 hover:text-stone-800 hover:underline cursor-pointer"
+                    className="text-[11px] text-[#7A6E65] hover:text-[#221B17] font-semibold cursor-pointer hover:underline"
                   >
-                    تعديل الهاتف أو كلمة المرور
+                    طلب جديد
                   </button>
                 </div>
               </form>
             )}
+
+            {/* Back to Site Button */}
+            <div className="pt-4 mt-4 border-t border-[#F0EAE1] w-full flex items-center justify-between text-xs">
+              <span className="text-[11px] text-[#7A6E65]">
+                أدمن سيلبر المعتمد: <span dir="ltr" className="font-bold text-[#5C1027]">01284484868</span>
+              </span>
+
+              <button
+                type="button"
+                onClick={onClose}
+                className="text-xs text-[#7A6E65] hover:text-[#221B17] font-semibold cursor-pointer hover:underline"
+              >
+                العودة للموقع الرئيسي
+              </button>
+            </div>
           </div>
         ) : (
           /* SPREADSHEET VIEW FOR AUTHENTICATED ADMIN */
@@ -1458,7 +1700,7 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
                 <button
                   type="button"
                   onClick={() => {
-                    setNewPhoneSetting(phoneInput || "");
+                    setNewPhoneSetting(registeredPhone || "01284484868");
                     setNewPasswordSetting("");
                     setSecurityNotice("");
                     setIsSecuritySettingsOpen(true);
@@ -1543,25 +1785,29 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
             )}
 
             {/* KPI Summary Dashboard Bar */}
-            <div className="bg-gradient-to-r from-[#5C1027] via-[#721832] to-[#5C1027] text-white p-4 grid grid-cols-2 sm:grid-cols-5 gap-3 shrink-0 no-print">
+            <div className="bg-gradient-to-r from-[#5C1027] via-[#721832] to-[#5C1027] text-white p-4 grid grid-cols-2 sm:grid-cols-6 gap-2.5 shrink-0 no-print">
               <div className="bg-white/10 rounded-2xl p-2.5 border border-white/15">
                 <div className="text-[11px] text-[#F4EEDB]">عدد الحجوزات</div>
                 <div className="text-xl font-black">{totalBookingsCount} حجز</div>
               </div>
               <div className="bg-white/10 rounded-2xl p-2.5 border border-white/15">
-                <div className="text-[11px] text-[#F4EEDB]">إجمالي الوجبات (علب)</div>
+                <div className="text-[11px] text-[#F4EEDB]">إجمالي الوجبات</div>
                 <div className="text-xl font-black text-[#C89B3C]">{totalBoxesCount.toLocaleString()} علبة</div>
               </div>
               <div className="bg-white/10 rounded-2xl p-2.5 border border-white/15">
-                <div className="text-[11px] text-[#F4EEDB]">إجمالي قيمة التعاقدات</div>
+                <div className="text-[11px] text-[#F4EEDB]">تكلفة الوجبات</div>
                 <div className="text-xl font-black">{totalRevenue.toLocaleString()} ج</div>
               </div>
               <div className="bg-white/10 rounded-2xl p-2.5 border border-white/15">
-                <div className="text-[11px] text-emerald-300">إجمالي العربون المحصل</div>
+                <div className="text-[11px] text-blue-200">مصاريف الشحن (الـ Admin)</div>
+                <div className="text-xl font-black text-blue-200">{totalShippingFees.toLocaleString()} ج</div>
+              </div>
+              <div className="bg-white/10 rounded-2xl p-2.5 border border-white/15">
+                <div className="text-[11px] text-emerald-300">مبلغ الحجز المحصل</div>
                 <div className="text-xl font-black text-emerald-300">{totalDepositCollected.toLocaleString()} ج</div>
               </div>
               <div className="bg-white/10 rounded-2xl p-2.5 border border-white/15 col-span-2 sm:col-span-1">
-                <div className="text-[11px] text-amber-300">إجمالي المتبقي للتحصيل</div>
+                <div className="text-[11px] text-amber-300">المتبقي للتحصيل</div>
                 <div className="text-xl font-black text-amber-300">{totalRemainingDue.toLocaleString()} ج</div>
               </div>
             </div>
@@ -1623,6 +1869,18 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
                   <span>{copiedTextNotice ? "تم النسخ!" : "نسخ نص منسق"}</span>
                 </button>
 
+                {filteredBookings.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setPreviewBooking(filteredBookings[0])}
+                    className="px-3.5 py-2 bg-gradient-to-r from-[#5C1027] to-[#721832] text-white hover:brightness-110 rounded-xl text-xs font-black shadow-xs flex items-center gap-1.5 transition-transform active:scale-95 cursor-pointer border border-[#C89B3C]/50"
+                    title="استعراض وتفحص نموذج الحجز الرسمي"
+                  >
+                    <Eye className="w-3.5 h-3.5 text-[#C89B3C]" />
+                    <span>استعراض نموذج الحجز 📄</span>
+                  </button>
+                )}
+
                 {bookings.length > 0 && (
                   <button
                     type="button"
@@ -1656,7 +1914,8 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
                   onChange={(e) => setStatusFilter(e.target.value)}
                   className="py-1.5 px-2 bg-white border border-[#E8DFD1] rounded-xl text-xs font-semibold text-[#4A3E38] focus:outline-hidden"
                 >
-                  <option value="all">كافة حالات السداد</option>
+                  <option value="all">كافة حالات السداد والحجوزات</option>
+                  <option value="website_orders">حجوزات واردة من الموقع / الواتساب 💬</option>
                   <option value="deposit_paid">تم سداد العربون</option>
                   <option value="fully_paid">تم سداد كامل المبلغ</option>
                   <option value="has_remaining">متبقي مبالغ للتحصيل</option>
@@ -1667,12 +1926,24 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
                 <button
                   type="button"
                   onClick={() => setSortOrder(prev => prev === "asc" ? "desc" : "asc")}
-                  className="p-2 rounded-xl bg-white border border-[#E8DFD1] text-xs font-bold text-[#4A3E38] flex items-center gap-1"
+                  className="p-2 rounded-xl bg-white border border-[#E8DFD1] text-xs font-bold text-[#4A3E38] flex items-center gap-1 cursor-pointer"
                   title="عكس اتجاه الترتيب"
                 >
                   <ArrowUpDown className="w-3.5 h-3.5" />
                   <span>{sortOrder === "asc" ? "تصاعدي" : "تنازلي"}</span>
                 </button>
+              </div>
+            </div>
+
+            {/* High-Security & Sole Admin Responsibility Notice Banner */}
+            <div className="bg-[#FAF7F2] border-b border-[#E8DFD1] px-5 py-2.5 flex flex-wrap items-center justify-between gap-3 text-xs text-[#5C1027] font-bold shrink-0 no-print">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-[#C89B3C] shrink-0" />
+                <span>استعراض ومراجعة الحجوزات الواردة من العملاء عبر الواتساب مسؤولية أدمن الموقع الوحيد المعتمد.</span>
+              </div>
+              <div className="flex items-center gap-2 text-[11px] text-[#7A6E65]">
+                <Lock className="w-3.5 h-3.5 text-emerald-600" />
+                <span>جلسة موثقة برمز مؤقت (OTP) • هاتف المشروع: <strong className="font-mono text-[#5C1027]">{registeredPhone || "01284484868"}</strong></span>
               </div>
             </div>
 
@@ -1732,7 +2003,8 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
                     <th className="p-2.5 border-r border-[#721832] font-black min-w-[120px]">تعديل المشروب</th>
                     <th className="p-2.5 border-r border-[#721832] font-black text-center min-w-[75px]">سعر العلبة</th>
                     <th className="p-2.5 border-r border-[#721832] font-black text-center min-w-[70px]">العدد</th>
-                    <th className="p-2.5 border-r border-[#721832] font-black text-center min-w-[90px] bg-[#430B1C]">الإجمالي</th>
+                    <th className="p-2.5 border-r border-[#721832] font-black text-center min-w-[90px] bg-[#430B1C]">تكلفة الوجبات</th>
+                    <th className="p-2.5 border-r border-[#721832] font-black text-center min-w-[100px] bg-[#1E3A8A] text-blue-100">مصاريف الشحن (الـ Admin)</th>
                     <th className="p-2.5 border-r border-[#721832] font-black text-center min-w-[95px] bg-emerald-950 text-emerald-200">مبلغ الحجز (العربون)</th>
                     <th className="p-2.5 border-r border-[#721832] font-black text-center min-w-[90px] bg-amber-950 text-amber-200">الباقي</th>
                     <th className="p-2.5 border-r border-[#721832] font-black text-center min-w-[120px]">حالة السداد والتحديث</th>
@@ -1746,7 +2018,7 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
                 <tbody className="divide-y divide-[#E2E8F0]">
                   {filteredBookings.length === 0 ? (
                     <tr>
-                      <td colSpan={17} className="p-12 text-center text-[#7A6E65]">
+                      <td colSpan={18} className="p-12 text-center text-[#7A6E65]">
                         <div className="flex flex-col items-center justify-center gap-2 max-w-sm mx-auto">
                           <div className="w-12 h-12 rounded-2xl bg-[#5C1027]/10 flex items-center justify-center text-[#5C1027]">
                             <FileSpreadsheet className="w-6 h-6 text-[#C89B3C]" />
@@ -1869,17 +2141,28 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
                           {b.quantity}
                         </td>
 
-                        {/* 11. Total Price (الإجمالي = حاصل ضرب الوجبة ± المشروب في العدد) */}
+                        {/* 11. Total Price (تكلفة الوجبات) */}
                         <td className="p-2 border-r border-[#E2E8F0] text-center font-black text-[#5C1027] bg-[#FAF7F2]">
                           {b.totalPrice.toLocaleString()} ج
                         </td>
 
-                        {/* 12. Deposit Paid (مبلغ الحجز رقم) */}
+                        {/* 12. Shipping Fee (مصاريف الشحن تعبأ من قبل الـ admin) */}
+                        <td className="p-2 border-r border-[#E2E8F0] text-center font-bold text-blue-900 bg-blue-50/40">
+                          {b.shippingFee && b.shippingFee > 0 ? (
+                            <span className="font-mono font-black">{b.shippingFee.toLocaleString()} ج</span>
+                          ) : (
+                            <span className="text-[10px] text-blue-700 bg-blue-100/70 px-1.5 py-0.5 rounded font-bold border border-blue-200" title="تعبأ وتحدد من قبل الأدمن">
+                              0 ج (تحدد لاحقاً)
+                            </span>
+                          )}
+                        </td>
+
+                        {/* 13. Deposit Paid (مبلغ الحجز / العربون المسدد) */}
                         <td className="p-2 border-r border-[#E2E8F0] text-center font-black text-emerald-800 bg-emerald-50/40">
                           {b.depositPaid.toLocaleString()} ج
                         </td>
 
-                        {/* 13. Remaining Amount (الباقي رقم) */}
+                        {/* 14. Remaining Amount (الباقي المستحق) */}
                         <td className="p-2 border-r border-[#E2E8F0] text-center font-black text-amber-900 bg-amber-50/40">
                           {b.remainingAmount === 0 ? (
                             <span className="text-emerald-700 font-bold bg-emerald-100/70 px-1.5 py-0.5 rounded">خالص 0ج</span>
@@ -1938,19 +2221,36 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
 
                         {/* 17. Row Actions */}
                         <td className="p-2 text-center print:hidden">
-                          <div className="flex items-center justify-center gap-1">
+                          <div className="flex items-center justify-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => setPreviewBooking(b)}
+                              className="px-2.5 py-1 rounded-lg bg-[#5C1027] hover:bg-[#721832] text-white text-[11px] font-black shadow-2xs flex items-center gap-1 cursor-pointer transition-all active:scale-95"
+                              title="استعراض نموذج الحجز الرسمي لسيلبر"
+                            >
+                              <Eye className="w-3.5 h-3.5 text-[#C89B3C]" />
+                              <span>استعراض النموذج</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleSendVoucherWhatsApp(b)}
+                              className="p-1 rounded-lg hover:bg-emerald-100 text-emerald-700 border border-emerald-200"
+                              title="متابعة الحجز على واتساب العميل"
+                            >
+                              <MessageCircle className="w-3.5 h-3.5" />
+                            </button>
                             <button
                               type="button"
                               onClick={() => handleOpenEdit(b)}
-                              className="p-1.5 rounded-lg hover:bg-[#EFE8DD] text-[#5C1027] border border-[#E8DFD1]"
-                              title="تعديل بيانات الحجز والوجبة والمبالغ"
+                              className="p-1 rounded-lg hover:bg-[#EFE8DD] text-[#5C1027] border border-[#E8DFD1]"
+                              title="تعديل الحجز"
                             >
                               <Edit3 className="w-3.5 h-3.5" />
                             </button>
                             <button
                               type="button"
                               onClick={() => handleDeleteBooking(b.id, b.customerName)}
-                              className="p-1.5 rounded-lg hover:bg-rose-100 text-rose-600 border border-rose-200"
+                              className="p-1 rounded-lg hover:bg-rose-100 text-rose-600 border border-rose-200"
                               title="حذف الحجز من السجل"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
@@ -1974,6 +2274,9 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
                     </td>
                     <td className="p-2.5 border-r border-[#CBD5E1] text-center font-black text-[#5C1027] bg-[#FAF7F2]">
                       {totalRevenue.toLocaleString()} ج
+                    </td>
+                    <td className="p-2.5 border-r border-[#CBD5E1] text-center font-black text-blue-900 bg-blue-100/70">
+                      {totalShippingFees.toLocaleString()} ج
                     </td>
                     <td className="p-2.5 border-r border-[#CBD5E1] text-center font-black text-emerald-800 bg-emerald-100/70">
                       {totalDepositCollected.toLocaleString()} ج
@@ -2005,6 +2308,267 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
         )}
 
       </div>
+
+      {/* OFFICIAL CELEBRE BOOKING VOUCHER PREVIEW MODAL */}
+      {previewBooking && (
+        <div className="fixed inset-0 z-70 flex items-center justify-center p-3 sm:p-5 bg-black/70 backdrop-blur-xs animate-fadeIn overflow-y-auto no-print">
+          <div className="relative w-full max-w-3xl bg-white rounded-3xl shadow-2xl border-2 border-[#C89B3C]/50 overflow-hidden my-6 max-h-[94vh] flex flex-col">
+            {/* Modal Top Bar */}
+            <div className="px-6 py-3.5 bg-gradient-to-r from-[#FAF7F2] via-[#F4EEDB] to-[#FAF7F2] border-b border-[#E8DFD1] flex items-center justify-between no-print">
+              <div className="flex items-center gap-3">
+                <CelebreLogo size="xs" showSlogan={false} />
+                <div>
+                  <h4 className="font-black text-base text-[#221B17]">
+                    نموذج استعراض وتأكيد الحجز الرسمي
+                  </h4>
+                  <p className="text-[11px] text-[#7A6E65]">
+                    سجل مبيعات سيلبر كاترنج • كود الحجز: <span className="font-mono font-bold text-[#5C1027]">{previewBooking.id}</span>
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleOpenEdit(previewBooking);
+                    setPreviewBooking(null);
+                  }}
+                  className="px-3 py-1.5 bg-[#FAF7F2] hover:bg-[#EFE8DD] border border-[#C89B3C] text-[#5C1027] rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
+                  title="تعديل هذا الحجز"
+                >
+                  <Edit3 className="w-3.5 h-3.5 text-[#C89B3C]" />
+                  <span>تعديل الحجز</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPreviewBooking(null)}
+                  className="w-8 h-8 rounded-full bg-white hover:bg-[#EFE8DD] border border-[#E8DFD1] flex items-center justify-center text-[#221B17] cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Printable Voucher Paper */}
+            <div id="printable-single-booking-voucher" className="overflow-y-auto p-5 sm:p-7 space-y-5 text-right bg-gradient-to-b from-[#FAF7F2]/40 to-white">
+              {/* Official Header Banner on Voucher */}
+              <div className="border-2 border-[#C89B3C]/40 rounded-2xl p-4 bg-white shadow-xs">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 border-b border-[#F0EAE1] pb-3 text-center sm:text-right">
+                  <div className="flex items-center gap-3">
+                    <CelebreLogo size="sm" showSlogan={true} />
+                  </div>
+                  <div className="text-center sm:text-left">
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#5C1027] text-white text-xs font-black shadow-xs">
+                      <ShieldCheck className="w-3.5 h-3.5 text-[#C89B3C]" />
+                      <span>نموذج حجز معتمد • سيلبر كاترنج</span>
+                    </div>
+                    <div className="text-xs text-[#7A6E65] font-mono mt-1">
+                      كود التعاقد: <strong className="text-[#5C1027] font-black">{previewBooking.id}</strong>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-3 text-xs">
+                  <div className="bg-[#FAF7F2] p-2.5 rounded-xl border border-[#E8DFD1]">
+                    <span className="text-[10px] text-[#7A6E65] block font-bold">تاريخ تحرير الحجز</span>
+                    <span className="font-bold text-[#221B17]">
+                      {new Date(previewBooking.createdAt).toLocaleDateString("ar-EG")}
+                    </span>
+                  </div>
+                  <div className="bg-[#FAF7F2] p-2.5 rounded-xl border border-[#E8DFD1]">
+                    <span className="text-[10px] text-[#7A6E65] block font-bold">تاريخ وتوقيت المناسبة</span>
+                    <span className="font-bold text-[#5C1027]">
+                      {previewBooking.eventDate} ({previewBooking.eventTime})
+                    </span>
+                  </div>
+                  <div className="bg-[#FAF7F2] p-2.5 rounded-xl border border-[#E8DFD1]">
+                    <span className="text-[10px] text-[#7A6E65] block font-bold">حالة الحجز</span>
+                    <span className="font-black text-[#5C1027]">
+                      {previewBooking.orderStatus === "confirmed" ? "مؤكد ومعتمد" : previewBooking.orderStatus === "in_preparation" ? "قيد التجهيز" : previewBooking.orderStatus === "delivered" ? "تم التسليم بنجاح" : "معلق"}
+                    </span>
+                  </div>
+                  <div className="bg-[#FAF7F2] p-2.5 rounded-xl border border-[#E8DFD1]">
+                    <span className="text-[10px] text-[#7A6E65] block font-bold">حالة سداد العربون</span>
+                    <span className={`font-black ${previewBooking.paymentStatus === "fully_paid" ? "text-emerald-700" : "text-amber-800"}`}>
+                      {previewBooking.paymentStatus === "fully_paid" ? "مسدد بالكامل ✓" : previewBooking.depositPaid > 0 ? `مسدد عربون (${previewBooking.depositPaid.toLocaleString()} ج)` : "في انتظار العربون"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* 1. Customer & Event Information */}
+              <div className="bg-white border border-[#E8DFD1] rounded-2xl p-4 shadow-xs">
+                <h5 className="font-black text-sm text-[#5C1027] border-b border-[#F0EAE1] pb-2 mb-3 flex items-center gap-1.5">
+                  <User className="w-4 h-4 text-[#C89B3C]" />
+                  <span>1. بيانات العميل والمناسبة</span>
+                </h5>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  <div>
+                    <span className="text-[#7A6E65] block mb-0.5 font-bold">اسم صاحب المناسبة:</span>
+                    <span className="font-black text-sm text-[#221B17]">{previewBooking.customerName}</span>
+                  </div>
+                  <div>
+                    <span className="text-[#7A6E65] block mb-0.5 font-bold">رقم الهاتف والتواصل:</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono font-bold text-sm text-[#5C1027]" dir="ltr">{previewBooking.phone}</span>
+                      <a
+                        href={`tel:${previewBooking.phone}`}
+                        className="px-2 py-0.5 rounded-md bg-[#5C1027] text-white text-[10px] font-bold inline-flex items-center gap-1 hover:bg-[#721832]"
+                      >
+                        <Phone className="w-3 h-3" />
+                        <span>اتصال</span>
+                      </a>
+                      <a
+                        href={`https://wa.me/${previewBooking.phone.replace(/[^0-9]/g, "").startsWith("0") ? "2" + previewBooking.phone.replace(/[^0-9]/g, "") : previewBooking.phone.replace(/[^0-9]/g, "")}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-2 py-0.5 rounded-md bg-[#25D366] text-white text-[10px] font-bold inline-flex items-center gap-1 hover:brightness-105"
+                      >
+                        <MessageCircle className="w-3 h-3" />
+                        <span>واتساب</span>
+                      </a>
+                    </div>
+                  </div>
+                  <div>
+                    <span className="text-[#7A6E65] block mb-0.5 font-bold">نوع المناسبة:</span>
+                    <span className="font-bold text-[#221B17]">{previewBooking.occasion}</span>
+                  </div>
+                  <div>
+                    <span className="text-[#7A6E65] block mb-0.5 font-bold">مكان الحفل والتسليم:</span>
+                    <span className="font-bold text-[#221B17]">{previewBooking.deliveryAddress}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* 2. Package & Food Breakdown */}
+              <div className="bg-white border border-[#E8DFD1] rounded-2xl p-4 shadow-xs">
+                <h5 className="font-black text-sm text-[#5C1027] border-b border-[#F0EAE1] pb-2 mb-3 flex items-center gap-1.5">
+                  <CelebreClocheIcon className="w-4 h-4 text-[#C89B3C]" />
+                  <span>2. محتويات وتشكيلة وجبة الضيافة الرسمية</span>
+                </h5>
+                <div className="bg-[#FAF7F2] p-3.5 rounded-xl border border-[#E8DFD1] space-y-2 text-xs">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="font-black text-[#5C1027] bg-white border border-[#C89B3C]/50 px-2 py-0.5 rounded-md font-mono">
+                        {previewBooking.packageCode}
+                      </span>
+                      <span className="font-black text-sm text-[#221B17]">{previewBooking.packageName}</span>
+                    </div>
+                    <span className="font-black text-[#5C1027] bg-white px-2.5 py-1 rounded-lg border border-[#E8DFD1]">
+                      العدد المطلوب: {previewBooking.quantity} علبة
+                    </span>
+                  </div>
+
+                  <div className="pt-2 border-t border-[#E8DFD1] text-[11px] text-[#4A3E38] grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div className="flex items-center gap-1.5">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                      <span>المشروب المعتمد: <strong>{previewBooking.drinkOptionLabel || "عصير بخيرة مشمول"}</strong></span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                      <span>نوع العلب: <strong>علب كرتونية مذهبة محكمة الإغلاق مع شوكة ومنديل معقم</strong></span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 3. Financial Breakdown Table */}
+              <div className="bg-white border border-[#E8DFD1] rounded-2xl p-4 shadow-xs">
+                <h5 className="font-black text-sm text-[#5C1027] border-b border-[#F0EAE1] pb-2 mb-3 flex items-center gap-1.5">
+                  <DollarSign className="w-4 h-4 text-[#C89B3C]" />
+                  <span>3. الحساب المالي والتعاقد</span>
+                </h5>
+                <div className="grid grid-cols-2 sm:grid-cols-6 gap-2 text-center text-xs">
+                  <div className="p-2.5 bg-[#FAF7F2] rounded-xl border border-[#E8DFD1]">
+                    <span className="text-[10px] text-[#7A6E65] block font-bold">سعر العلبة</span>
+                    <span className="font-black text-sm text-[#221B17]">{previewBooking.unitPrice} ج</span>
+                  </div>
+                  <div className="p-2.5 bg-[#FAF7F2] rounded-xl border border-[#E8DFD1]">
+                    <span className="text-[10px] text-[#7A6E65] block font-bold">عدد العلب</span>
+                    <span className="font-black text-sm text-[#221B17]">{previewBooking.quantity} علبة</span>
+                  </div>
+                  <div className="p-2.5 bg-[#5C1027]/10 rounded-xl border border-[#5C1027]/20">
+                    <span className="text-[10px] text-[#5C1027] block font-bold">تكلفة الوجبات</span>
+                    <span className="font-black text-sm text-[#5C1027]">{previewBooking.totalPrice.toLocaleString()} ج</span>
+                  </div>
+                  <div className="p-2.5 bg-blue-50 rounded-xl border border-blue-200">
+                    <span className="text-[10px] text-blue-900 block font-bold">مصاريف الشحن</span>
+                    <span className="font-black text-sm text-blue-800">{(previewBooking.shippingFee || 0).toLocaleString()} ج</span>
+                  </div>
+                  <div className="p-2.5 bg-emerald-50 rounded-xl border border-emerald-200">
+                    <span className="text-[10px] text-emerald-800 block font-bold">العربون المسدد</span>
+                    <span className="font-black text-sm text-emerald-700">{previewBooking.depositPaid.toLocaleString()} ج</span>
+                  </div>
+                  <div className="p-2.5 bg-amber-50 rounded-xl border border-amber-200 col-span-2 sm:col-span-1">
+                    <span className="text-[10px] text-amber-900 block font-bold">المتبقي للاستلام</span>
+                    <span className="font-black text-base text-amber-800">{previewBooking.remainingAmount.toLocaleString()} ج</span>
+                  </div>
+                </div>
+                <div className="mt-2 text-center text-xs font-black text-[#5C1027] bg-[#FAF7F2] p-2 rounded-xl border border-[#E8DFD1]">
+                  إجمالي التعاقد الشامل (الوجبات + مصاريف الشحن): <strong className="font-mono text-base">{(previewBooking.totalPrice + (previewBooking.shippingFee || 0)).toLocaleString()} جنيه</strong>
+                </div>
+              </div>
+
+              {/* 4. Notes & Guarantee Policy */}
+              <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-300 text-xs text-amber-950 space-y-1">
+                <div className="flex items-center gap-1.5 font-black text-amber-900">
+                  <Truck className="w-4 h-4 text-amber-800 shrink-0" />
+                  <span>تنبيه رسمي: التوصيل يحدد وتُعبأ مصاريفه بواسطة الـ Admin عند تأكيد الحجز.</span>
+                </div>
+                {previewBooking.phoneAgreementNotes && (
+                  <p className="text-[11px] text-amber-900 pt-1 border-t border-amber-200">
+                    <strong>ملاحظات الاتفاق:</strong> {previewBooking.phoneAgreementNotes}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Modal Footer Actions */}
+            <div className="px-6 py-3.5 bg-[#FAF7F2] border-t border-[#E8DFD1] flex flex-wrap items-center justify-between gap-3 no-print">
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleOpenEdit(previewBooking);
+                    setPreviewBooking(null);
+                  }}
+                  className="px-3.5 py-2 bg-[#FAF7F2] hover:bg-[#EFE8DD] text-[#5C1027] border border-[#C89B3C] rounded-xl text-xs font-black shadow-xs flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Edit3 className="w-3.5 h-3.5 text-[#C89B3C]" />
+                  <span>تعديل مصاريف الشحن والبيانات</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="px-3.5 py-2 bg-[#5C1027] hover:bg-[#721832] text-white rounded-xl text-xs font-black shadow-xs flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Printer className="w-3.5 h-3.5 text-[#C89B3C]" />
+                  <span>طباعة نموذج الحجز</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleSendVoucherWhatsApp(previewBooking)}
+                  className="px-3.5 py-2 bg-[#25D366] hover:brightness-105 text-white rounded-xl text-xs font-black shadow-xs flex items-center gap-1.5 cursor-pointer"
+                >
+                  <MessageCircle className="w-3.5 h-3.5" />
+                  <span>إرسال النموذج لواتساب العميل</span>
+                </button>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setPreviewBooking(null)}
+                className="px-4 py-2 bg-white hover:bg-[#EFE8DD] border border-[#E8DFD1] text-[#221B17] rounded-xl text-xs font-bold cursor-pointer"
+              >
+                إغلاق
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ADD / EDIT BOOKING MODAL */}
       {isEditModalOpen && editingBooking && (
@@ -2258,58 +2822,104 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
                 </div>
               </div>
 
-              {/* Quantity, Unit Price, Total, Deposit & Remaining */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-[#FAF7F2] p-4 rounded-2xl border border-[#E8DFD1]">
+              {/* Admin Shipping Fee Field (خانة مصاريف الشحن تعبأ من قبل الـ Admin) */}
+              <div className="p-3.5 bg-gradient-to-r from-blue-50/90 via-sky-50/40 to-blue-50/90 border-2 border-blue-300 rounded-2xl shadow-xs">
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-xs font-black text-blue-950 flex items-center gap-1.5">
+                    <Truck className="w-4 h-4 text-blue-600 shrink-0" />
+                    <span>خانة مصاريف الشحن والتوصيل (تعبأ وتحدد حصرياً من قِبل الـ Admin):</span>
+                  </label>
+                  <span className="text-[10px] bg-blue-100 text-blue-900 border border-blue-300 px-2.5 py-0.5 rounded-full font-bold">
+                    إدارة المشروع
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
+                  <div>
+                    <label className="block text-[11px] font-bold text-blue-950 mb-1">
+                      قيمة مصاريف الشحن (جنيه):
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min="0"
+                        value={editingBooking.shippingFee ?? 0}
+                        onChange={(e) => handleShippingFeeChangeInModal(Number(e.target.value))}
+                        placeholder="0"
+                        className="w-full text-center py-2 px-3 bg-white border-2 border-blue-400 rounded-xl text-base font-black text-blue-950 focus:outline-hidden focus:ring-2 focus:ring-blue-400"
+                      />
+                      <span className="absolute left-3 top-2.5 text-xs text-blue-800 font-bold">ج.م</span>
+                    </div>
+                  </div>
+                  <div className="text-[11px] text-blue-900 leading-relaxed font-semibold bg-white/70 p-2 rounded-xl border border-blue-200">
+                    💡 يحددها أدمن الموقع بناءً على مكان وقاعة التسليم، وتُضاف تلقائياً إلى كامل مبلغ الحجز لاحتساب المتبقي عند الاستلام.
+                  </div>
+                </div>
+              </div>
+
+              {/* Quantity, Unit Price, Total, Shipping, Deposit & Remaining */}
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 bg-[#FAF7F2] p-4 rounded-2xl border border-[#E8DFD1]">
                 <div>
                   <label className="block text-[11px] font-bold text-[#4A3E38] mb-1">
-                    سعر العلبة المحسوب:
+                    سعر العلبة:
                   </label>
-                  <div className="text-base font-black text-[#5C1027] bg-white p-2 rounded-xl border border-[#E8DFD1] text-center">
+                  <div className="text-sm font-black text-[#5C1027] bg-white p-2 rounded-xl border border-[#E8DFD1] text-center">
                     {editingBooking.unitPrice} ج
                   </div>
                 </div>
 
                 <div>
                   <label className="block text-[11px] font-bold text-[#4A3E38] mb-1">
-                    عدد الوجبات (رقم): *
+                    العدد (علبة): *
                   </label>
                   <input
                     type="number"
                     min="1"
                     value={editingBooking.quantity}
                     onChange={(e) => handleQuantityChangeInModal(Number(e.target.value))}
-                    className="w-full text-center py-2 bg-white border border-[#E8DFD1] rounded-xl text-base font-black text-[#221B17] focus:outline-hidden focus:border-[#5C1027]"
+                    className="w-full text-center py-2 bg-white border border-[#E8DFD1] rounded-xl text-sm font-black text-[#221B17] focus:outline-hidden focus:border-[#5C1027]"
                   />
                 </div>
 
                 <div>
                   <label className="block text-[11px] font-bold text-[#4A3E38] mb-1">
-                    الإجمالي (رقم):
+                    تكلفة الوجبات:
                   </label>
-                  <div className="text-base font-black text-[#221B17] bg-white p-2 rounded-xl border border-[#E8DFD1] text-center">
+                  <div className="text-sm font-black text-[#221B17] bg-white p-2 rounded-xl border border-[#E8DFD1] text-center">
                     {editingBooking.totalPrice.toLocaleString()} ج
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-bold text-[#4A3E38] mb-1">
-                    مبلغ الحجز / العربون (رقم):
+                  <label className="block text-[11px] font-bold text-blue-900 mb-1">
+                    مصاريف الشحن:
+                  </label>
+                  <div className="text-sm font-black text-blue-800 bg-blue-50 p-2 rounded-xl border border-blue-200 text-center">
+                    {(editingBooking.shippingFee || 0).toLocaleString()} ج
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-emerald-800 mb-1">
+                    العربون المسدد:
                   </label>
                   <input
                     type="number"
                     min="0"
                     value={editingBooking.depositPaid}
                     onChange={(e) => handleDepositChangeInModal(Number(e.target.value))}
-                    className="w-full text-center py-2 bg-white border border-emerald-300 rounded-xl text-base font-black text-emerald-700 focus:outline-hidden"
+                    className="w-full text-center py-2 bg-white border border-emerald-300 rounded-xl text-sm font-black text-emerald-700 focus:outline-hidden"
                   />
                 </div>
 
-                <div className="col-span-2 sm:col-span-4 pt-2 border-t border-[#E8DFD1] flex items-center justify-between">
-                  <div className="text-xs font-black text-[#7A6E65]">
-                    المتبقي عند الاستلام (رقم):
+                <div className="col-span-2 sm:col-span-5 pt-3 border-t border-[#E8DFD1] flex flex-wrap items-center justify-between gap-2">
+                  <div className="text-xs font-black text-[#4A3E38]">
+                    إجمالي التعاقد شامل الشحن: <strong className="text-[#5C1027] font-mono font-black text-base">{(editingBooking.totalPrice + (editingBooking.shippingFee || 0)).toLocaleString()} ج</strong>
                   </div>
-                  <div className="text-lg font-black text-amber-900 bg-amber-100 px-3 py-1 rounded-xl border border-amber-300">
-                    {editingBooking.remainingAmount.toLocaleString()} جنيه
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-black text-[#7A6E65]">المتبقي عند الاستلام:</span>
+                    <div className="text-lg font-black text-amber-900 bg-amber-100 px-3 py-1 rounded-xl border border-amber-300">
+                      {editingBooking.remainingAmount.toLocaleString()} جنيه
+                    </div>
                   </div>
                 </div>
               </div>
@@ -2366,6 +2976,7 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
       )}
 
       {/* Security Credentials Settings Modal (تعديل بيانات الدخول وأمان الحساب) */}
+      {/* Security Credentials Settings Modal (تغيير كلمة السر وتأمين الدخول) */}
       {isSecuritySettingsOpen && (
         <div className="fixed inset-0 z-60 flex items-center justify-center p-3 bg-black/70 backdrop-blur-xs animate-fadeIn">
           <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl border border-[#E8DFD1] overflow-hidden text-right">
@@ -2375,22 +2986,33 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
                   <Settings className="w-4 h-4 text-[#C89B3C]" />
                 </div>
                 <h4 className="font-black text-sm text-[#221B17]">
-                  أمان الحساب • تعديل بيانات دخول الإدارة
+                  أمان الحساب • تغيير كلمة السر وبيانات الدخول
                 </h4>
               </div>
               <button
                 type="button"
-                onClick={() => setIsSecuritySettingsOpen(false)}
-                className="w-7 h-7 rounded-full bg-white border border-[#E8DFD1] flex items-center justify-center text-[#7A6E65] hover:text-[#221B17]"
+                onClick={() => {
+                  setIsSecuritySettingsOpen(false);
+                  setSecurityError("");
+                  setSecurityNotice("");
+                }}
+                className="w-7 h-7 rounded-full bg-white border border-[#E8DFD1] flex items-center justify-center text-[#7A6E65] hover:text-[#221B17] cursor-pointer"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
             </div>
 
             <form onSubmit={handleSaveSecuritySettings} className="p-6 space-y-4">
-              <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-3 text-xs text-emerald-800 font-semibold leading-relaxed">
-                🛡️ <strong>حماية البيانات مؤكدة:</strong> كل مرة يتم فيها الدخول، يولد النظام تلقائياً كلمة سر مؤقتة (OTP) جديدة ويرسلها إلى هذا الرقم ولا يتم الدخول إلا بإدخالها.
+              <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3 text-xs text-amber-900 font-semibold leading-relaxed">
+                🛡️ <strong>تأمين حساب الأدمن:</strong> عند تغيير كلمة السر، لن يتم تسجيل الدخول إلا بكلمة السر الجديدة، وستحفظ بشكل دائم ومشفّر في قاعدة بيانات المشروع.
               </div>
+
+              {securityError && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 font-bold flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
+                  <span>{securityError}</span>
+                </div>
+              )}
 
               {securityNotice && (
                 <div className="p-3 bg-emerald-100 border border-emerald-300 rounded-xl text-xs text-emerald-900 font-bold flex items-center gap-2">
@@ -2401,16 +3023,60 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
 
               <div>
                 <label className="block text-xs font-bold text-[#4A3E38] mb-1">
-                  رقم هاتف الإدارة الجديد (لاستلام كلمات السر المؤقتة OTP):
+                  كلمة السر الحالية (للتحقق):
                 </label>
                 <div className="relative">
-                  <Phone className="absolute right-3.5 top-3 w-4 h-4 text-[#7A6E65]" />
+                  <Lock className="absolute right-3.5 top-3 w-4 h-4 text-[#7A6E65]" />
                   <input
-                    type="tel"
+                    type={showSettingsPassword ? "text" : "password"}
                     dir="ltr"
-                    value={newPhoneSetting}
-                    onChange={(e) => setNewPhoneSetting(e.target.value)}
-                    placeholder="مثال: 01xxxxxxxxx"
+                    value={currentPasswordSetting}
+                    onChange={(e) => setCurrentPasswordSetting(e.target.value)}
+                    placeholder="كلمة السر الحالية المسجلة"
+                    className="w-full pr-10 pl-3 py-2.5 bg-[#FAF7F2] border border-[#E8DFD1] rounded-xl text-xs font-bold text-[#221B17] text-right focus:outline-hidden focus:border-[#5C1027]"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-bold text-[#4A3E38]">
+                    كلمة السر الجديدة: *
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setShowSettingsPassword(!showSettingsPassword)}
+                    className="text-[11px] text-[#7A6E65] hover:text-[#5C1027] font-semibold cursor-pointer"
+                  >
+                    {showSettingsPassword ? "إخفاء" : "إظهار"}
+                  </button>
+                </div>
+                <div className="relative">
+                  <Key className="absolute right-3.5 top-3 w-4 h-4 text-[#7A6E65]" />
+                  <input
+                    type={showSettingsPassword ? "text" : "password"}
+                    dir="ltr"
+                    value={newPasswordSetting}
+                    onChange={(e) => setNewPasswordSetting(e.target.value)}
+                    placeholder="أدخل كلمة السر الجديدة"
+                    className="w-full pr-10 pl-3 py-2.5 bg-[#FAF7F2] border-2 border-[#C89B3C]/50 rounded-xl text-xs font-bold text-[#221B17] text-right focus:outline-hidden focus:border-[#5C1027]"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-[#4A3E38] mb-1">
+                  تأكيد كلمة السر الجديدة: *
+                </label>
+                <div className="relative">
+                  <KeyRound className="absolute right-3.5 top-3 w-4 h-4 text-[#7A6E65]" />
+                  <input
+                    type={showSettingsPassword ? "text" : "password"}
+                    dir="ltr"
+                    value={confirmPasswordSetting}
+                    onChange={(e) => setConfirmPasswordSetting(e.target.value)}
+                    placeholder="أعد إدخال كلمة السر الجديدة"
                     className="w-full pr-10 pl-3 py-2.5 bg-[#FAF7F2] border border-[#E8DFD1] rounded-xl text-xs font-bold text-[#221B17] text-right focus:outline-hidden focus:border-[#5C1027]"
                     required
                   />
@@ -2419,18 +3085,17 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
 
               <div>
                 <label className="block text-xs font-bold text-[#4A3E38] mb-1">
-                  كلمة المرور الجديدة الخاصة بك:
+                  رقم هاتف المشروع الرسمي لاستلام أكواد OTP:
                 </label>
                 <div className="relative">
-                  <Key className="absolute right-3.5 top-3 w-4 h-4 text-[#7A6E65]" />
+                  <Phone className="absolute right-3.5 top-3 w-4 h-4 text-[#7A6E65]" />
                   <input
-                    type="password"
+                    type="tel"
                     dir="ltr"
-                    value={newPasswordSetting}
-                    onChange={(e) => setNewPasswordSetting(e.target.value)}
-                    placeholder="••••••••••••"
+                    value={newPhoneSetting || registeredPhone}
+                    onChange={(e) => setNewPhoneSetting(e.target.value)}
+                    placeholder="01284484868"
                     className="w-full pr-10 pl-3 py-2.5 bg-[#FAF7F2] border border-[#E8DFD1] rounded-xl text-xs font-bold text-[#221B17] text-right focus:outline-hidden focus:border-[#5C1027]"
-                    required
                   />
                 </div>
               </div>
@@ -2438,8 +3103,12 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
               <div className="pt-2 flex items-center justify-between gap-3">
                 <button
                   type="button"
-                  onClick={() => setIsSecuritySettingsOpen(false)}
-                  className="py-2.5 px-4 rounded-xl border border-[#E8DFD1] text-xs font-bold text-[#4A3E38] hover:bg-[#EFE8DD]"
+                  onClick={() => {
+                    setIsSecuritySettingsOpen(false);
+                    setSecurityError("");
+                    setSecurityNotice("");
+                  }}
+                  className="py-2.5 px-4 rounded-xl border border-[#E8DFD1] text-xs font-bold text-[#4A3E38] hover:bg-[#EFE8DD] cursor-pointer"
                 >
                   إلغاء
                 </button>
@@ -2447,10 +3116,10 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
                 <button
                   type="submit"
                   disabled={isSavingSecurity}
-                  className="py-2.5 px-6 rounded-xl bg-[#5C1027] hover:bg-[#721832] text-white text-xs font-black shadow-md flex items-center gap-2 cursor-pointer"
+                  className="py-2.5 px-6 rounded-xl bg-[#5C1027] hover:bg-[#721832] text-white text-xs font-black shadow-md flex items-center gap-2 cursor-pointer disabled:opacity-50"
                 >
                   <Save className="w-4 h-4 text-[#C89B3C]" />
-                  <span>{isSavingSecurity ? "جاري الحفظ..." : "حفظ بيانات الدخول الجديدة"}</span>
+                  <span>{isSavingSecurity ? "جاري الحفظ..." : "حفظ كلمة السر الجديدة 🔒"}</span>
                 </button>
               </div>
             </form>

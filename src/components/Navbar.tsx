@@ -43,9 +43,6 @@ export const Navbar: React.FC<NavbarProps> = ({
               <Truck className="w-3 h-3 text-[#5C1027]" />
               <span>التوصيل غير مشمول</span>
             </span>
-            <span className="hidden md:inline text-xs text-[#E8DFD1]/80">
-              | جودة وضيافة تشرفك أمام ضيوفك في بني سويف ومصر
-            </span>
           </div>
 
           <div className="flex items-center gap-3 text-xs font-semibold shrink-0">

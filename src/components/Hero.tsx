@@ -86,20 +86,6 @@ export const Hero: React.FC<HeroProps> = ({
               </div>
             </div>
 
-            {/* Slogan & Main Headline */}
-            <div className="mb-3">
-              <h1 className="text-3xl sm:text-5xl lg:text-5xl font-black text-[#221B17] leading-tight sm:leading-snug">
-                ضيافة تشرفك أمام ضيوفك في
-                <span className="text-[#5C1027] block sm:inline"> كتب الكتاب والأفراح</span>
-              </h1>
-              <CelebreFlourishDivider className="my-3 justify-center lg:justify-start" />
-            </div>
-
-            {/* Description */}
-            <p className="text-base sm:text-xl md:text-2xl text-[#5C1027] font-black max-w-2xl leading-relaxed mb-5">
-              سيليبر.. معكم في كل لحظاتكم السعيدة
-            </p>
-
             {/* Direct Gateway to the 2 Offer Categories: بوكس ميكس vs بوكس ساندوتش */}
             <div className="w-full max-w-2xl mb-6 p-3.5 sm:p-4 rounded-3xl bg-white/95 backdrop-blur-md border-2 border-[#C89B3C]/60 shadow-md">
               <div className="flex items-center justify-between gap-2 mb-2.5 pb-2 border-b border-[#F0EAE1]">
