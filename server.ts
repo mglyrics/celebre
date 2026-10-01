@@ -293,12 +293,12 @@ const ADMIN_BOOKINGS_FILE = path.join(process.cwd(), "celebre-admin-bookings.jso
 
 export const DEFAULT_ADMIN_BOOKINGS: AdminBookingRecord[] = [
   {
-    id: "CEL-BK-201",
-    customerName: "د. محمد أحمد عبد الوهاب",
-    phone: "01012345678",
-    occasion: "كتب كتاب وعقد قران",
+    id: "CEL-5120",
+    customerName: "عميل كاترنج سيلبر",
+    phone: "01284484868",
+    occasion: "طلب حجز ضيافة ومناسبة",
     eventDate: "2026-10-15",
-    eventTime: "5:30 مساءً (بعد العصر)",
+    eventTime: "6:00 مساءً",
     packageCode: "Sale - 01",
     packageName: "وجبة Sale - 01 (50 جنيه) - قطعة جاتوه مغلفة + كفتة ع الفحم + بانيه بلدي + تركي مدخن + عصير بخيرة",
     basePrice: 50,
@@ -308,151 +308,17 @@ export const DEFAULT_ADMIN_BOOKINGS: AdminBookingRecord[] = [
     unitDiscount: 0,
     totalDiscount: 0,
     unitPrice: 50,
-    quantity: 150,
-    totalPrice: 7500,
-    depositPaid: 4000,
-    remainingAmount: 3500,
-    paymentStatus: "deposit_paid",
-    orderStatus: "confirmed",
-    deliveryAddress: "محافظة بني سويف - مسجد عمر بن عبد العزيز (ميدان الشهداء)",
-    phoneAgreementNotes: "تم تأكيد الحجز هاتفياً وسداد العربون إنستاباي. توزيع سريع داخل المسجد.",
-    createdAt: "2026-09-28T14:30:00.000Z",
-    updatedAt: "2026-09-28T14:30:00.000Z"
-  },
-  {
-    id: "CEL-BK-202",
-    customerName: "م. طارق العطار",
-    phone: "01123456789",
-    occasion: "حفل زفاف وقاعة أفراح",
-    eventDate: "2026-10-22",
-    eventTime: "8:00 مساءً",
-    packageCode: "Sale - 03",
-    packageName: "وجبة Sale - 03 (60 جنيه) - قطعة جاتوه مغلفة + 3 ساندوتشات كفتة وبانيه وجبنة رومي + باتيه زبدة + عصير بخيرة",
-    basePrice: 60,
-    drinkOption: "juice_included",
-    drinkOptionLabel: "عصير بخيرة مشمول",
-    drinkPriceDelta: 0,
-    unitDiscount: 0,
-    totalDiscount: 0,
-    unitPrice: 60,
-    quantity: 200,
-    totalPrice: 12000,
-    depositPaid: 6000,
-    remainingAmount: 6000,
-    paymentStatus: "deposit_paid",
-    orderStatus: "confirmed",
-    deliveryAddress: "بني سويف - كورنيش النيل - قاعة الماسة الكبرى",
-    phoneAgreementNotes: "تسليم قبل بدء الزفاف بنصف ساعة في كراتين مذهبة محكمة الغلق.",
-    createdAt: "2026-09-27T11:15:00.000Z",
-    updatedAt: "2026-09-27T11:15:00.000Z"
-  },
-  {
-    id: "CEL-BK-203",
-    customerName: "أ. محمود عبد العظيم",
-    phone: "01234567890",
-    occasion: "كتب كتاب بقاعة المسجد",
-    eventDate: "2026-10-18",
-    eventTime: "4:30 مساءً",
-    packageCode: "Sale - 07",
-    packageName: "وجبة Sale - 07 (50 جنيه) - ساندوتش كفتة ع الفحم + ساندوتش بانيه مقرمش + عصير بخيرة",
-    basePrice: 50,
-    drinkOption: "juice_included",
-    drinkOptionLabel: "عصير بخيرة مشمول",
-    drinkPriceDelta: 0,
-    unitDiscount: 0,
-    totalDiscount: 0,
-    unitPrice: 50,
-    quantity: 100,
-    totalPrice: 5000,
-    depositPaid: 2500,
+    quantity: 50,
+    totalPrice: 2500,
+    depositPaid: 0,
+    shippingFee: 0,
     remainingAmount: 2500,
-    paymentStatus: "deposit_paid",
-    orderStatus: "in_preparation",
-    deliveryAddress: "بني سويف - مسجد الأباصيري - شارع صلاح سالم",
-    phoneAgreementNotes: "تجهيز الشغل طازج يوم المناسبة وتأكيد منديل معقم وشوكة داخل كل علبة.",
-    createdAt: "2026-09-29T09:40:00.000Z",
-    updatedAt: "2026-09-29T09:40:00.000Z"
-  },
-  {
-    id: "CEL-BK-204",
-    customerName: "المستشار أسامة الشريف",
-    phone: "01098765432",
-    occasion: "حفل خطوبة واستقبال VIP",
-    eventDate: "2026-10-30",
-    eventTime: "7:00 مساءً",
-    packageCode: "Sale - 05",
-    packageName: "وجبة VIP Sale - 05 (80 جنيه) - جاتوه فاخر + كفتة مشوية + تشيكن ستربس + ساليزون + باتيه + عصير",
-    basePrice: 80,
-    drinkOption: "pepsi_added",
-    drinkOptionLabel: "كانز بيبسي مثلج (+5 ج)",
-    drinkPriceDelta: 5,
-    unitDiscount: 0,
-    totalDiscount: 0,
-    unitPrice: 85,
-    quantity: 120,
-    totalPrice: 10200,
-    depositPaid: 5000,
-    remainingAmount: 5200,
-    paymentStatus: "deposit_paid",
+    paymentStatus: "pending_payment",
     orderStatus: "confirmed",
-    deliveryAddress: "بني سويف الجديدة - شرق النيل - فيلا خاصة",
-    phoneAgreementNotes: "طلب خاص بزيادة كانز بيبسي مع كل علبة وعربون مسدد فودافون كاش.",
-    createdAt: "2026-09-26T16:20:00.000Z",
-    updatedAt: "2026-09-26T16:20:00.000Z"
-  },
-  {
-    id: "CEL-BK-205",
-    customerName: "د. سارة الهواري",
-    phone: "01187654321",
-    occasion: "حفل تخرج وتكريم",
-    eventDate: "2026-10-05",
-    eventTime: "1:00 ظهراً",
-    packageCode: "Sale - 14",
-    packageName: "وجبة Sale - 14 بوكس ساندوتش (45 جنيه) - كفتة ع الفحم + بانيه مقرمش + جبنة رومي فرنساوي + عصير",
-    basePrice: 45,
-    drinkOption: "juice_included",
-    drinkOptionLabel: "عصير بخيرة مشمول",
-    drinkPriceDelta: 0,
-    unitDiscount: 0,
-    totalDiscount: 0,
-    unitPrice: 45,
-    quantity: 80,
-    totalPrice: 3600,
-    depositPaid: 3600,
-    remainingAmount: 0,
-    paymentStatus: "fully_paid",
-    orderStatus: "delivered",
-    deliveryAddress: "جامعة بني سويف - مجمع الكليات - قاعة المؤتمرات",
-    phoneAgreementNotes: "تم سداد كامل المبلغ مقدماً وتسليم العلب بنجاح ونالت إعجاب الجميع.",
-    createdAt: "2026-09-25T10:00:00.000Z",
-    updatedAt: "2026-09-25T14:00:00.000Z"
-  },
-  {
-    id: "CEL-BK-206",
-    customerName: "أ. ياسر القاضي",
-    phone: "01276543210",
-    occasion: "عقد قران عائلي",
-    eventDate: "2026-10-12",
-    eventTime: "6:00 مساءً",
-    packageCode: "Sale - 10",
-    packageName: "وجبة Sale - 10 (45 جنيه) - 3 ساندوتشات بتي بان (كفتة مشوية + رومي + تركي مدخن) + عصير بخيرة",
-    basePrice: 45,
-    drinkOption: "juice_included",
-    drinkOptionLabel: "عصير بخيرة مشمول",
-    drinkPriceDelta: 0,
-    unitDiscount: 0,
-    totalDiscount: 0,
-    unitPrice: 45,
-    quantity: 60,
-    totalPrice: 2700,
-    depositPaid: 1500,
-    remainingAmount: 1200,
-    paymentStatus: "deposit_paid",
-    orderStatus: "confirmed",
-    deliveryAddress: "مدينة بني سويف - قاعة مناسبات مسجد الفتح",
-    phoneAgreementNotes: "حجز مباشر من الموقع وتأكيد تليفوني سريع.",
-    createdAt: "2026-09-28T18:10:00.000Z",
-    updatedAt: "2026-09-28T18:10:00.000Z"
+    deliveryAddress: "بني سويف - تسليم بموقع الحفل",
+    phoneAgreementNotes: "نموذج حجز مبدئي لبدء عملية حجز العميل - تم الإرسال عبر الواتساب برقم CEL-5120 (بانتظار مراجعة الأدمن وتحديد مصاريف الشحن).",
+    createdAt: "2026-10-01T08:30:00.000Z",
+    updatedAt: "2026-10-01T08:30:00.000Z"
   }
 ];
 
@@ -462,17 +328,26 @@ function loadAdminBookings(): AdminBookingRecord[] {
       const data = fs.readFileSync(ADMIN_BOOKINGS_FILE, "utf-8");
       const parsed = JSON.parse(data);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed;
+        // Filter out dummy/mock records (CEL-BK-201 through 206)
+        const realBookings = parsed.filter((b: any) => !b.id.startsWith("CEL-BK-20"));
+        if (realBookings.length > 0) {
+          const hasCel5120 = realBookings.some((b: any) => b.id === "CEL-5120");
+          if (!hasCel5120) {
+            realBookings.unshift(DEFAULT_ADMIN_BOOKINGS[0]);
+          }
+          fs.writeFileSync(ADMIN_BOOKINGS_FILE, JSON.stringify(realBookings, null, 2), "utf-8");
+          return realBookings;
+        }
       }
     }
   } catch (e) {
     console.error("Error reading admin bookings file:", e);
   }
-  // Initialize file with default real bookings
+  // Initialize file with only real customer bookings
   try {
     fs.writeFileSync(ADMIN_BOOKINGS_FILE, JSON.stringify(DEFAULT_ADMIN_BOOKINGS, null, 2), "utf-8");
   } catch (err) {
-    console.error("Error saving default bookings:", err);
+    console.error("Error saving real bookings:", err);
   }
   return [...DEFAULT_ADMIN_BOOKINGS];
 }
@@ -531,17 +406,24 @@ app.post("/api/reset", (_req, res) => {
 app.post("/api/orders", (req, res) => {
   try {
     const data = req.body;
+    const orderId = (data.id && typeof data.id === "string" && data.id.trim()) 
+      ? data.id.trim() 
+      : `CEL-${Math.floor(1000 + Math.random() * 9000)}`;
+
     const newOrder: CateringOrder = {
-      id: `CEL-${Math.floor(1000 + Math.random() * 9000)}`,
+      id: orderId,
       customerName: data.customerName || "عميل سيلبر",
       phone: data.phone || "01284484868",
-      occasion: data.occasion || "مناسبة سعيدة",
+      occasion: data.occasion || "مناسبة وحفل عائلي",
       eventDate: data.eventDate || new Date().toISOString().split("T")[0],
       location: data.location || "بني سويف",
       governorate: data.governorate || "بني سويف - مدينة بني سويف",
       packages: data.packages || [],
       totalPrice: data.totalPrice || 0,
       totalBoxes: data.totalBoxes || 0,
+      depositAmount: 0,
+      remainingAmount: data.totalPrice || 0,
+      shippingFee: 0,
       notes: data.notes || "",
       paymentMethod: data.paymentMethod || "instapay",
       status: "pending",
@@ -562,12 +444,12 @@ app.post("/api/orders", (req, res) => {
     const unitPrice = quantity > 0 ? Math.round(totalPrice / quantity) : 50;
 
     const newAdminBooking: AdminBookingRecord = {
-      id: `CEL-BK-${Math.floor(100 + Math.random() * 900)}`,
-      customerName: data.customerName || "حجز موقع جديد",
+      id: orderId,
+      customerName: data.customerName || "حجز موقع جديد (حجز مبدئي)",
       phone: data.phone || "01284484868",
       occasion: data.occasion || "حجز مناسبة من الموقع",
       eventDate: data.eventDate || new Date().toISOString().split("T")[0],
-      eventTime: data.eventTime || "5:00 مساءً",
+      eventTime: data.eventTime || "6:00 مساءً",
       packageCode: pkgCode,
       packageName: pkgName,
       basePrice: unitPrice,
@@ -580,11 +462,14 @@ app.post("/api/orders", (req, res) => {
       quantity,
       totalPrice,
       depositPaid: 0,
+      shippingFee: 0,
       remainingAmount: totalPrice,
       paymentStatus: 'pending_payment',
       orderStatus: 'confirmed',
       deliveryAddress: `${data.governorate || "بني سويف"} - ${data.location || ""}`,
-      phoneAgreementNotes: data.notes ? `ملاحظات الموقع: ${data.notes}` : "حجز إلكتروني من خلال موقع سيلبر الرسمي",
+      phoneAgreementNotes: data.notes 
+        ? `نموذج حجز مبدئي لبدء التنسيق: ${data.notes}` 
+        : "نموذج حجز مبدئي لبدء عملية حجز العميل - تم الإرسال عبر الواتساب (بانتظار مراجعة الأدمن وتحديد مصاريف الشحن)",
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };

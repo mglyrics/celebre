@@ -122,6 +122,7 @@ export const OrderModal: React.FC<OrderModalProps> = ({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          id: newOrder.id,
           customerName: fullName,
           phone,
           occasion,
@@ -156,29 +157,30 @@ export const OrderModal: React.FC<OrderModalProps> = ({
       return `${idx + 1}. *${it.package.saleCode} - ${it.package.name}*:\n   - الكمية: ${it.quantity} وجبة\n   - المشروب: ${drinkName}\n   - الإجمالي: ${(it.quantity * it.package.pricePerBox).toLocaleString()} ج`;
     }).join("\n");
 
-    const whatsappMessage = `*طلب حجز كاترنج جديد - سيلبر 🌸*
+    const whatsappMessage = `*طلب حجز مبدئي لبدء عملية الحجز - كاترنج سيلبر 🌸*
 رقم الحجز: ${newOrder.id}
 -----------------------------
+📌 *نوع الطلب:* نموذج مبدئي لبدء عملية حجز العميل (دون رسوم مقدمة)
 *بيانات العميل:*
 - الاسم: ${fullName}
 - الهاتف: ${phone}
 - المناسبة: ${occasion}
 - تاريخ المناسبة: ${eventDate}
 - التوقيت: ${eventTime}
-- مكان الحفل / العنوان: ${address || "يتم التنسيق"}
+- مكان الحفل / العنوان: ${address || "يتم التنسيق هاتفياً"}
 
 *تفاصيل الوجبات:*
 ${packagesSummaryText}
 
-*الحساب المالي:*
+*الحساب المالي للحجز المبدئي:*
 - إجمالي عدد الوجبات: ${totalBoxes} علبة
 - إجمالي قيمة الوجبات: ${totalPrice.toLocaleString()} جنيه
-- مقدم الحجز المدفوع: 0 جنيه (لا يتطلب رسوم مقدمة)
-- مصاريف الشحن والتوصيل: (تعبأ وتحدد من قِبل إدارة المشروع لاحقاً)
-- إجمالي المبلغ المستحق: كامل مبلغ الحجز (${totalPrice.toLocaleString()} جنيه) + مصاريف الشحن
-- طريقة السداد المختارة: ${paymentMethod === "instapay" ? "إنستاباي (InstaPay)" : paymentMethod === "vodafone_cash" ? "فودافون كاش" : "كاش عند الاستلام"}
+- مقدم الحجز المدفوع الآن: 0 جنيه (حجز مبدئي مجاني لبدء التنسيق)
+- مصاريف الشحن والتوصيل: (تعبأ وتحدد بواسطة أدمن الموقع عند المراجعة)
+- المبلغ المتبقي: كامل مبلغ الوجبات (${totalPrice.toLocaleString()} جنيه) + مصاريف الشحن
+- طريقة السداد المختارة لتسوية الحساب: ${paymentMethod === "instapay" ? "إنستاباي (InstaPay)" : paymentMethod === "vodafone_cash" ? "فودافون كاش" : "كاش عند الاستلام"}
 ${notes ? `- ملاحظات العميل: ${notes}\n` : ""}-----------------------------
-⚠️ *ملاحظة هامة:* تم حفظ الحجز بشكل دائم في قاعدة بيانات سيلبر، ومصاريف الشحن يحددها أدمن الموقع عند استعراض الحجز وتأكيده. شكراً لاختياركم سيلبر! ✨`;
+⚠️ *ملاحظة:* تم حفظ هذا الحجز المبدئي بشكل دائم في قاعدة بيانات سيلبر برقم ${newOrder.id}. يتولى أدمن الموقع الوحيد استعراض الحجز وتأكيده وتحديد مصاريف الشحن. شكراً لاختياركم سيلبر! ✨`;
 
     const encoded = encodeURIComponent(whatsappMessage);
     window.open(`https://wa.me/201284484868?text=${encoded}`, "_blank");
@@ -196,16 +198,23 @@ ${notes ? `- ملاحظات العميل: ${notes}\n` : ""}---------------------
           <div className="flex items-center gap-3">
             <CelebreLogo size="xs" showSlogan={false} />
             <div>
-              <h3 className="font-black text-base sm:text-lg text-[#221B17]">
-                حجز وتنسيق طلب ضيافة سيلبر
-              </h3>
-              <p className="text-[11px] text-[#7A6E65]">شريك مؤسس لمناسباتك السعيدة • خطوتان لإتمام حجزك</p>
+              <div className="flex items-center gap-2">
+                <h3 className="font-black text-base sm:text-lg text-[#221B17]">
+                  نموذج الحجز المبدئي • كاترنج سيلبر
+                </h3>
+                <span className="bg-[#C89B3C]/15 text-[#8C6D28] text-[10px] font-black px-2 py-0.5 rounded-full border border-[#C89B3C]/30 hidden sm:inline-block">
+                  بدء عملية الحجز
+                </span>
+              </div>
+              <p className="text-[11px] text-[#7A6E65]">
+                نموذج مبدئي لبدء حجزك دون الحاجة لتسجيل دخول أو دفع رسوم مقدماً (المقدم 0 ج) • تراجع الإدارة حجزك عبر الواتساب وتحدد الشحن
+              </p>
             </div>
           </div>
 
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-white hover:bg-[#EFE8DD] border border-[#E8DFD1] flex items-center justify-center text-[#221B17]"
+            className="w-8 h-8 rounded-full bg-white hover:bg-[#EFE8DD] border border-[#E8DFD1] flex items-center justify-center text-[#221B17] cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -230,7 +239,7 @@ ${notes ? `- ملاحظات العميل: ${notes}\n` : ""}---------------------
             }`}>
               2
             </span>
-            <span>مراجعة الوجبات والعربون</span>
+            <span>مراجعة الوجبات والحساب المبدئي</span>
           </div>
         </div>
 
@@ -238,10 +247,10 @@ ${notes ? `- ملاحظات العميل: ${notes}\n` : ""}---------------------
         <div className="bg-emerald-50/90 border-b border-emerald-200/90 px-5 py-2 flex flex-wrap items-center justify-between gap-2 text-xs text-emerald-950 font-bold">
           <div className="flex items-center gap-2">
             <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span>حجز مباشر دون الحاجة لتسجيل دخول • يُحفظ حجزك بشكل دائم في قاعدة بيانات سيلبر</span>
+            <span>نموذج حجز مبدئي لبدء عملية الحجز • لا يتطلب تسجيل دخول أو تسديد رسوم مقدماً (المقدم 0 ج)</span>
           </div>
           <span className="text-[11px] text-emerald-800 bg-white/90 px-2.5 py-0.5 rounded-full border border-emerald-300 flex items-center gap-1 shadow-2xs">
-            <span>المتابعة والاستعراض مسؤولية أدمن الموقع الوحيد عبر الواتساب</span>
+            <span>المتابعة واستعراض الحجز وتحديد مصاريف الشحن مسؤولية أدمن الموقع الوحيد عبر الواتساب</span>
           </span>
         </div>
 

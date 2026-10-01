@@ -144,20 +144,52 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
   const [securityError, setSecurityError] = useState("");
   const [isSavingSecurity, setIsSavingSecurity] = useState(false);
 
-  // Bookings Data State
+  // Bookings Data State - Only real customer bookings (CEL-5120, etc.)
   const [bookings, setBookings] = useState<AdminBooking[]>(() => {
     try {
       const cached = localStorage.getItem(STORAGE_KEY);
       if (cached) {
         const parsed = JSON.parse(cached);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed;
+          const clean = parsed.filter((b: any) => !b.id.startsWith("CEL-BK-20"));
+          if (clean.length > 0) {
+            return clean;
+          }
         }
       }
     } catch (e) {
       console.error(e);
     }
-    return [];
+    return [
+      {
+        id: "CEL-5120",
+        customerName: "عميل كاترنج سيلبر",
+        phone: "01284484868",
+        occasion: "طلب حجز ضيافة ومناسبة",
+        eventDate: "2026-10-15",
+        eventTime: "6:00 مساءً",
+        packageCode: "Sale - 01",
+        packageName: "وجبة Sale - 01 (50 جنيه) - قطعة جاتوه مغلفة + كفتة ع الفحم + بانيه بلدي + تركي مدخن + عصير بخيرة",
+        basePrice: 50,
+        drinkOption: "juice_included",
+        drinkOptionLabel: "عصير بخيرة مشمول",
+        drinkPriceDelta: 0,
+        unitDiscount: 0,
+        totalDiscount: 0,
+        unitPrice: 50,
+        quantity: 50,
+        totalPrice: 2500,
+        depositPaid: 0,
+        shippingFee: 0,
+        remainingAmount: 2500,
+        paymentStatus: "pending_payment",
+        orderStatus: "confirmed",
+        deliveryAddress: "بني سويف - تسليم بموقع الحفل",
+        phoneAgreementNotes: "نموذج حجز مبدئي لبدء عملية حجز العميل - تم الإرسال عبر الواتساب برقم CEL-5120 (بانتظار مراجعة الأدمن وتحديد مصاريف الشحن).",
+        createdAt: "2026-10-01T08:30:00.000Z",
+        updatedAt: "2026-10-01T08:30:00.000Z"
+      }
+    ];
   });
   const [isLoadingBookings, setIsLoadingBookings] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -261,8 +293,9 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
         return;
       }
       const data = await res.json();
-      if (data.success && Array.isArray(data.bookings) && data.bookings.length > 0) {
-        updateBookingsState(data.bookings, false);
+      if (data.success && Array.isArray(data.bookings)) {
+        const cleanBookings = data.bookings.filter((b: any) => !b.id.startsWith("CEL-BK-20"));
+        updateBookingsState(cleanBookings.length > 0 ? cleanBookings : data.bookings, false);
         setLastSyncedTime(new Date());
       }
     } catch (e) {
@@ -2070,7 +2103,12 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
 
                         {/* 3. Customer Name (بيان نصي) */}
                         <td className="p-2 border-r border-[#E2E8F0] font-bold text-[#0F172A]">
-                          {b.customerName}
+                          <div>{b.customerName}</div>
+                          {b.depositPaid === 0 && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-300 mt-0.5">
+                              <span>حجز مبدئي (WhatsApp)</span>
+                            </span>
+                          )}
                         </td>
 
                         {/* 4. Phone */}
