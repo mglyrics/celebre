@@ -141,7 +141,7 @@ export const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#FAF7F2] text-[#221B17]">
+    <div className="min-h-screen min-h-[100dvh] flex flex-col bg-[#FAF7F2] text-[#221B17] w-full max-w-[100vw] overflow-x-hidden">
       {/* Localized Hospitality Bar for Client's Detected Geographic Location */}
       <LocationGreetingBar variant="topbar" />
 

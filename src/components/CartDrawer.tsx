@@ -186,7 +186,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 
           {/* Drawer Footer */}
           {items.length > 0 && (
-            <div className="p-4 sm:p-6 bg-[#FAF7F2] border-t border-[#F0EAE1] space-y-3">
+            <div className="p-4 sm:p-6 pb-[max(1.5rem,calc(1rem+env(safe-area-inset-bottom,0px)))] bg-[#FAF7F2] border-t border-[#F0EAE1] space-y-3">
               {!isMinOrderMet && (
                 <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 flex items-center gap-2 font-bold">
                   <ShieldAlert className="w-4 h-4 shrink-0 text-amber-600" />

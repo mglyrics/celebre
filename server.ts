@@ -291,65 +291,36 @@ interface AdminBookingRecord {
 
 const ADMIN_BOOKINGS_FILE = path.join(process.cwd(), "celebre-admin-bookings.json");
 
-export const DEFAULT_ADMIN_BOOKINGS: AdminBookingRecord[] = [
-  {
-    id: "CEL-5120",
-    customerName: "عميل كاترنج سيلبر",
-    phone: "01284484868",
-    occasion: "طلب حجز ضيافة ومناسبة",
-    eventDate: "2026-10-15",
-    eventTime: "6:00 مساءً",
-    packageCode: "Sale - 01",
-    packageName: "وجبة Sale - 01 (50 جنيه) - قطعة جاتوه مغلفة + كفتة ع الفحم + بانيه بلدي + تركي مدخن + عصير بخيرة",
-    basePrice: 50,
-    drinkOption: "juice_included",
-    drinkOptionLabel: "عصير بخيرة مشمول",
-    drinkPriceDelta: 0,
-    unitDiscount: 0,
-    totalDiscount: 0,
-    unitPrice: 50,
-    quantity: 50,
-    totalPrice: 2500,
-    depositPaid: 0,
-    shippingFee: 0,
-    remainingAmount: 2500,
-    paymentStatus: "pending_payment",
-    orderStatus: "confirmed",
-    deliveryAddress: "بني سويف - تسليم بموقع الحفل",
-    phoneAgreementNotes: "نموذج حجز مبدئي لبدء عملية حجز العميل - تم الإرسال عبر الواتساب برقم CEL-5120 (بانتظار مراجعة الأدمن وتحديد مصاريف الشحن).",
-    createdAt: "2026-10-01T08:30:00.000Z",
-    updatedAt: "2026-10-01T08:30:00.000Z"
-  }
-];
+export const DEFAULT_ADMIN_BOOKINGS: AdminBookingRecord[] = [];
 
 function loadAdminBookings(): AdminBookingRecord[] {
   try {
     if (fs.existsSync(ADMIN_BOOKINGS_FILE)) {
       const data = fs.readFileSync(ADMIN_BOOKINGS_FILE, "utf-8");
       const parsed = JSON.parse(data);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        // Filter out dummy/mock records (CEL-BK-201 through 206)
-        const realBookings = parsed.filter((b: any) => !b.id.startsWith("CEL-BK-20"));
-        if (realBookings.length > 0) {
-          const hasCel5120 = realBookings.some((b: any) => b.id === "CEL-5120");
-          if (!hasCel5120) {
-            realBookings.unshift(DEFAULT_ADMIN_BOOKINGS[0]);
-          }
-          fs.writeFileSync(ADMIN_BOOKINGS_FILE, JSON.stringify(realBookings, null, 2), "utf-8");
-          return realBookings;
-        }
+      if (Array.isArray(parsed)) {
+        // Filter out any mock/dummy records (CEL-BK-20x, placeholder names)
+        const realBookings = parsed.filter((b: any) => 
+          b && 
+          b.id && 
+          !b.id.startsWith("CEL-BK-20") && 
+          b.customerName !== "عميل كاترنج سيلبر" &&
+          !b.customerName?.includes("وهمي") &&
+          !b.customerName?.includes("تجريبي")
+        );
+        fs.writeFileSync(ADMIN_BOOKINGS_FILE, JSON.stringify(realBookings, null, 2), "utf-8");
+        return realBookings;
       }
     }
   } catch (e) {
     console.error("Error reading admin bookings file:", e);
   }
-  // Initialize file with only real customer bookings
   try {
-    fs.writeFileSync(ADMIN_BOOKINGS_FILE, JSON.stringify(DEFAULT_ADMIN_BOOKINGS, null, 2), "utf-8");
+    fs.writeFileSync(ADMIN_BOOKINGS_FILE, JSON.stringify([], null, 2), "utf-8");
   } catch (err) {
-    console.error("Error saving real bookings:", err);
+    console.error("Error initializing clean bookings file:", err);
   }
-  return [...DEFAULT_ADMIN_BOOKINGS];
+  return [];
 }
 
 function saveAdminBookings(bookingsList: AdminBookingRecord[]) {
@@ -392,15 +363,20 @@ app.get("/api/orders", (_req, res) => {
   res.json({ success: true, orders });
 });
 
-// API: Reset Orders to Default Celebre State
+// API: Reset Orders to Clean State
 app.post("/api/orders/reset", (_req, res) => {
-  orders = [...DEFAULT_ORDERS];
-  res.json({ success: true, message: "تمت إعادة ضبط بيانات الطلبات بنجاح", orders });
+  orders = [];
+  saveOrders(orders);
+  res.json({ success: true, message: "تمت إعادة ضبط بيانات الطلبات وتنظيفها بنجاح", orders });
 });
 
 app.post("/api/reset", (_req, res) => {
-  orders = [...DEFAULT_ORDERS];
-  res.json({ success: true, message: "تمت إعادة ضبط بيانات مشروع سيلبر بنجاح", orders });
+  orders = [];
+  adminBookings = [];
+  saveOrders(orders);
+  saveAdminBookings(adminBookings);
+  broadcastAdminBookingsUpdate('reset');
+  res.json({ success: true, message: "تمت إعادة ضبط وتنظيف بيانات الحجوزات بنجاح", orders, bookings: adminBookings });
 });
 
 app.post("/api/orders", (req, res) => {
@@ -1177,12 +1153,14 @@ app.delete("/api/admin/bookings/:id", requireAdminAuth, (req, res) => {
   res.json({ success: true, message: "تم حذف الحجز بنجاح" });
 });
 
-// Admin Bookings: Reset to Default (Protected)
+// Admin Bookings: Reset to Clean State (Protected)
 app.post("/api/admin/bookings/reset", requireAdminAuth, (_req, res) => {
-  adminBookings = [...DEFAULT_ADMIN_BOOKINGS];
+  adminBookings = [];
+  orders = [];
   saveAdminBookings(adminBookings);
+  saveOrders(orders);
   broadcastAdminBookingsUpdate('reset');
-  res.json({ success: true, bookings: adminBookings });
+  res.json({ success: true, message: "تم تنظيف وتفريغ كافة البيانات السابقة بنجاح", bookings: adminBookings });
 });
 
 // API: AI Catering Advisor (Gemini 2.5)

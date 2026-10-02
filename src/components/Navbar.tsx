@@ -32,7 +32,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   return (
     <header className="sticky top-0 z-40 bg-[#FAF7F2]/95 backdrop-blur-md border-b border-[#E8DFD1] shadow-xs transition-all">
       {/* Top announcement bar with 'التوصيل غير مشمول' */}
-      <div className="bg-gradient-to-r from-[#5C1027] via-[#721832] to-[#5C1027] text-white py-1.5 px-4 text-xs sm:text-sm font-medium">
+      <div className="bg-gradient-to-r from-[#5C1027] via-[#721832] to-[#5C1027] text-white py-1.5 px-4 sm:px-6 lg:px-8 text-xs sm:text-sm font-medium">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="inline-block w-2 h-2 rounded-full bg-[#C89B3C] animate-ping" />
@@ -63,7 +63,7 @@ export const Navbar: React.FC<NavbarProps> = ({
       </div>
 
       {/* Main Navbar */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 sm:h-20">
           {/* Official Celebre Logo Emblem with Clean Horizontal Title */}
           <div

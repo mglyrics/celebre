@@ -52,7 +52,7 @@ export const Hero: React.FC<HeroProps> = ({
       <div className="absolute top-0 right-1/4 w-96 h-96 bg-[#D4AF37]/10 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute top-20 left-10 w-80 h-80 bg-[#5C1027]/8 rounded-full blur-3xl pointer-events-none" />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 relative z-10">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-8 items-center">
           {/* Main Text Content */}
           <div className="lg:col-span-7 flex flex-col items-center lg:items-start text-center lg:text-right">

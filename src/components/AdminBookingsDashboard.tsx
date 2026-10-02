@@ -144,52 +144,32 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
   const [securityError, setSecurityError] = useState("");
   const [isSavingSecurity, setIsSavingSecurity] = useState(false);
 
-  // Bookings Data State - Only real customer bookings (CEL-5120, etc.)
+  // Bookings Data State - Clean real database only (no mock or previous test data)
   const [bookings, setBookings] = useState<AdminBooking[]>(() => {
     try {
       const cached = localStorage.getItem(STORAGE_KEY);
       if (cached) {
         const parsed = JSON.parse(cached);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          const clean = parsed.filter((b: any) => !b.id.startsWith("CEL-BK-20"));
+          const clean = parsed.filter((b: any) => 
+            b && 
+            b.id && 
+            !b.id.startsWith("CEL-BK-20") && 
+            b.customerName !== "عميل كاترنج سيلبر" &&
+            !b.customerName?.includes("وهمي") &&
+            !b.customerName?.includes("تجريبي")
+          );
           if (clean.length > 0) {
             return clean;
+          } else {
+            localStorage.removeItem(STORAGE_KEY);
           }
         }
       }
     } catch (e) {
       console.error(e);
     }
-    return [
-      {
-        id: "CEL-5120",
-        customerName: "عميل كاترنج سيلبر",
-        phone: "01284484868",
-        occasion: "طلب حجز ضيافة ومناسبة",
-        eventDate: "2026-10-15",
-        eventTime: "6:00 مساءً",
-        packageCode: "Sale - 01",
-        packageName: "وجبة Sale - 01 (50 جنيه) - قطعة جاتوه مغلفة + كفتة ع الفحم + بانيه بلدي + تركي مدخن + عصير بخيرة",
-        basePrice: 50,
-        drinkOption: "juice_included",
-        drinkOptionLabel: "عصير بخيرة مشمول",
-        drinkPriceDelta: 0,
-        unitDiscount: 0,
-        totalDiscount: 0,
-        unitPrice: 50,
-        quantity: 50,
-        totalPrice: 2500,
-        depositPaid: 0,
-        shippingFee: 0,
-        remainingAmount: 2500,
-        paymentStatus: "pending_payment",
-        orderStatus: "confirmed",
-        deliveryAddress: "بني سويف - تسليم بموقع الحفل",
-        phoneAgreementNotes: "نموذج حجز مبدئي لبدء عملية حجز العميل - تم الإرسال عبر الواتساب برقم CEL-5120 (بانتظار مراجعة الأدمن وتحديد مصاريف الشحن).",
-        createdAt: "2026-10-01T08:30:00.000Z",
-        updatedAt: "2026-10-01T08:30:00.000Z"
-      }
-    ];
+    return [];
   });
   const [isLoadingBookings, setIsLoadingBookings] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -294,8 +274,15 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
       }
       const data = await res.json();
       if (data.success && Array.isArray(data.bookings)) {
-        const cleanBookings = data.bookings.filter((b: any) => !b.id.startsWith("CEL-BK-20"));
-        updateBookingsState(cleanBookings.length > 0 ? cleanBookings : data.bookings, false);
+        const cleanBookings = data.bookings.filter((b: any) => 
+          b && 
+          b.id && 
+          !b.id.startsWith("CEL-BK-20") && 
+          b.customerName !== "عميل كاترنج سيلبر" &&
+          !b.customerName?.includes("وهمي") &&
+          !b.customerName?.includes("تجريبي")
+        );
+        updateBookingsState(cleanBookings, false);
         setLastSyncedTime(new Date());
       }
     } catch (e) {
@@ -333,7 +320,15 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
         try {
           const data = JSON.parse(e.data);
           if (data.success && Array.isArray(data.bookings)) {
-            updateBookingsState(data.bookings, false);
+            const clean = data.bookings.filter((b: any) => 
+              b && 
+              b.id && 
+              !b.id.startsWith("CEL-BK-20") && 
+              b.customerName !== "عميل كاترنج سيلبر" &&
+              !b.customerName?.includes("وهمي") &&
+              !b.customerName?.includes("تجريبي")
+            );
+            updateBookingsState(clean, false);
             setLastSyncedTime(new Date());
             setIsLiveConnected(true);
 
@@ -1207,8 +1202,8 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/75 backdrop-blur-xs animate-fadeIn overflow-y-auto admin-modal-backdrop">
-      <div className="relative w-full max-w-7xl bg-white rounded-3xl shadow-2xl border border-[#E8DFD1] overflow-hidden my-3 max-h-[96vh] flex flex-col admin-modal-card">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/75 backdrop-blur-xs animate-fadeIn overflow-y-auto admin-modal-backdrop modal-backdrop-safe">
+      <div className="relative w-full max-w-7xl bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-[#E8DFD1] overflow-hidden my-auto max-h-[96vh] max-h-[96dvh] flex flex-col admin-modal-card">
         
         {/* ACTION TOAST NOTICE */}
         {actionNotice && (
@@ -2056,17 +2051,17 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
                           <div className="w-12 h-12 rounded-2xl bg-[#5C1027]/10 flex items-center justify-center text-[#5C1027]">
                             <FileSpreadsheet className="w-6 h-6 text-[#C89B3C]" />
                           </div>
-                          <span className="font-black text-base text-[#221B17]">سجل الحجوزات فارغ حالياً</span>
-                          <span className="text-xs text-[#7A6E65]">
-                            تم حذف وإفراغ كافة البيانات التجريبية. يمكنك الآن تسجيل وإضافة بيانات الحجوزات الفعلية بمعرفة الإدارة.
+                          <span className="font-black text-base text-[#221B17]">قاعدة بيانات الحجوزات نظيفة ومستعدة لاستقبال الحجوزات 📋</span>
+                          <span className="text-xs text-[#7A6E65] leading-relaxed">
+                            تم تنظيف وحذف جميع البيانات السابقة والوهمية. سيتم حفظ وتوثيق أي نموذج يملأه العميل ويرسله عبر واتساب تلقائياً هنا في قاعدة البيانات فورياً، كما يمكن للإدارة إضافة أي حجز وتعديله في أي وقت.
                           </span>
                           <button
                             type="button"
                             onClick={handleOpenAddNew}
-                            className="mt-2 px-4 py-2 bg-[#5C1027] hover:bg-[#721832] text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs"
+                            className="mt-2 px-4 py-2 bg-[#5C1027] hover:bg-[#721832] text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95"
                           >
                             <Plus className="w-3.5 h-3.5 text-[#C89B3C]" />
-                            <span>+ إضافة أول حجز فعلي</span>
+                            <span>+ إضافة حجز جديد من الإدارة</span>
                           </button>
                         </div>
                       </td>

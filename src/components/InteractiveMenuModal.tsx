@@ -237,8 +237,8 @@ export const InteractiveMenuModal: React.FC<InteractiveMenuModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/75 backdrop-blur-sm overflow-y-auto animate-fadeIn">
-      <div className="relative w-full max-w-5xl bg-[#FAF7F2] rounded-3xl shadow-2xl border border-[#C89B3C]/40 flex flex-col max-h-[96vh] overflow-hidden my-auto text-[#221B17]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/75 backdrop-blur-sm overflow-y-auto animate-fadeIn modal-backdrop-safe">
+      <div className="relative w-full max-w-5xl bg-[#FAF7F2] rounded-2xl sm:rounded-3xl shadow-2xl border border-[#C89B3C]/40 flex flex-col max-h-[96vh] max-h-[96dvh] overflow-hidden my-auto text-[#221B17]">
         
         {/* Modal Top Control Bar */}
         <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 bg-gradient-to-r from-[#5C1027] via-[#7A1635] to-[#5C1027] text-white border-b border-[#C89B3C]/30 shrink-0">

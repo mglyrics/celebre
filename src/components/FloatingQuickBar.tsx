@@ -22,7 +22,7 @@ export const FloatingQuickBar: React.FC<FloatingQuickBarProps> = ({
   };
 
   return (
-    <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 w-auto max-w-[94vw] sm:max-w-md animate-bounce-in">
+    <div className="fixed bottom-[max(1rem,calc(1rem+env(safe-area-inset-bottom,0px)))] left-1/2 -translate-x-1/2 z-40 w-auto max-w-[94vw] sm:max-w-md animate-bounce-in">
       <div className="bg-[#221B17]/95 backdrop-blur-md text-[#FAF7F2] px-3.5 py-2.5 rounded-2xl shadow-2xl border border-[#C89B3C]/40 flex items-center gap-2 sm:gap-3">
         {/* Menu browse with Cloche Icon */}
         <button

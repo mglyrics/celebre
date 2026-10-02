@@ -9,8 +9,8 @@ interface FooterProps {
 
 export const Footer: React.FC<FooterProps> = ({ onOpenPrivacy, onOpenAdmin }) => {
   return (
-    <footer className="bg-[#221B17] text-[#FAF7F2] pt-14 pb-8 border-t border-[#3B3029]">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6">
+    <footer className="bg-[#221B17] text-[#FAF7F2] pt-14 pb-28 sm:pb-24 lg:pb-12 border-t border-[#3B3029]">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-10 pb-12 border-b border-[#3B3029]">
           {/* Brand Info */}
           <div className="md:col-span-5 flex flex-col items-center md:items-start text-center md:text-right">

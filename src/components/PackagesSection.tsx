@@ -361,8 +361,8 @@ export const PackagesSection: React.FC<PackagesSectionProps> = ({
   };
 
   return (
-    <section id="packages-section" className="py-12 sm:py-16 bg-[#FAF7F2]">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6">
+    <section id="packages-section" className="py-12 sm:py-16 bg-[#FAF7F2] scroll-mt-20 sm:scroll-mt-24">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section Header with Official Celebre Emblem */}
         <div className="text-center max-w-3xl mx-auto mb-10">
           <div className="flex justify-center mb-3">

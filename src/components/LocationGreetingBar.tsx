@@ -140,7 +140,7 @@ export const LocationGreetingBar: React.FC<LocationGreetingBarProps> = ({
 
   // 2. Variant: Topbar Bar (Dedicated welcoming bar across top of screen)
   return (
-    <div className={`relative bg-gradient-to-r from-[#F4EEDB] via-[#FAF7F2] to-[#F4EEDB] border-b border-[#C89B3C]/30 py-1.5 px-4 text-xs shadow-2xs z-35 ${className}`}>
+    <div className={`relative bg-gradient-to-r from-[#F4EEDB] via-[#FAF7F2] to-[#F4EEDB] border-b border-[#C89B3C]/30 py-1.5 px-4 sm:px-6 lg:px-8 text-xs shadow-2xs z-35 ${className}`}>
       <div className="max-w-7xl mx-auto flex items-center justify-between gap-2 flex-wrap sm:flex-nowrap">
         {/* Welcome Greeting with Location */}
         <div className="flex items-center gap-2 flex-1 min-w-0">

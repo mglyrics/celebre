@@ -190,8 +190,8 @@ ${notes ? `- ملاحظات العميل: ${notes}\n` : ""}---------------------
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/65 backdrop-blur-xs animate-fadeIn overflow-y-auto">
-      <div className="relative w-full max-w-3xl bg-white rounded-3xl shadow-2xl border border-[#E8DFD1] overflow-hidden my-6 max-h-[92vh] flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 bg-black/65 backdrop-blur-xs animate-fadeIn overflow-y-auto modal-backdrop-safe">
+      <div className="relative w-full max-w-3xl bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-[#E8DFD1] overflow-hidden my-auto max-h-[92vh] max-h-[92dvh] flex flex-col">
         {/* Top Header */}
         {/* Top Header with Official Celebre Emblem */}
         <div className="px-6 py-3.5 bg-[#FAF7F2] border-b border-[#F0EAE1] flex items-center justify-between">

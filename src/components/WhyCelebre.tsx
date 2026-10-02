@@ -38,7 +38,7 @@ export const WhyCelebre: React.FC = () => {
 
   return (
     <section className="py-14 sm:py-20 bg-gradient-to-b from-[#FAF7F2] to-white">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center max-w-3xl mx-auto mb-12">
           <div className="flex justify-center mb-3">
             <CelebreLogo size="xs" showSlogan={false} />
