@@ -39,7 +39,7 @@ export const App: React.FC = () => {
   const [isAdminOpen, setIsAdminOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
-  // Global shortcut to open admin dashboard: Ctrl+Shift+A or Alt+A
+  // Global shortcut to open admin dashboard: Ctrl+Shift+A or Alt+A, and URL triggers (#admin or ?admin)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "a") || (e.altKey && e.key.toLowerCase() === "a")) {
@@ -47,8 +47,24 @@ export const App: React.FC = () => {
         setIsAdminOpen((prev) => !prev);
       }
     };
+
+    const checkUrlTrigger = () => {
+      if (typeof window !== "undefined") {
+        const hash = window.location.hash.toLowerCase();
+        const search = window.location.search.toLowerCase();
+        if (hash === "#admin" || hash === "#dashboard" || search.includes("admin") || search.includes("dashboard")) {
+          setIsAdminOpen(true);
+        }
+      }
+    };
+
+    checkUrlTrigger();
     window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    window.addEventListener("hashchange", checkUrlTrigger);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("hashchange", checkUrlTrigger);
+    };
   }, []);
 
   // Cart operations
