@@ -61,9 +61,11 @@ export const App: React.FC = () => {
     checkUrlTrigger();
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("hashchange", checkUrlTrigger);
+    window.addEventListener("popstate", checkUrlTrigger);
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("hashchange", checkUrlTrigger);
+      window.removeEventListener("popstate", checkUrlTrigger);
     };
   }, []);
 
@@ -206,10 +208,9 @@ export const App: React.FC = () => {
         <FaqSection />
       </main>
 
-      {/* Footer */}
+      {/* Footer (without admin links for customer privacy) */}
       <Footer 
         onOpenPrivacy={() => setIsPrivacyOpen(true)} 
-        onOpenAdmin={() => setIsAdminOpen(true)}
       />
 
       {/* Floating Quick Bar for mobile & desktop immediate access */}
@@ -279,10 +280,17 @@ export const App: React.FC = () => {
         onClose={() => setIsPrivacyOpen(false)}
       />
 
-      {/* Admin Bookings Management Dashboard (Excel-like spreadsheet) */}
+      {/* Admin Bookings Management Dashboard (Accessed exclusively via #admin or shortcut) */}
       <AdminBookingsDashboard
         isOpen={isAdminOpen}
-        onClose={() => setIsAdminOpen(false)}
+        onClose={() => {
+          setIsAdminOpen(false);
+          try {
+            if (window.location.hash.toLowerCase() === "#admin" || window.location.hash.toLowerCase() === "#dashboard") {
+              window.history.replaceState(null, "", window.location.pathname + window.location.search);
+            }
+          } catch {}
+        }}
       />
 
       {/* Interactive Current Offers Menu Modal (PDF / JPG Export) */}
