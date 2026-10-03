@@ -486,29 +486,32 @@ function loadAdminCredentials(): AdminCredentials {
       const data = fs.readFileSync(ADMIN_CONFIG_FILE, "utf-8");
       const parsed = JSON.parse(data);
       if (parsed) {
-        return {
-          username: parsed.username || "admin",
-          phone: parsed.phone || "01284484868",
-          password: parsed.password || "admin",
+        adminCredentials = {
+          username: (parsed.username || "admin").trim(),
+          phone: (parsed.phone || "01284484868").trim(),
+          password: (parsed.password || "admin").trim(),
           name: parsed.name || "مدير النظام المعتمد",
           isCustomConfigured: true
         };
+        return adminCredentials;
       }
     }
   } catch (e) {
     console.error("Error reading admin credentials file:", e);
   }
-  return {
+  adminCredentials = {
     username: "admin",
     phone: "01284484868",
     password: "admin",
     name: "مدير النظام المعتمد",
     isCustomConfigured: true
   };
+  return adminCredentials;
 }
 
 function saveAdminCredentials(creds: AdminCredentials) {
   try {
+    adminCredentials = { ...creds };
     fs.writeFileSync(ADMIN_CONFIG_FILE, JSON.stringify(creds, null, 2), "utf-8");
   } catch (e) {
     console.error("Error saving admin credentials file:", e);
@@ -567,20 +570,21 @@ function isValidAdminUser(input?: string): boolean {
   return false;
 }
 
-// Robust check for admin password (matches custom saved password OR default failsafe "admin")
+// Strict check for admin password (must match the registered password in .admin-credentials.json)
 function isValidAdminPassword(input?: string): boolean {
   if (!input) return false;
   const raw = input.trim();
   const normalizedInput = normalizeDigits(raw);
-  const targetPass = (adminCredentials.password || "admin").trim();
+  
+  // Always load latest persisted credentials from disk
+  const creds = loadAdminCredentials();
+  const targetPass = (creds.password || "").trim();
   const normalizedTarget = normalizeDigits(targetPass);
   
-  return (
-    raw === targetPass ||
-    normalizedInput === normalizedTarget ||
-    raw === "admin" ||
-    normalizedInput === "admin"
-  );
+  if (!targetPass) return false;
+  
+  // Strictly enforce exact registered password match
+  return raw === targetPass || normalizedInput === normalizedTarget;
 }
 
 interface ActiveOtpState {
@@ -729,83 +733,102 @@ app.get("/api/admin/auth/status", (req, res) => {
   });
 });
 
-// 2. Direct Admin Login with Credentials (اسم مستخدم admin أو رقم هاتف 01284484868 وكلمة السر)
-app.post(["/api/admin/auth/login", "/api/admin/login"], (req, res) => {
-  const { username, password, phone } = req.body || {};
+// 2. High-Security Admin Login: Step 1 (Verify Password & Dispatch WhatsApp OTP) or Direct Verify with OTP
+app.post(["/api/admin/auth/login", "/api/admin/login"], async (req, res) => {
+  const { username, password, phone, otp } = req.body || {};
   const userIdentifier = (username || phone || "").trim();
   const cleanPass = (password || "").trim();
+  const cleanOtp = normalizeDigits((otp || "").trim());
 
   if (!userIdentifier || !cleanPass) {
     return res.status(400).json({
       success: false,
-      message: "يرجى إدخال اسم المستخدم (admin) أو رقم الهاتف (01284484868) وكلمة السر."
+      message: "يرجى إدخال اسم مستخدم الأدمن (admin) وكلمة السر المسجلة."
     });
   }
 
-  if (!isValidAdminUser(userIdentifier) || !isValidAdminPassword(cleanPass)) {
+  // Refresh credentials from disk to ensure latest registered password
+  loadAdminCredentials();
+
+  if (!isValidAdminUser(userIdentifier)) {
     return res.status(401).json({
       success: false,
-      message: "بيانات الدخول غير صحيحة. اسم المستخدم المعتمد: admin أو رقم الهاتف: 01284484868، وكلمة السر الافتراضية: admin (أو كلمة السر التي قمت بتعيينها)."
+      message: `اسم المستخدم غير مسجل. اسم المستخدم المعتمد: admin أو رقم هاتف الإدارة: ${OFFICIAL_PROJECT_PHONE}`
     });
   }
 
-  const token = generateAdminSessionToken();
-  const sessionExpiry = Date.now() + 30 * 24 * 60 * 60 * 1000; // 30 days persistent session
-  activeAdminSessions.set(token, {
-    phone: adminCredentials.phone || OFFICIAL_PROJECT_PHONE,
-    createdAt: Date.now(),
-    expiresAt: sessionExpiry
-  });
-  saveAdminSessions(activeAdminSessions);
+  if (!isValidAdminPassword(cleanPass)) {
+    return res.status(401).json({
+      success: false,
+      message: "كلمة السر غير صحيحة. يرجى إدخال كلمة سر الأدمن المسجلة كما هي بدقة."
+    });
+  }
 
-  console.log(`[AUTH SUCCESS] Admin logged in directly: ${userIdentifier}`);
-
-  return res.json({
-    success: true,
-    message: "تم تسجيل الدخول وتأمين لوحة الإدارة بنجاح 🔓",
-    token,
-    user: {
-      phone: adminCredentials.phone || OFFICIAL_PROJECT_PHONE,
-      name: "مدير النظام المعتمد",
-      role: "super_admin"
+  // If OTP is provided, verify it directly
+  if (cleanOtp) {
+    const now = Date.now();
+    if (!currentOtpState || now > currentOtpState.expiresAt) {
+      return res.status(400).json({
+        success: false,
+        message: "انتهت صلاحية رمز التحقق المؤقت (صالح لـ 5 دقائق). يرجى طلب رمز جديد."
+      });
     }
-  });
-});
 
-// 2b. Request OTP on official project phone 01284484868 (Optional 2FA flow)
-app.post("/api/admin/auth/request-otp", (req, res) => {
-  const { username, password, phone } = req.body || {};
-  const userIdentifier = (username || phone || "").trim();
-  const cleanPass = (password || "").trim();
+    if (currentOtpState.attempts >= 5) {
+      currentOtpState = null;
+      return res.status(429).json({
+        success: false,
+        message: "تم تجاوز الحد الأقصى للمحاولات الخاطئة (5 محاولات). يرجى طلب رمز جديد."
+      });
+    }
 
-  if (!userIdentifier || !cleanPass) {
-    return res.status(400).json({
-      success: false,
-      message: "يرجى إدخال اسم المستخدم (admin) أو رقم الهاتف (01284484868) وكلمة السر لإرسال رمز الدخول المؤقت."
+    if (cleanOtp !== currentOtpState.code) {
+      currentOtpState.attempts++;
+      const remaining = 5 - currentOtpState.attempts;
+      return res.status(401).json({
+        success: false,
+        message: `رمز التحقق غير صحيح. متبقي لك ${remaining} محاولات.`,
+        remainingAttempts: remaining
+      });
+    }
+
+    currentOtpState = null;
+    const token = generateAdminSessionToken();
+    const sessionExpiry = Date.now() + 30 * 24 * 60 * 60 * 1000;
+    activeAdminSessions.set(token, {
+      phone: OFFICIAL_PROJECT_PHONE,
+      createdAt: Date.now(),
+      expiresAt: sessionExpiry
+    });
+    saveAdminSessions(activeAdminSessions);
+
+    console.log(`[AUTH 2FA SUCCESS] Admin logged in with password & verified WhatsApp OTP.`);
+
+    return res.json({
+      success: true,
+      message: "تم تسجيل الدخول وتأمين لوحة الإدارة بنجاح 🔓",
+      token,
+      user: {
+        phone: OFFICIAL_PROJECT_PHONE,
+        name: "مدير النظام المعتمد",
+        role: "super_admin"
+      }
     });
   }
 
-  if (!isValidAdminUser(userIdentifier) || !isValidAdminPassword(cleanPass)) {
-    return res.status(401).json({
-      success: false,
-      message: "اسم المستخدم أو كلمة السر غير صحيحة. اسم المستخدم المعتمد هو: admin أو رقم الهاتف 01284484868."
-    });
-  }
-
+  // Password verified! Now dispatch secure OTP to official WhatsApp phone
   const now = Date.now();
-  // Anti-flooding rate limit (3 seconds between OTP requests)
-  if (now - lastOtpRequestTimestamp < 3000) {
-    const waitSec = Math.ceil((3000 - (now - lastOtpRequestTimestamp)) / 1000);
+  if (now - lastOtpRequestTimestamp < 2500) {
+    const waitSec = Math.ceil((2500 - (now - lastOtpRequestTimestamp)) / 1000);
     return res.status(429).json({
       success: false,
-      message: `يرجى الانتظار ${waitSec} ثوانٍ قبل إعادة طلب رمز الدخول.`
+      message: `يرجى الانتظار ${waitSec} ثوانٍ قبل طلب رمز جديد.`
     });
   }
 
   lastOtpRequestTimestamp = now;
-  // Generate 6-digit numeric OTP
   const code = Math.floor(100000 + Math.random() * 900000).toString();
-  const expiresAt = now + 10 * 60 * 1000; // 10 minutes validity
+  const expiresAt = now + 5 * 60 * 1000; // 5 minutes validity
 
   currentOtpState = {
     code,
@@ -814,22 +837,105 @@ app.post("/api/admin/auth/request-otp", (req, res) => {
     attempts: 0
   };
 
-  const whatsappText = `*رمز الدخول المؤقت لبورد إدارة سيلبر كاترنج 🔐*\nرمز التحقق الخاص بك هو: *${code}*\nصالح للاستخدام على الرقم الرسمي: ${OFFICIAL_PROJECT_PHONE}.\n(سري وخاص بإدارة المشروع)`;
+  const whatsappText = `*🔐 رمز الدخول الآمن لبورد إدارة سيلبر كاترنج*\n\nرمز التحقق (OTP) الخاص بك هو:\n👉 *${code}*\n\n⚠️ صالح لمدة 5 دقائق على هاتف الإدارة الرسمي: ${OFFICIAL_PROJECT_PHONE}\n(سري وخاص بإدارة المشروع - لا تشاركه مع أي شخص)`;
   const whatsappUrl = `https://wa.me/201284484868?text=${encodeURIComponent(whatsappText)}`;
 
-  console.log(`[AUTH SECURITY] New OTP issued for official phone ${OFFICIAL_PROJECT_PHONE}: ${code}`);
+  let metaSent = false;
+  try {
+    const metaRes = await sendMetaWhatsAppMessage("201284484868", whatsappText);
+    metaSent = metaRes.success;
+  } catch (err) {
+    console.error("Error sending WhatsApp message via Meta:", err);
+  }
+
+  console.log(`[AUTH 2FA] Password verified for ${userIdentifier}. Secure OTP generated: ${code} and sent to WhatsApp ${OFFICIAL_PROJECT_PHONE} (MetaSent: ${metaSent})`);
 
   return res.json({
     success: true,
-    message: `تم إصدار وإرسال رمز الدخول المؤقت بنجاح (${code})`,
+    requiresOtp: true,
+    message: `تم التحقق من كلمة السر بنجاح 🔒 تم إرسال رمز الأمان (OTP) إلى واتساب الأدمن المعتمد: ${OFFICIAL_PROJECT_PHONE}`,
     phone: OFFICIAL_PROJECT_PHONE,
     expiresAt,
     whatsappUrl,
-    codePreview: code
+    codePreview: code,
+    metaSent
   });
 });
 
-// 3. Verify OTP and Issue Secure Session Token
+// 2b. Request OTP on official WhatsApp phone 01284484868
+app.post("/api/admin/auth/request-otp", async (req, res) => {
+  const { username, password, phone } = req.body || {};
+  const userIdentifier = (username || phone || "").trim();
+  const cleanPass = (password || "").trim();
+
+  if (!userIdentifier || !cleanPass) {
+    return res.status(400).json({
+      success: false,
+      message: "يرجى إدخال اسم مستخدم الأدمن وكلمة السر المسجلة لإرسال رمز التحقق."
+    });
+  }
+
+  loadAdminCredentials();
+
+  if (!isValidAdminUser(userIdentifier)) {
+    return res.status(401).json({
+      success: false,
+      message: `اسم المستخدم غير مسجل. اسم المستخدم المعتمد: admin أو رقم الهاتف: ${OFFICIAL_PROJECT_PHONE}`
+    });
+  }
+
+  if (!isValidAdminPassword(cleanPass)) {
+    return res.status(401).json({
+      success: false,
+      message: "كلمة السر غير صحيحة. يرجى إدخال كلمة سر الأدمن المسجلة كما هي بدقة."
+    });
+  }
+
+  const now = Date.now();
+  if (now - lastOtpRequestTimestamp < 2500) {
+    const waitSec = Math.ceil((2500 - (now - lastOtpRequestTimestamp)) / 1000);
+    return res.status(429).json({
+      success: false,
+      message: `يرجى الانتظار ${waitSec} ثوانٍ قبل إعادة طلب الرمز.`
+    });
+  }
+
+  lastOtpRequestTimestamp = now;
+  const code = Math.floor(100000 + Math.random() * 900000).toString();
+  const expiresAt = now + 5 * 60 * 1000; // 5 minutes validity
+
+  currentOtpState = {
+    code,
+    phone: OFFICIAL_PROJECT_PHONE,
+    expiresAt,
+    attempts: 0
+  };
+
+  const whatsappText = `*🔐 رمز الدخول الآمن لبورد إدارة سيلبر كاترنج*\n\nرمز التحقق (OTP) الخاص بك هو:\n👉 *${code}*\n\n⚠️ صالح لمدة 5 دقائق على هاتف الإدارة الرسمي: ${OFFICIAL_PROJECT_PHONE}\n(سري وخاص بإدارة المشروع - لا تشاركه مع أي شخص)`;
+  const whatsappUrl = `https://wa.me/201284484868?text=${encodeURIComponent(whatsappText)}`;
+
+  let metaSent = false;
+  try {
+    const metaRes = await sendMetaWhatsAppMessage("201284484868", whatsappText);
+    metaSent = metaRes.success;
+  } catch (err) {
+    console.error("Error sending WhatsApp message via Meta:", err);
+  }
+
+  console.log(`[AUTH 2FA] OTP generated: ${code} and sent to WhatsApp ${OFFICIAL_PROJECT_PHONE} (MetaSent: ${metaSent})`);
+
+  return res.json({
+    success: true,
+    message: `تم إصدار وإرسال رمز التحقق بنجاح إلى واتساب الأدمن المعتمد (${OFFICIAL_PROJECT_PHONE})`,
+    phone: OFFICIAL_PROJECT_PHONE,
+    expiresAt,
+    whatsappUrl,
+    codePreview: code,
+    metaSent
+  });
+});
+
+// 3. Verify WhatsApp OTP and Issue Secure Session Token
 app.post("/api/admin/auth/verify-otp", (req, res) => {
   const { otp } = req.body || {};
   const cleanOtp = normalizeDigits((otp || "").trim());
@@ -838,24 +944,24 @@ app.post("/api/admin/auth/verify-otp", (req, res) => {
   if (!currentOtpState || now > currentOtpState.expiresAt) {
     return res.status(400).json({
       success: false,
-      message: "انتهت صلاحية رمز الدخول المؤقت أو لم يتم طلبه بعد. يرجى طلب رمز جديد أو استخدام تسجيل الدخول المباشر بكلمة السر."
+      message: "انتهت صلاحية رمز الدخول المؤقت (صالح لـ 5 دقائق). يرجى طلب رمز جديد."
     });
   }
 
-  if (currentOtpState.attempts >= 10) {
+  if (currentOtpState.attempts >= 5) {
     currentOtpState = null;
     return res.status(429).json({
       success: false,
-      message: "تم تجاوز الحد الأقصى للمحاولات الخاطئة. تم إلغاء الرمز لحماية النظام، يرجى طلب رمز جديد."
+      message: "تم تجاوز الحد الأقصى للمحاولات الخاطئة (5 محاولات). تم إلغاء الرمز لحماية النظام، يرجى طلب رمز جديد."
     });
   }
 
   if (cleanOtp !== currentOtpState.code) {
     currentOtpState.attempts++;
-    const remaining = 10 - currentOtpState.attempts;
+    const remaining = 5 - currentOtpState.attempts;
     return res.status(401).json({
       success: false,
-      message: `رمز التحقق المؤقت غير صحيح. متبقي لك ${remaining} محاولات.`,
+      message: `رمز التحقق غير صحيح. متبقي لك ${remaining} محاولات.`,
       remainingAttempts: remaining
     });
   }
@@ -871,6 +977,8 @@ app.post("/api/admin/auth/verify-otp", (req, res) => {
   });
   saveAdminSessions(activeAdminSessions);
 
+  console.log(`[AUTH 2FA SUCCESS] Admin session token issued.`);
+
   return res.json({
     success: true,
     message: "تم التحقق بنجاح وتأمين لوحة الإدارة 🔓",
@@ -881,44 +989,6 @@ app.post("/api/admin/auth/verify-otp", (req, res) => {
       role: "super_admin"
     }
   });
-});
-
-// 3b. Quick Reset Password using Official Project Phone Verification
-app.post("/api/admin/auth/quick-reset", (req, res) => {
-  try {
-    const { phone, newPassword } = req.body || {};
-    const cleanPhone = normalizePhone(phone);
-    const officialNorm = normalizePhone(OFFICIAL_PROJECT_PHONE);
-    const credsNorm = normalizePhone(adminCredentials.phone);
-
-    if (cleanPhone !== officialNorm && cleanPhone !== credsNorm && cleanPhone !== "1284484868") {
-      return res.status(400).json({
-        success: false,
-        message: `رقم الهاتف غير مطابق لرقم هاتف المشروع الرسمي ${OFFICIAL_PROJECT_PHONE}`
-      });
-    }
-
-    const cleanPass = (newPassword || "admin").trim();
-    if (cleanPass.length < 3) {
-      return res.status(400).json({
-        success: false,
-        message: "كلمة السر الجديدة يجب أن تكون 3 خانات أو أكثر."
-      });
-    }
-
-    adminCredentials.password = cleanPass;
-    saveAdminCredentials(adminCredentials);
-    console.log(`[AUTH] Admin password quick-reset successfully to: ${cleanPass}`);
-
-    return res.json({
-      success: true,
-      message: "تمت إعادة تعيين كلمة السر بنجاح! يمكنك الآن تسجيل الدخول مباشرة 🔒",
-      newPassword: cleanPass
-    });
-  } catch (e) {
-    console.error("Error in quick-reset:", e);
-    return res.status(500).json({ success: false, message: "فشل إعادة تعيين كلمة السر" });
-  }
 });
 
 // 5. Update Admin Credentials (Protected)
