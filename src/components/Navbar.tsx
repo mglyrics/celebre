@@ -11,6 +11,7 @@ interface NavbarProps {
   onOpenMenu?: () => void;
   onScrollToBoxMix?: () => void;
   onScrollToBoxSandwich?: () => void;
+  onOpenAdmin?: () => void;
 }
 
 // Social Media SVG Icons (Facebook, TikTok, Instagram)
@@ -42,7 +43,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   onScrollToPackages,
   onOpenMenu,
   onScrollToBoxMix,
-  onScrollToBoxSandwich
+  onScrollToBoxSandwich,
+  onOpenAdmin
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -445,6 +447,22 @@ export const Navbar: React.FC<NavbarProps> = ({
               </a>
             </div>
           </div>
+
+          {onOpenAdmin && (
+            <div className="pt-2 border-t border-[#E8DFD1] text-center">
+              <button
+                type="button"
+                onClick={() => {
+                  onOpenAdmin();
+                  setMobileMenuOpen(false);
+                }}
+                className="w-full text-center text-[11px] text-[#7A6E65] hover:text-[#5C1027] font-semibold py-1 flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <ShieldCheck className="w-3.5 h-3.5 text-[#C89B3C]" />
+                <span>بوابة الإدارة والحجوزات 🔒</span>
+              </button>
+            </div>
+          )}
         </div>
       )}
     </header>

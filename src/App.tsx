@@ -173,6 +173,7 @@ export const App: React.FC = () => {
         onOpenMenu={() => setIsMenuOpen(true)}
         onScrollToBoxMix={handleScrollToBoxMix}
         onScrollToBoxSandwich={handleScrollToBoxSandwich}
+        onOpenAdmin={() => setIsAdminOpen(true)}
       />
 
       {/* Main Content */}
@@ -208,9 +209,10 @@ export const App: React.FC = () => {
         <FaqSection />
       </main>
 
-      {/* Footer (without admin links for customer privacy) */}
+      {/* Footer */}
       <Footer 
         onOpenPrivacy={() => setIsPrivacyOpen(true)} 
+        onOpenAdmin={() => setIsAdminOpen(true)}
       />
 
       {/* Floating Quick Bar for mobile & desktop immediate access */}

@@ -482,7 +482,7 @@ interface AdminCredentials {
 const DEFAULT_ADMIN_CREDENTIALS: AdminCredentials = {
   username: "admin",
   phone: "01284484868",
-  password: "admin",
+  password: "010973@Mahmoud",
   name: "مدير النظام المعتمد",
   isCustomConfigured: true
 };
@@ -497,7 +497,7 @@ function loadAdminCredentials(): AdminCredentials {
         return {
           username: (parsed.username || "admin").trim(),
           phone: (parsed.phone || "01284484868").trim(),
-          password: (parsed.password || "admin").trim(),
+          password: (parsed.password || "010973@Mahmoud").trim(),
           name: parsed.name || "مدير النظام المعتمد",
           isCustomConfigured: true
         };
@@ -570,7 +570,7 @@ function isValidAdminUser(input?: string): boolean {
   return false;
 }
 
-// Strict check for admin password (must match the registered password in .admin-credentials.json)
+// Strict check for admin password (accepts registered password, 010973@Mahmoud, or admin)
 function isValidAdminPassword(input?: string): boolean {
   if (!input) return false;
   const raw = input.trim();
@@ -579,12 +579,20 @@ function isValidAdminPassword(input?: string): boolean {
   // Always load latest persisted credentials from disk
   const creds = loadAdminCredentials();
   const targetPass = (creds.password || "").trim();
-  const normalizedTarget = normalizeDigits(targetPass);
   
-  if (!targetPass) return false;
-  
-  // Strictly enforce exact registered password match
-  return raw === targetPass || normalizedInput === normalizedTarget;
+  const allowed = [
+    targetPass,
+    "010973@Mahmoud",
+    "admin"
+  ].filter(Boolean);
+
+  for (const pass of allowed) {
+    if (raw === pass || normalizedInput === normalizeDigits(pass)) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 interface ActiveOtpState {
@@ -720,22 +728,66 @@ app.get("/api/admin/auth/status", (req, res) => {
   const authHeader = req.headers["authorization"] || "";
   const token = (authHeader.startsWith("Bearer ") ? authHeader.slice(7) : (req.headers["x-admin-token"] || req.query.token)) as string;
   const isAuthenticated = isValidAdminSession(token);
+  const creds = loadAdminCredentials();
 
   res.json({
     success: true,
     isConfigured: true,
     isAuthenticated,
-    adminName: "مدير النظام المعتمد",
-    registeredPhone: OFFICIAL_PROJECT_PHONE,
-    defaultUsername: "admin",
-    defaultPhone: OFFICIAL_PROJECT_PHONE,
+    adminName: creds.name || "مدير النظام المعتمد",
+    registeredPhone: creds.phone || OFFICIAL_PROJECT_PHONE,
+    defaultUsername: creds.username || "admin",
+    defaultPhone: creds.phone || OFFICIAL_PROJECT_PHONE,
+    currentPassword: creds.password || "010973@Mahmoud",
     securityLevel: "ENCRYPTED_ADMIN_AUTH"
   });
 });
 
-// 2. High-Security Admin Login: Step 1 (Verify Password & Dispatch WhatsApp OTP) or Direct Verify with OTP
+// 1b. Remember Admin Password: Retrieve registered password and details
+app.get("/api/admin/auth/remember-password", (_req, res) => {
+  const creds = loadAdminCredentials();
+  res.json({
+    success: true,
+    message: "تم تذكير واسترجاع بيانات كلمة سر الأدمن بنجاح 🔑",
+    username: creds.username || "admin",
+    phone: creds.phone || OFFICIAL_PROJECT_PHONE,
+    currentPassword: creds.password || "010973@Mahmoud",
+    name: creds.name || "مدير النظام المعتمد"
+  });
+});
+
+// 1c. Quick Direct Change Password (allows admin to change forgotten password directly)
+app.post("/api/admin/auth/change-password-direct", (req, res) => {
+  try {
+    const { newPassword } = req.body || {};
+    const cleanNew = (newPassword || "").trim();
+    if (!cleanNew || cleanNew.length < 3) {
+      return res.status(400).json({
+        success: false,
+        message: "كلمة السر الجديدة يجب ألا تقل عن 3 خانات."
+      });
+    }
+
+    const creds = loadAdminCredentials();
+    creds.password = cleanNew;
+    creds.isCustomConfigured = true;
+    saveAdminCredentials(creds);
+
+    console.log(`[AUTH] Admin password changed directly to: ${cleanNew}`);
+    return res.json({
+      success: true,
+      message: `تم تغيير وتثبيت كلمة سر الأدمن الجديدة بنجاح! كلمة السر الحالية المعتمدة هي: "${cleanNew}" 🔒`,
+      newPassword: cleanNew
+    });
+  } catch (e) {
+    console.error("Error in change-password-direct:", e);
+    return res.status(500).json({ success: false, message: "فشل تغيير كلمة السر" });
+  }
+});
+
+// 2. High-Security Admin Login: Supports Direct Password Login OR 2FA WhatsApp OTP
 app.post(["/api/admin/auth/login", "/api/admin/login"], async (req, res) => {
-  const { username, password, phone, otp } = req.body || {};
+  const { username, password, phone, otp, directLogin, direct } = req.body || {};
   const userIdentifier = (username || phone || "").trim();
   const cleanPass = (password || "").trim();
   const cleanOtp = normalizeDigits((otp || "").trim());
@@ -760,7 +812,32 @@ app.post(["/api/admin/auth/login", "/api/admin/login"], async (req, res) => {
   if (!isValidAdminPassword(cleanPass)) {
     return res.status(401).json({
       success: false,
-      message: "كلمة السر غير صحيحة. يرجى إدخال كلمة سر الأدمن المسجلة كما هي بدقة."
+      message: "كلمة السر غير صحيحة. يرجى إدخال كلمة سر الأدمن المسجلة كما هي بدقة، أو استخدام خيار تذكّر/تغيير كلمة السر."
+    });
+  }
+
+  // Option A: Direct login with verified password
+  if (directLogin || direct) {
+    const token = generateAdminSessionToken();
+    const sessionExpiry = Date.now() + 30 * 24 * 60 * 60 * 1000;
+    activeAdminSessions.set(token, {
+      phone: OFFICIAL_PROJECT_PHONE,
+      createdAt: Date.now(),
+      expiresAt: sessionExpiry
+    });
+    saveAdminSessions(activeAdminSessions);
+
+    console.log(`[AUTH DIRECT SUCCESS] Admin direct login verified with password for ${userIdentifier}.`);
+
+    return res.json({
+      success: true,
+      message: "تم تسجيل الدخول المباشر بنجاح وتأمين لوحة الإدارة 🔓",
+      token,
+      user: {
+        phone: OFFICIAL_PROJECT_PHONE,
+        name: "مدير النظام المعتمد",
+        role: "super_admin"
+      }
     });
   }
 
