@@ -13,6 +13,27 @@ interface NavbarProps {
   onScrollToBoxSandwich?: () => void;
 }
 
+// Social Media SVG Icons (Facebook, TikTok, Instagram)
+const FacebookIcon: React.FC<{ className?: string }> = ({ className = "w-3.5 h-3.5" }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+    <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+  </svg>
+);
+
+const TikTokIcon: React.FC<{ className?: string }> = ({ className = "w-3.5 h-3.5" }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+    <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64c.298-.002.595.042.88.13V9.4a6.33 6.33 0 0 0-1-.08A6.34 6.34 0 0 0 3 15.66a6.34 6.34 0 0 0 10.82 4.49 6.3 6.3 0 0 0 1.87-4.48V8.7a8.28 8.28 0 0 0 4.9 1.58V6.83a4.86 4.86 0 0 1-1-.14z" />
+  </svg>
+);
+
+const InstagramIcon: React.FC<{ className?: string }> = ({ className = "w-3.5 h-3.5" }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <rect x="2" y="2" width="20" height="20" rx="5" ry="5" />
+    <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+    <line x1="17.5" y1="6.5" x2="17.51" y2="6.5" />
+  </svg>
+);
+
 export const Navbar: React.FC<NavbarProps> = ({
   cartCount,
   onOpenCart,
@@ -31,7 +52,67 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   return (
     <header className="sticky top-0 z-40 bg-[#FAF7F2]/95 backdrop-blur-md border-b border-[#E8DFD1] shadow-xs transition-all">
-      {/* Top announcement bar with 'التوصيل غير مشمول' */}
+      {/* 1. Modern Social Media Ribbon in Header */}
+      <div className="bg-[#1F1714] text-[#FAF7F2] border-b border-[#362720] py-1.5 px-4 sm:px-6 lg:px-8 text-xs select-none">
+        <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-y-1.5 gap-x-4">
+          {/* Label */}
+          <div className="flex items-center gap-2 shrink-0 text-[11px] font-bold text-[#D6C7B7]">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#C89B3C] animate-pulse" />
+            <span>حسابات سيلبر الرسمية:</span>
+          </div>
+
+          {/* Social Links with Icons & URLs */}
+          <div className="flex items-center gap-2 sm:gap-4 overflow-x-auto no-scrollbar py-0.5" dir="ltr">
+            {/* Facebook */}
+            <a
+              href="https://facebook.com/celebre.catering"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-white/5 hover:bg-[#1877F2]/20 border border-white/10 hover:border-[#1877F2]/50 text-[#FAF7F2] hover:text-[#5890FF] transition-all text-[11px] sm:text-xs font-mono group whitespace-nowrap shadow-2xs"
+              title="صفحة سيلبر على فيسبوك: facebook.com/celebre.catering"
+            >
+              <span className="w-4 h-4 rounded-sm bg-[#1877F2] text-white flex items-center justify-center shrink-0 shadow-xs">
+                <FacebookIcon className="w-2.5 h-2.5 fill-current" />
+              </span>
+              <span className="group-hover:underline">facebook.com/celebre.catering</span>
+            </a>
+
+            <span className="text-white/20 select-none hidden md:inline">•</span>
+
+            {/* TikTok */}
+            <a
+              href="https://www.tiktok.com/@celebre.catering"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-white/5 hover:bg-black/40 border border-white/10 hover:border-[#EE1D52]/50 text-[#FAF7F2] hover:text-[#FF3B5C] transition-all text-[11px] sm:text-xs font-mono group whitespace-nowrap shadow-2xs"
+              title="حساب سيلبر على تيك توك: tiktok.com/@celebre.catering"
+            >
+              <span className="w-4 h-4 rounded-sm bg-black text-white flex items-center justify-center shrink-0 shadow-xs">
+                <TikTokIcon className="w-2.5 h-2.5 fill-current" />
+              </span>
+              <span className="group-hover:underline">tiktok.com/@celebre.catering</span>
+            </a>
+
+            <span className="text-white/20 select-none hidden md:inline">•</span>
+
+            {/* Instagram */}
+            <a
+              href="https://instagram.com/celebre.catering"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-white/5 hover:bg-[#E4405F]/20 border border-white/10 hover:border-[#E4405F]/50 text-[#FAF7F2] hover:text-[#FF6584] transition-all text-[11px] sm:text-xs font-mono group whitespace-nowrap shadow-2xs"
+              title="حساب سيلبر على انستجرام: instagram.com/@celebre.catering"
+            >
+              <span className="w-4 h-4 rounded-sm bg-gradient-to-tr from-[#F58529] via-[#DD2A7B] to-[#8134AF] text-white flex items-center justify-center shrink-0 shadow-xs">
+                <InstagramIcon className="w-2.5 h-2.5" />
+              </span>
+              <span className="group-hover:underline">instagram.com/@celebre.catering</span>
+            </a>
+          </div>
+        </div>
+      </div>
+
+      {/* 2. Top announcement bar with 'التوصيل غير مشمول' */}
       <div className="bg-gradient-to-r from-[#5C1027] via-[#721832] to-[#5C1027] text-white py-1.5 px-4 sm:px-6 lg:px-8 text-xs sm:text-sm font-medium">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 flex-wrap">
@@ -310,6 +391,59 @@ export const Navbar: React.FC<NavbarProps> = ({
               <Phone className="w-4 h-4 text-[#C89B3C]" />
               <span>اتصال مباشر</span>
             </a>
+          </div>
+
+          {/* Official Social Media Channels in Mobile Menu */}
+          <div className="pt-2 border-t border-[#E8DFD1] space-y-1.5 text-right">
+            <span className="text-[11px] font-bold text-[#8C6D28] block px-1">
+              حسابات سيلبر الرسمية:
+            </span>
+            <div className="grid grid-cols-1 gap-1.5">
+              <a
+                href="https://facebook.com/celebre.catering"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-between p-2 rounded-xl bg-white border border-[#E8DFD1] hover:border-[#1877F2] text-xs font-bold text-[#221B17] transition-all group"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="w-6 h-6 rounded-lg bg-[#1877F2] text-white flex items-center justify-center shadow-xs">
+                    <FacebookIcon className="w-3.5 h-3.5 fill-current" />
+                  </span>
+                  <span>فيسبوك (Facebook)</span>
+                </div>
+                <span dir="ltr" className="text-[11px] font-mono text-[#7A6E65] group-hover:text-[#1877F2]">facebook.com/celebre.catering</span>
+              </a>
+
+              <a
+                href="https://www.tiktok.com/@celebre.catering"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-between p-2 rounded-xl bg-white border border-[#E8DFD1] hover:border-black text-xs font-bold text-[#221B17] transition-all group"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="w-6 h-6 rounded-lg bg-black text-white flex items-center justify-center shadow-xs">
+                    <TikTokIcon className="w-3.5 h-3.5 fill-current" />
+                  </span>
+                  <span>تيك توك (TikTok)</span>
+                </div>
+                <span dir="ltr" className="text-[11px] font-mono text-[#7A6E65] group-hover:text-black">tiktok.com/@celebre.catering</span>
+              </a>
+
+              <a
+                href="https://instagram.com/celebre.catering"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-between p-2 rounded-xl bg-white border border-[#E8DFD1] hover:border-[#E4405F] text-xs font-bold text-[#221B17] transition-all group"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="w-6 h-6 rounded-lg bg-gradient-to-tr from-[#F58529] via-[#DD2A7B] to-[#8134AF] text-white flex items-center justify-center shadow-xs">
+                    <InstagramIcon className="w-3.5 h-3.5" />
+                  </span>
+                  <span>انستجرام (Instagram)</span>
+                </div>
+                <span dir="ltr" className="text-[11px] font-mono text-[#7A6E65] group-hover:text-[#E4405F]">instagram.com/@celebre.catering</span>
+              </a>
+            </div>
           </div>
         </div>
       )}
