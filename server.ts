@@ -479,6 +479,14 @@ interface AdminCredentials {
   isCustomConfigured: boolean;
 }
 
+const DEFAULT_ADMIN_CREDENTIALS: AdminCredentials = {
+  username: "admin",
+  phone: "01284484868",
+  password: "admin",
+  name: "مدير النظام المعتمد",
+  isCustomConfigured: true
+};
+
 // Load persisted admin credentials from disk if present
 function loadAdminCredentials(): AdminCredentials {
   try {
@@ -486,28 +494,23 @@ function loadAdminCredentials(): AdminCredentials {
       const data = fs.readFileSync(ADMIN_CONFIG_FILE, "utf-8");
       const parsed = JSON.parse(data);
       if (parsed) {
-        adminCredentials = {
+        return {
           username: (parsed.username || "admin").trim(),
           phone: (parsed.phone || "01284484868").trim(),
           password: (parsed.password || "admin").trim(),
           name: parsed.name || "مدير النظام المعتمد",
           isCustomConfigured: true
         };
-        return adminCredentials;
       }
     }
   } catch (e) {
     console.error("Error reading admin credentials file:", e);
   }
-  adminCredentials = {
-    username: "admin",
-    phone: "01284484868",
-    password: "admin",
-    name: "مدير النظام المعتمد",
-    isCustomConfigured: true
-  };
-  return adminCredentials;
+  return { ...DEFAULT_ADMIN_CREDENTIALS };
 }
+
+// In-memory admin credentials store initialized from disk
+let adminCredentials: AdminCredentials = loadAdminCredentials();
 
 function saveAdminCredentials(creds: AdminCredentials) {
   try {
@@ -517,9 +520,6 @@ function saveAdminCredentials(creds: AdminCredentials) {
     console.error("Error saving admin credentials file:", e);
   }
 }
-
-// In-memory admin credentials store initialized from disk
-let adminCredentials: AdminCredentials = loadAdminCredentials();
 
 // Convert Arabic-Indic numbers to Western digits and normalize Egyptian/international phone numbers
 function normalizeDigits(str?: string): string {
