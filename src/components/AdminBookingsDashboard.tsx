@@ -55,18 +55,6 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
   const [adminPassword, setAdminPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
-  // Remember & Quick Change Password State
-  const [showRememberCard, setShowRememberCard] = useState(false);
-  const [rememberedPasswordInfo, setRememberedPasswordInfo] = useState<string | null>(null);
-  const [isLoadingRemember, setIsLoadingRemember] = useState(false);
-  const [showQuickChangeCard, setShowQuickChangeCard] = useState(false);
-  const [quickNewPassword, setQuickNewPassword] = useState("");
-  const [quickConfirmPassword, setQuickConfirmPassword] = useState("");
-  const [quickShowPass, setQuickShowPass] = useState(false);
-  const [isSavingQuickPassword, setIsSavingQuickPassword] = useState(false);
-  const [quickChangeError, setQuickChangeError] = useState("");
-  const [quickChangeSuccess, setQuickChangeSuccess] = useState("");
-
   // Forgot Password Recovery State (استعادة كلمة السر عبر هاتف المشروع 01284484868)
   const [isForgotPasswordView, setIsForgotPasswordView] = useState(false);
   const [forgotRecoveryPhone, setForgotRecoveryPhone] = useState("01284484868");
@@ -91,7 +79,10 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
     } catch {}
     return {
       "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {})
+      ...(token ? { 
+        Authorization: `Bearer ${token}`,
+        "x-admin-token": token 
+      } : {})
     };
   };
 
@@ -135,21 +126,34 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
   // Check auth status from server on mount/open
   const checkAuthStatus = async () => {
     try {
-      const res = await fetch("/api/admin/auth/status");
+      const res = await fetch("/api/admin/auth/status", {
+        headers: getAuthHeaders()
+      });
       if (res.ok) {
         const data = await res.json();
-        if (data.success && data.registeredPhone) {
+        if (data.registeredPhone) {
           setRegisteredPhone(data.registeredPhone);
           localStorage.setItem("celebre_admin_custom_phone", data.registeredPhone);
-          return;
+        }
+        if (data.isAuthenticated) {
+          setIsAuthenticated(true);
+          localStorage.setItem(AUTH_KEY, "true");
+        } else {
+          // If server says token expired/invalid, clear local token
+          const existingToken = localStorage.getItem("celebre_admin_token");
+          if (existingToken) {
+            setIsAuthenticated(false);
+            localStorage.removeItem(AUTH_KEY);
+            localStorage.removeItem("celebre_admin_token");
+          }
         }
       }
-    } catch (e) {
-      // Fallback for external domain or offline: read cached custom phone
-    }
-    const savedPhone = localStorage.getItem("celebre_admin_custom_phone");
-    if (savedPhone) {
-      setRegisteredPhone(savedPhone);
+    } catch {
+      // Fallback for offline or connection glitch
+      const savedPhone = localStorage.getItem("celebre_admin_custom_phone");
+      if (savedPhone) {
+        setRegisteredPhone(savedPhone);
+      }
     }
   };
 
@@ -425,84 +429,14 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
 
   if (!isOpen) return null;
 
-  // 0a. Remember Password Helper
-  const handleRememberPassword = async () => {
-    setIsLoadingRemember(true);
-    setLoginError("");
-    try {
-      const res = await fetch("/api/admin/auth/remember-password");
-      const data = await res.json();
-      if (data.success && data.currentPassword) {
-        setRememberedPasswordInfo(data.currentPassword);
-        setShowRememberCard(true);
-        setAdminUsername(data.username || "admin");
-        setAdminPassword(data.currentPassword);
-        setLoginNotice(`تم استرجاع كلمة سر الأدمن المسجلة بنجاح: "${data.currentPassword}" وتم تعبئتها جاهزة للدخول! 🔑`);
-      } else {
-        setLoginError("تعذر تذكّر كلمة السر المسجلة حالياً.");
-      }
-    } catch {
-      setLoginError("حدث خطأ في الاتصال بالخادم أثناء استرجاع كلمة السر.");
-    } finally {
-      setIsLoadingRemember(false);
-    }
-  };
-
-  // 0b. Quick Change Password Helper
-  const handleQuickChangePassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setQuickChangeError("");
-    setQuickChangeSuccess("");
-
-    const cleanNew = quickNewPassword.trim();
-    const cleanConfirm = quickConfirmPassword.trim();
-
-    if (!cleanNew || cleanNew.length < 3) {
-      setQuickChangeError("كلمة السر الجديدة يجب ألا تقل عن 3 خانات.");
-      return;
-    }
-    if (cleanNew !== cleanConfirm) {
-      setQuickChangeError("كلمة السر وتأكيدها غير متطابقين.");
-      return;
-    }
-
-    setIsSavingQuickPassword(true);
-    try {
-      const res = await fetch("/api/admin/auth/change-password-direct", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ newPassword: cleanNew })
-      });
-      const data = await res.json();
-      if (data.success) {
-        setQuickChangeSuccess(data.message || "تم تغيير كلمة السر بنجاح!");
-        setAdminPassword(cleanNew);
-        setAdminUsername("admin");
-        setRememberedPasswordInfo(cleanNew);
-        setTimeout(() => {
-          setShowQuickChangeCard(false);
-          setQuickNewPassword("");
-          setQuickConfirmPassword("");
-          setLoginNotice(`تم تغيير كلمة سر الأدمن وتثبيتها بنجاح إلى "${cleanNew}" وتمت تعبئتها! 🔒`);
-        }, 1200);
-      } else {
-        setQuickChangeError(data.message || "فشل تغيير كلمة السر.");
-      }
-    } catch {
-      setQuickChangeError("حدث خطأ في الاتصال بالخادم أثناء تغيير كلمة السر.");
-    } finally {
-      setIsSavingQuickPassword(false);
-    }
-  };
-
-  // 0c. Direct Instant Login with Verified Password (bypass WhatsApp OTP delivery issues)
-  const handleDirectLogin = async (e?: React.FormEvent) => {
+  // 1. Submit Credentials & Authenticate Admin
+  const handleLogin = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     const cleanUser = adminUsername.trim();
     const cleanPass = adminPassword.trim();
 
     if (!cleanUser || !cleanPass) {
-      setLoginError("يرجى إدخال اسم مستخدم الأدمن وكلمة السر المسجلة.");
+      setLoginError("يرجى إدخال اسم مستخدم الأدمن وكلمة السر المعتمدة.");
       return;
     }
 
@@ -516,8 +450,7 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           username: cleanUser,
-          password: cleanPass,
-          directLogin: true
+          password: cleanPass
         })
       });
       const data = await res.json();
@@ -530,7 +463,7 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
         showNotice("تم تسجيل دخول الأدمن المعتمد بنجاح وتأمين لوحة الإدارة 🔓");
         fetchBookings(true);
       } else {
-        setLoginError(data.message || "كلمة السر غير صحيحة. يمكنك الضغط على 'تذكّر كلمة السر' أو 'تغيير كلمة السر' بالأسفل.");
+        setLoginError(data.message || "اسم المستخدم أو كلمة السر غير صحيحة.");
       }
     } catch {
       setLoginError("حدث خطأ في الاتصال بالخادم أثناء تسجيل الدخول.");
@@ -1470,31 +1403,22 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
                       </a>
                     )}
 
-                    {forgotCodePreview && (
-                      <button
-                        type="button"
-                        onClick={() => setForgotOtpInput(forgotCodePreview)}
-                        className="w-full py-1.5 px-3 bg-amber-50 hover:bg-amber-100 border border-amber-300 rounded-xl text-[11px] font-bold text-amber-900 flex items-center justify-center gap-1.5 cursor-pointer"
-                      >
-                        <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-                        <span>رمز الاستعادة الصادر: <strong className="font-mono text-sm text-[#5C1027]">{forgotCodePreview}</strong> (اضغط للتعبئة)</span>
-                      </button>
-                    )}
-
                     <div>
                       <label className="block text-xs font-bold text-[#4A3E38] mb-1">
-                        رمز التحقق المستلم على الواتساب: *
+                        رمز التحقق المستلم أو مفتاح الأمان الإداري: *
                       </label>
                       <input
                         type="text"
                         dir="ltr"
-                        maxLength={6}
                         value={forgotOtpInput}
-                        onChange={(e) => setForgotOtpInput(e.target.value.replace(/[^0-9]/g, ""))}
-                        placeholder="6 أرقام"
+                        onChange={(e) => setForgotOtpInput(e.target.value)}
+                        placeholder="أدخل رمز التحقق (OTP) أو مفتاح أمان المشروع"
                         required
-                        className="w-full px-3 py-2.5 bg-[#FAF7F2] border-2 border-[#C89B3C]/50 rounded-xl text-center text-lg font-mono font-black text-[#5C1027] tracking-widest focus:outline-hidden focus:border-[#5C1027]"
+                        className="w-full px-3 py-2.5 bg-[#FAF7F2] border-2 border-[#C89B3C]/50 rounded-xl text-center text-sm font-mono font-bold text-[#5C1027] focus:outline-hidden focus:border-[#5C1027]"
                       />
+                      <span className="text-[10px] text-[#7A6E65] mt-1 block">
+                        يمكن استخدام رمز OTP المستلم على واتساب هاتف الإدارة (01284484868) أو مفتاح الأمان الإداري.
+                      </span>
                     </div>
 
                     <div>
@@ -1508,7 +1432,7 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
                           dir="ltr"
                           value={forgotNewPassword}
                           onChange={(e) => setForgotNewPassword(e.target.value)}
-                          placeholder="كلمة السر الجديدة"
+                          placeholder="أدخل كلمة السر الجديدة (3 خانات فأكثر)"
                           required
                           className="w-full pr-10 pl-10 py-2.5 bg-[#FAF7F2] border-2 border-[#C89B3C]/50 rounded-xl text-xs font-bold text-[#221B17] focus:outline-hidden focus:border-[#5C1027]"
                         />
@@ -1531,7 +1455,7 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
                         dir="ltr"
                         value={forgotConfirmPassword}
                         onChange={(e) => setForgotConfirmPassword(e.target.value)}
-                        placeholder="أعد إدخال كلمة السر الجديدة"
+                        placeholder="أعد إدخال كلمة السر الجديدة للتأكيد"
                         required
                         className="w-full px-3 py-2.5 bg-[#FAF7F2] border-2 border-[#C89B3C]/50 rounded-xl text-xs font-bold text-[#221B17] focus:outline-hidden focus:border-[#5C1027]"
                       />
@@ -1549,154 +1473,27 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
                 )}
               </div>
             ) : !otpRequested ? (
-              /* VIEW 2: STEP 1 - STRICT CREDENTIALS VERIFICATION + REMEMBER & CHANGE PASSWORD CAPABILITIES */
-              <div className="w-full space-y-3.5 text-right animate-fadeIn">
-                {/* Remember & Change Password Tools Card */}
-                <div className="bg-[#FAF7F2] border border-[#C89B3C]/40 rounded-2xl p-3 space-y-2">
-                  <div className="flex items-center justify-between text-xs font-bold text-[#5C1027]">
-                    <div className="flex items-center gap-1.5">
-                      <Sparkles className="w-4 h-4 text-[#C89B3C]" />
-                      <span>تذكّر أو تغيير كلمة سر الأدمن:</span>
+              /* VIEW 2: STEP 1 - SECURE ADMIN LOGIN FORM */
+              <div className="w-full space-y-4 text-right animate-fadeIn">
+                <form onSubmit={handleLogin} className="space-y-4">
+                  <div className="bg-[#FAF7F2] border border-[#E8DFD1] p-3 rounded-2xl flex items-center justify-between text-xs text-[#5C1027] font-bold">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-lg bg-[#5C1027] text-white flex items-center justify-center text-xs font-black">
+                        <Lock className="w-3.5 h-3.5 text-[#C89B3C]" />
+                      </div>
+                      <span>تسجيل دخول لوحة الإدارة والحجوزات</span>
                     </div>
-                    <span className="text-[10px] text-[#7A6E65] bg-white px-2 py-0.5 rounded-md border border-[#E8DFD1]">
-                      مساعدة الدخول
+                    <span className="text-[10px] bg-emerald-100 text-emerald-800 px-2.5 py-0.5 rounded-full font-bold">
+                      وصول آمن ومشفّر 🔒
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
-                    <button
-                      type="button"
-                      onClick={handleRememberPassword}
-                      disabled={isLoadingRemember}
-                      className="w-full py-2 px-3 bg-amber-50 hover:bg-amber-100 border border-amber-300 rounded-xl text-xs font-bold text-amber-900 flex items-center justify-center gap-1.5 cursor-pointer transition-all active:scale-98 shadow-2xs disabled:opacity-50"
-                      title="عرض كلمة السر المسجلة حالياً وتعبئتها"
-                    >
-                      <KeyRound className="w-3.5 h-3.5 text-amber-700" />
-                      <span>{isLoadingRemember ? "جاري الاسترجاع..." : "تذكّر كلمة السر المسجلة 🔑"}</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowQuickChangeCard(!showQuickChangeCard);
-                        setQuickChangeError("");
-                        setQuickChangeSuccess("");
-                      }}
-                      className="w-full py-2 px-3 bg-white hover:bg-[#FAF7F2] border border-[#C89B3C] rounded-xl text-xs font-bold text-[#5C1027] flex items-center justify-center gap-1.5 cursor-pointer transition-all active:scale-98 shadow-2xs"
-                      title="تغيير وتثبيت كلمة سر جديدة فوراً"
-                    >
-                      <ShieldCheck className="w-3.5 h-3.5 text-[#C89B3C]" />
-                      <span>تغيير كلمة السر فوراً ✏️</span>
-                    </button>
-                  </div>
-
-                  {/* 1. Remember Password Revealed Box */}
-                  {showRememberCard && (
-                    <div className="p-3 bg-white border-2 border-amber-400 rounded-xl text-xs space-y-1.5 shadow-xs animate-fadeIn mt-2">
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-stone-800">كلمة السر المسجلة الحالية:</span>
-                        <span dir="ltr" className="font-mono text-sm font-black text-[#5C1027] bg-amber-50 px-2.5 py-0.5 rounded-lg border border-amber-300 select-all">
-                          {rememberedPasswordInfo || "010973@Mahmoud"}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between text-[11px] text-stone-600 pt-1 border-t border-amber-100">
-                        <span>اسم المستخدم المعتمد: <strong className="font-mono text-[#5C1027]">admin</strong></span>
-                        <span className="text-emerald-700 font-bold">✓ تمت تعبئة الحقول جاهزة للدخول</span>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* 2. Quick Change Password Inline Box */}
-                  {showQuickChangeCard && (
-                    <form onSubmit={handleQuickChangePassword} className="p-3 bg-white border-2 border-[#5C1027]/30 rounded-xl text-xs space-y-2.5 shadow-xs animate-fadeIn mt-2">
-                      <div className="flex items-center justify-between font-bold text-[#5C1027] pb-1 border-b border-stone-200">
-                        <span className="flex items-center gap-1.5">
-                          <Lock className="w-3.5 h-3.5 text-[#C89B3C]" />
-                          <span>تعيين وتثبيت كلمة سر جديدة للأدمن</span>
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => setShowQuickChangeCard(false)}
-                          className="text-stone-400 hover:text-stone-700 text-xs cursor-pointer"
-                        >
-                          إغلاق ✕
-                        </button>
-                      </div>
-
-                      {quickChangeError && (
-                        <div className="p-2 bg-red-50 text-red-700 text-[11px] rounded-lg border border-red-200">
-                          {quickChangeError}
-                        </div>
-                      )}
-                      {quickChangeSuccess && (
-                        <div className="p-2 bg-emerald-50 text-emerald-800 text-[11px] rounded-lg border border-emerald-200 font-bold">
-                          {quickChangeSuccess}
-                        </div>
-                      )}
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                        <div>
-                          <label className="block text-[11px] font-bold text-[#4A3E38] mb-0.5">كلمة السر الجديدة: *</label>
-                          <input
-                            type={quickShowPass ? "text" : "password"}
-                            dir="ltr"
-                            value={quickNewPassword}
-                            onChange={(e) => setQuickNewPassword(e.target.value)}
-                            placeholder="مثال: admin أو كلمة جديدة"
-                            required
-                            className="w-full px-2.5 py-1.5 bg-[#FAF7F2] border border-[#C89B3C]/50 rounded-lg font-mono text-xs focus:outline-hidden focus:border-[#5C1027]"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[11px] font-bold text-[#4A3E38] mb-0.5">تأكيد كلمة السر: *</label>
-                          <input
-                            type={quickShowPass ? "text" : "password"}
-                            dir="ltr"
-                            value={quickConfirmPassword}
-                            onChange={(e) => setQuickConfirmPassword(e.target.value)}
-                            placeholder="أعد إدخال كلمة السر"
-                            required
-                            className="w-full px-2.5 py-1.5 bg-[#FAF7F2] border border-[#C89B3C]/50 rounded-lg font-mono text-xs focus:outline-hidden focus:border-[#5C1027]"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="flex items-center justify-between pt-1">
-                        <button
-                          type="button"
-                          onClick={() => setQuickShowPass(!quickShowPass)}
-                          className="text-[11px] text-[#7A6E65] hover:text-[#5C1027] font-semibold cursor-pointer"
-                        >
-                          {quickShowPass ? "إخفاء" : "إظهار كلمة السر"}
-                        </button>
-                        <button
-                          type="submit"
-                          disabled={isSavingQuickPassword}
-                          className="px-4 py-2 bg-[#5C1027] hover:bg-[#721832] text-white rounded-xl text-xs font-bold shadow-md cursor-pointer transition-all active:scale-98 disabled:opacity-50"
-                        >
-                          {isSavingQuickPassword ? "جاري الحفظ والتثبيت..." : "تثبيت كلمة السر الجديدة 🔒"}
-                        </button>
-                      </div>
-                    </form>
-                  )}
-                </div>
-
-                {/* Main Login Form */}
-                <form onSubmit={handleDirectLogin} className="space-y-3.5">
-                  <div className="bg-[#FAF7F2]/80 border border-[#E8DFD1] p-2.5 rounded-xl flex items-center justify-between text-xs text-[#5C1027] font-bold">
-                    <div className="flex items-center gap-1.5">
-                      <span className="w-5 h-5 rounded-full bg-[#5C1027] text-white flex items-center justify-center text-[10px] font-black">1</span>
-                      <span>بيانات تسجيل الدخول للوحة الإدارة</span>
-                    </div>
-                    <span className="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-md font-bold">دخول مباشر أو 2FA</span>
-                  </div>
-
                   <div>
-                    <label className="block text-xs font-bold text-[#4A3E38] mb-1">
+                    <label className="block text-xs font-bold text-[#4A3E38] mb-1.5">
                       اسم مستخدم الأدمن أو رقم الهاتف: *
                     </label>
                     <div className="relative">
-                      <User className="absolute right-3 top-3 w-4 h-4 text-[#7A6E65]" />
+                      <User className="absolute right-3.5 top-3.5 w-4 h-4 text-[#7A6E65]" />
                       <input
                         type="text"
                         dir="ltr"
@@ -1705,18 +1502,18 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
                         placeholder="admin أو 01284484868"
                         required
                         autoComplete="username"
-                        className="w-full pr-10 pl-3 py-2.5 bg-[#FAF7F2] border-2 border-[#C89B3C]/50 rounded-xl text-sm font-bold text-[#221B17] font-mono focus:outline-hidden focus:border-[#5C1027]"
+                        className="w-full pr-10 pl-3 py-3 bg-[#FAF7F2] border-2 border-[#C89B3C]/50 rounded-2xl text-sm font-bold text-[#221B17] font-mono focus:outline-hidden focus:border-[#5C1027] transition-colors"
                       />
                     </div>
-                    <span className="text-[10px] text-[#7A6E65] mt-0.5 block">
-                      اسم المستخدم: <strong className="font-mono text-[#5C1027]">admin</strong> أو الهاتف: <strong className="font-mono text-[#5C1027]">01284484868</strong>
+                    <span className="text-[10px] text-[#7A6E65] mt-1 block">
+                      اسم المستخدم المعتمد: <strong className="font-mono text-[#5C1027]">admin</strong> أو هاتف الإدارة: <strong className="font-mono text-[#5C1027]">01284484868</strong>
                     </span>
                   </div>
 
                   <div>
-                    <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center justify-between mb-1.5">
                       <label className="block text-xs font-bold text-[#4A3E38]">
-                        كلمة سر الأدمن المسجلة: *
+                        كلمة سر الأدمن: *
                       </label>
                       <button
                         type="button"
@@ -1734,42 +1531,40 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
                       </button>
                     </div>
                     <div className="relative">
-                      <Lock className="absolute right-3 top-3 w-4 h-4 text-[#7A6E65]" />
+                      <Lock className="absolute right-3.5 top-3.5 w-4 h-4 text-[#7A6E65]" />
                       <input
                         type={showPassword ? "text" : "password"}
                         dir="ltr"
                         value={adminPassword}
                         onChange={(e) => setAdminPassword(e.target.value)}
-                        placeholder="أدخل كلمة سر الأدمن"
+                        placeholder="أدخل كلمة سر الأدمن المعتمدة"
                         required
                         autoComplete="current-password"
-                        className="w-full pr-10 pl-10 py-2.5 bg-[#FAF7F2] border-2 border-[#C89B3C]/50 rounded-xl text-sm font-bold text-[#221B17] font-mono focus:outline-hidden focus:border-[#5C1027]"
+                        className="w-full pr-10 pl-12 py-3 bg-[#FAF7F2] border-2 border-[#C89B3C]/50 rounded-2xl text-sm font-bold text-[#221B17] font-mono focus:outline-hidden focus:border-[#5C1027] transition-colors"
                       />
                       <button
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
-                        className="absolute left-3 top-3 text-[11px] text-[#7A6E65] hover:text-[#5C1027] font-bold cursor-pointer"
+                        className="absolute left-3.5 top-3.5 text-xs text-[#7A6E65] hover:text-[#5C1027] font-bold cursor-pointer"
                       >
                         {showPassword ? "إخفاء" : "إظهار"}
                       </button>
                     </div>
                   </div>
 
-                  {/* Two Action Buttons: Direct Login & 2FA OTP */}
-                  <div className="space-y-2 pt-1">
-                    {/* Primary Button: Direct Instant Login */}
+                  {/* Submit Button */}
+                  <div className="space-y-2 pt-2">
                     <button
                       type="submit"
                       disabled={isLoggingIn}
-                      className="w-full py-3.5 px-4 bg-gradient-to-r from-[#5C1027] via-[#721832] to-[#5C1027] hover:brightness-110 text-white rounded-2xl font-black text-sm shadow-lg border-2 border-[#C89B3C] flex items-center justify-center gap-2.5 cursor-pointer transition-all active:scale-98 disabled:opacity-50"
+                      className="w-full py-3.5 px-4 bg-gradient-to-r from-[#5C1027] via-[#721832] to-[#5C1027] hover:brightness-110 text-white rounded-2xl font-black text-sm sm:text-base shadow-lg border-2 border-[#C89B3C] flex items-center justify-center gap-2.5 cursor-pointer transition-all active:scale-98 disabled:opacity-50"
                     >
                       <ShieldCheck className={`w-5 h-5 text-[#C89B3C] ${isLoggingIn ? "animate-spin" : ""}`} />
                       <span>
-                        {isLoggingIn ? "جاري الدخول وتأمين اللوحة..." : "تسجيل الدخول المباشر بكلمة السر 🔓"}
+                        {isLoggingIn ? "جاري الدخول وتأمين لوحة الإدارة..." : "تسجيل الدخول إلى لوحة الإدارة 🔓"}
                       </span>
                     </button>
 
-                    {/* Secondary Button: 2FA WhatsApp OTP Login */}
                     <button
                       type="button"
                       onClick={() => handleRequestOtp()}
@@ -1778,13 +1573,21 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
                     >
                       <MessageCircle className="w-4 h-4 text-[#25D366]" />
                       <span>
-                        {isRequestingOtp ? "جاري إرسال الرمز..." : "أو الدخول عبر التحقق الثنائي لواتساب (OTP) 📱"}
+                        {isRequestingOtp ? "جاري إرسال الرمز..." : "الدخول عبر التحقق الثنائي لواتساب (OTP) 📱"}
                       </span>
                     </button>
                   </div>
 
-                  <div className="p-2.5 bg-amber-50/70 border border-amber-200/80 rounded-xl text-right text-[11px] text-amber-900 leading-relaxed">
-                    💡 <strong>ملاحظة للمتصفح الخارجي:</strong> يمكنك الدخول فوراً بالزر الذهبي المباشر بكلمة السر، أو استخدام زر "تذكّر كلمة السر" بالأعلى لعرض كلمة السر المسجلة وتعبئتها بنقرة واحدة.
+                  <div className="p-3 bg-amber-50/80 border border-amber-200/90 rounded-2xl text-right text-[11px] text-amber-900 leading-relaxed space-y-1">
+                    <div className="font-bold flex items-center gap-1.5 text-amber-950">
+                      <span>🛡️ معلومات حماية حساب الإدارة:</span>
+                    </div>
+                    <p>
+                      • يتم حفظ جلسة الأدمن لمدة 30 يوماً على متصفحك بشكل آمن، لضمان استمرار الدخول التلقائي دون الحاجة لكتابة كلمة السر في كل زيارة.
+                    </p>
+                    <p>
+                      • بعد تسجيل الدخول، يمكنك تغيير وتعيين كلمة سر جديدة في أي وقت من زر <strong>(أمان الحساب)</strong> في شريط اللوحة العلوي.
+                    </p>
                   </div>
                 </form>
               </div>
