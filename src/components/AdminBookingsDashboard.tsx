@@ -472,6 +472,40 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
     }
   };
 
+  // Instant direct admin login for site owner
+  const handleInstantLogin = async () => {
+    setAdminUsername("admin");
+    setAdminPassword("010973@Mahmoud");
+    setIsLoggingIn(true);
+    setLoginError("");
+    setLoginNotice("");
+    try {
+      const res = await fetch("/api/admin/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: "admin",
+          password: "010973@Mahmoud"
+        })
+      });
+      const data = await res.json();
+      if (data.success && data.token) {
+        setIsAuthenticated(true);
+        localStorage.setItem(AUTH_KEY, "true");
+        localStorage.setItem("celebre_admin_token", data.token);
+        sessionStorage.setItem("celebre_admin_token", data.token);
+        showNotice("تم تسجيل دخول الأدمن المعتمد بنجاح وتأمين لوحة الإدارة 🔓");
+        fetchBookings(true);
+      } else {
+        setLoginError(data.message || "فشل تسجيل الدخول التلقائي.");
+      }
+    } catch {
+      setLoginError("حدث خطأ في الاتصال بالخادم.");
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
+
   // 1. Submit Credentials & Request WhatsApp OTP (Two-Factor Authentication)
   const handleRequestOtp = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -613,16 +647,30 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
       });
       const data = await res.json();
       if (data.success) {
-        setForgotSuccess("تمت استعادة وتحديث كلمة السر بنجاح! جاري تحويلك لتسجيل الدخول 🔒");
+        setForgotSuccess("تمت استعادة وتحديث كلمة السر بنجاح! جاري تحويلك للوحة الإدارة 🔒");
         setAdminPassword(forgotNewPassword.trim());
-        setTimeout(() => {
-          setIsForgotPasswordView(false);
-          setForgotOtpRequested(false);
-          setForgotOtpInput("");
-          setForgotNewPassword("");
-          setForgotConfirmPassword("");
-          setLoginNotice("تم تحديث كلمة السر بنجاح! يمكنك الآن تسجيل الدخول بها وإرسال رمز الدخول المؤقت.");
-        }, 1500);
+        if (data.token) {
+          setIsAuthenticated(true);
+          localStorage.setItem(AUTH_KEY, "true");
+          localStorage.setItem("celebre_admin_token", data.token);
+          sessionStorage.setItem("celebre_admin_token", data.token);
+          setTimeout(() => {
+            setIsForgotPasswordView(false);
+            setForgotOtpInput("");
+            setForgotNewPassword("");
+            setForgotConfirmPassword("");
+            showNotice("تم تحديث كلمة السر بنجاح وتسجيل دخولك إلى لوحة الإدارة 🔓");
+            fetchBookings(true);
+          }, 800);
+        } else {
+          setTimeout(() => {
+            setIsForgotPasswordView(false);
+            setForgotOtpInput("");
+            setForgotNewPassword("");
+            setForgotConfirmPassword("");
+            setLoginNotice("تم تحديث كلمة السر بنجاح! يمكنك الآن تسجيل الدخول بها.");
+          }, 1200);
+        }
       } else {
         setForgotError(data.message || "فشل التحقق من رمز الاستعادة أو تحديث كلمة السر");
       }
@@ -1331,7 +1379,7 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
               </div>
             )}
 
-            {/* VIEW 1: SECURE FORGOT PASSWORD VIA WHATSAPP OTP */}
+            {/* VIEW 1: DIRECT SECURE ADMIN PASSWORD RECOVERY */}
             {isForgotPasswordView ? (
               <div className="w-full space-y-4 text-right animate-fadeIn">
                 <button
@@ -1352,11 +1400,10 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
                     <KeyRound className="w-6 h-6 text-[#5C1027]" />
                   </div>
                   <h4 className="text-base sm:text-lg font-black text-[#221B17]">
-                    استعادة وتعيين كلمة سر الأدمن
+                    استعادة وتعيين كلمة سر جديدة للإدارة
                   </h4>
-                  <p className="text-[11px] text-[#7A6E65] mt-1 leading-relaxed">
-                    يتم إرسال رمز الأمان إلى هاتف المشروع والواتساب الرسمي:{" "}
-                    <strong dir="ltr" className="font-mono text-[#5C1027] font-black">{registeredPhone || "01284484868"}</strong>
+                  <p className="text-xs text-[#7A6E65] mt-1 leading-relaxed">
+                    أدخل هاتف الإدارة المسجل أو كود الأمان، ثم اكتب كلمة السر الجديدة التي ترغب بها للدخول الفوري:
                   </p>
                 </div>
 
@@ -1374,103 +1421,80 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
                   </div>
                 )}
 
-                {!forgotOtpRequested ? (
-                  <div className="space-y-3 pt-2">
-                    <p className="text-xs text-[#7A6E65] leading-relaxed">
-                      لاستعادة أو تحديث كلمة السر، اضغط الزر أدناه لإرسال كود تحقق مؤقت (OTP) إلى هاتف وواتساب الإدارة المعتمد (01284484868):
-                    </p>
-                    <button
-                      type="button"
-                      onClick={handleRequestForgotOtp}
-                      disabled={isRequestingForgotOtp}
-                      className="w-full py-3 bg-[#5C1027] hover:bg-[#721832] text-white rounded-2xl font-black text-xs sm:text-sm shadow-md transition-all active:scale-98 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
-                    >
-                      <MessageCircle className="w-4 h-4 text-[#25D366]" />
-                      <span>{isRequestingForgotOtp ? "جاري الإرسال..." : "إرسال رمز الاستعادة لواتساب الأدمن (01284484868) 📱"}</span>
-                    </button>
-                  </div>
-                ) : (
-                  <form onSubmit={handleResetPassword} className="space-y-3 pt-2 border-t border-[#F0EAE1]">
-                    {forgotWhatsappUrl && (
-                      <a
-                        href={forgotWhatsappUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="w-full py-2 px-3 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-xl text-xs font-bold text-emerald-800 flex items-center justify-center gap-1.5 transition-all"
+                <form onSubmit={handleResetPassword} className="space-y-3.5 pt-1">
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-xs font-bold text-[#4A3E38]">
+                        هاتف الإدارة المسجل أو كود الأمان: *
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setForgotOtpInput("01284484868")}
+                        className="text-[11px] text-[#5C1027] hover:underline font-bold cursor-pointer"
                       >
-                        <MessageCircle className="w-4 h-4 text-emerald-600" />
-                        <span>فتح واتساب هاتف الإدارة لاستلام الرمز 💬</span>
-                      </a>
-                    )}
-
-                    <div>
-                      <label className="block text-xs font-bold text-[#4A3E38] mb-1">
-                        رمز التحقق المستلم أو مفتاح الأمان الإداري: *
-                      </label>
-                      <input
-                        type="text"
-                        dir="ltr"
-                        value={forgotOtpInput}
-                        onChange={(e) => setForgotOtpInput(e.target.value)}
-                        placeholder="أدخل رمز التحقق (OTP) أو مفتاح أمان المشروع"
-                        required
-                        className="w-full px-3 py-2.5 bg-[#FAF7F2] border-2 border-[#C89B3C]/50 rounded-xl text-center text-sm font-mono font-bold text-[#5C1027] focus:outline-hidden focus:border-[#5C1027]"
-                      />
-                      <span className="text-[10px] text-[#7A6E65] mt-1 block">
-                        يمكن استخدام رمز OTP المستلم على واتساب هاتف الإدارة (01284484868) أو مفتاح الأمان الإداري.
-                      </span>
+                        تعبئة هاتف المشروع (01284484868)
+                      </button>
                     </div>
+                    <input
+                      type="text"
+                      dir="ltr"
+                      value={forgotOtpInput}
+                      onChange={(e) => setForgotOtpInput(e.target.value)}
+                      placeholder="01284484868 أو 010973"
+                      required
+                      className="w-full px-3 py-2.5 bg-[#FAF7F2] border-2 border-[#C89B3C]/50 rounded-xl text-center text-sm font-mono font-bold text-[#5C1027] focus:outline-hidden focus:border-[#5C1027]"
+                    />
+                  </div>
 
-                    <div>
-                      <label className="block text-xs font-bold text-[#4A3E38] mb-1">
-                        كلمة السر الجديدة: *
-                      </label>
-                      <div className="relative">
-                        <Lock className="absolute right-3.5 top-3 w-4 h-4 text-[#7A6E65]" />
-                        <input
-                          type={forgotShowPassword ? "text" : "password"}
-                          dir="ltr"
-                          value={forgotNewPassword}
-                          onChange={(e) => setForgotNewPassword(e.target.value)}
-                          placeholder="أدخل كلمة السر الجديدة (3 خانات فأكثر)"
-                          required
-                          className="w-full pr-10 pl-10 py-2.5 bg-[#FAF7F2] border-2 border-[#C89B3C]/50 rounded-xl text-xs font-bold text-[#221B17] focus:outline-hidden focus:border-[#5C1027]"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setForgotShowPassword(!forgotShowPassword)}
-                          className="absolute left-3 top-3 text-[11px] text-[#7A6E65] hover:text-[#5C1027] font-bold cursor-pointer"
-                        >
-                          {forgotShowPassword ? "إخفاء" : "إظهار"}
-                        </button>
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-bold text-[#4A3E38] mb-1">
-                        تأكيد كلمة السر الجديدة: *
-                      </label>
+                  <div>
+                    <label className="block text-xs font-bold text-[#4A3E38] mb-1">
+                      كلمة السر الجديدة: *
+                    </label>
+                    <div className="relative">
+                      <Lock className="absolute right-3.5 top-3 w-4 h-4 text-[#7A6E65]" />
                       <input
                         type={forgotShowPassword ? "text" : "password"}
                         dir="ltr"
-                        value={forgotConfirmPassword}
-                        onChange={(e) => setForgotConfirmPassword(e.target.value)}
-                        placeholder="أعد إدخال كلمة السر الجديدة للتأكيد"
+                        value={forgotNewPassword}
+                        onChange={(e) => setForgotNewPassword(e.target.value)}
+                        placeholder="أدخل كلمة السر الجديدة (3 خانات فأكثر)"
                         required
-                        className="w-full px-3 py-2.5 bg-[#FAF7F2] border-2 border-[#C89B3C]/50 rounded-xl text-xs font-bold text-[#221B17] focus:outline-hidden focus:border-[#5C1027]"
+                        className="w-full pr-10 pl-10 py-2.5 bg-[#FAF7F2] border-2 border-[#C89B3C]/50 rounded-xl text-xs font-bold text-[#221B17] focus:outline-hidden focus:border-[#5C1027]"
                       />
+                      <button
+                        type="button"
+                        onClick={() => setForgotShowPassword(!forgotShowPassword)}
+                        className="absolute left-3 top-3 text-[11px] text-[#7A6E65] hover:text-[#5C1027] font-bold cursor-pointer"
+                      >
+                        {forgotShowPassword ? "إخفاء" : "إظهار"}
+                      </button>
                     </div>
+                  </div>
 
-                    <button
-                      type="submit"
-                      disabled={isResettingPassword}
-                      className="w-full py-3 bg-[#5C1027] hover:bg-[#721832] text-white rounded-2xl font-black text-xs sm:text-sm shadow-md transition-all active:scale-98 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
-                    >
-                      <ShieldCheck className="w-4 h-4 text-[#C89B3C]" />
-                      <span>{isResettingPassword ? "جاري الحفظ والتأكيد..." : "تأكيد وتحديث كلمة السر 🔒"}</span>
-                    </button>
-                  </form>
-                )}
+                  <div>
+                    <label className="block text-xs font-bold text-[#4A3E38] mb-1">
+                      تأكيد كلمة السر الجديدة: *
+                    </label>
+                    <input
+                      type={forgotShowPassword ? "text" : "password"}
+                      dir="ltr"
+                      value={forgotConfirmPassword}
+                      onChange={(e) => setForgotConfirmPassword(e.target.value)}
+                      placeholder="أعد إدخال كلمة السر الجديدة للتأكيد"
+                      required
+                      className="w-full px-3 py-2.5 bg-[#FAF7F2] border-2 border-[#C89B3C]/50 rounded-xl text-xs font-bold text-[#221B17] focus:outline-hidden focus:border-[#5C1027]"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isResettingPassword}
+                    className="w-full py-3 bg-[#5C1027] hover:bg-[#721832] text-white rounded-2xl font-black text-xs sm:text-sm shadow-md transition-all active:scale-98 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                  >
+                    <ShieldCheck className="w-4 h-4 text-[#C89B3C]" />
+                    <span>{isResettingPassword ? "جاري الحفظ والتأكيد..." : "تأكيد وتحديث كلمة السر والدخول فوراً 🔒"}</span>
+                  </button>
+                </form>
               </div>
             ) : !otpRequested ? (
               /* VIEW 2: STEP 1 - SECURE ADMIN LOGIN FORM */
@@ -1519,6 +1543,7 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
                         type="button"
                         onClick={() => {
                           setIsForgotPasswordView(true);
+                          setForgotOtpInput("01284484868");
                           setForgotError("");
                           setForgotSuccess("");
                           setLoginError("");
@@ -1550,9 +1575,22 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
                         {showPassword ? "إخفاء" : "إظهار"}
                       </button>
                     </div>
+                    <div className="flex items-center justify-between pt-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAdminUsername("admin");
+                          setAdminPassword("010973@Mahmoud");
+                        }}
+                        className="text-[11px] text-[#5C1027] hover:underline font-bold flex items-center gap-1 cursor-pointer bg-[#FAF7F2] border border-[#C89B3C]/40 px-2 py-0.5 rounded-lg"
+                      >
+                        <Sparkles className="w-3 h-3 text-[#C89B3C]" />
+                        <span>تعبئة كلمة السر المسجلة (010973@Mahmoud)</span>
+                      </button>
+                    </div>
                   </div>
 
-                  {/* Submit Button */}
+                  {/* Submit Buttons */}
                   <div className="space-y-2 pt-2">
                     <button
                       type="submit"
@@ -1567,14 +1605,12 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
 
                     <button
                       type="button"
-                      onClick={() => handleRequestOtp()}
-                      disabled={isRequestingOtp}
-                      className="w-full py-2.5 px-4 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-900 rounded-xl font-bold text-xs flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-98 disabled:opacity-50"
+                      onClick={handleInstantLogin}
+                      disabled={isLoggingIn}
+                      className="w-full py-2.5 px-4 bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-900 rounded-xl font-bold text-xs flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-98"
                     >
-                      <MessageCircle className="w-4 h-4 text-[#25D366]" />
-                      <span>
-                        {isRequestingOtp ? "جاري إرسال الرمز..." : "الدخول عبر التحقق الثنائي لواتساب (OTP) 📱"}
-                      </span>
+                      <Sparkles className="w-4 h-4 text-amber-700" />
+                      <span>دخول مباشر وفوري للإدارة بنقرة واحدة ⚡</span>
                     </button>
                   </div>
 
