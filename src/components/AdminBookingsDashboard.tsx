@@ -209,10 +209,12 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
           const clean = parsed.filter((b: any) => 
             b && 
             b.id && 
-            !b.id.startsWith("CEL-BK-20") && 
-            b.customerName !== "عميل كاترنج سيلبر" &&
-            !b.customerName?.includes("وهمي") &&
-            !b.customerName?.includes("تجريبي")
+            (b.id === "CEL-9386" || (
+              !b.id.startsWith("CEL-BK-20") && 
+              b.customerName !== "عميل كاترنج سيلبر" &&
+              !b.customerName?.includes("وهمي") &&
+              !b.customerName?.includes("تجريبي")
+            ))
           );
           if (clean.length > 0) {
             return clean;
@@ -332,10 +334,12 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
         const cleanBookings = data.bookings.filter((b: any) => 
           b && 
           b.id && 
-          !b.id.startsWith("CEL-BK-20") && 
-          b.customerName !== "عميل كاترنج سيلبر" &&
-          !b.customerName?.includes("وهمي") &&
-          !b.customerName?.includes("تجريبي")
+          (b.id === "CEL-9386" || (
+            !b.id.startsWith("CEL-BK-20") && 
+            b.customerName !== "عميل كاترنج سيلبر" &&
+            !b.customerName?.includes("وهمي") &&
+            !b.customerName?.includes("تجريبي")
+          ))
         );
         updateBookingsState(cleanBookings, false);
         setLastSyncedTime(new Date());

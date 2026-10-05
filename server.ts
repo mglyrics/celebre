@@ -6,6 +6,7 @@ import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
 import { generateWhatsAppAiReply, sendMetaWhatsAppMessage } from "./server/whatsappService";
+import { apiRouter } from "./src/server/apiRouter.ts";
 
 dotenv.config();
 
@@ -35,6 +36,9 @@ app.use((_req, res, next) => {
   res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
   next();
 });
+
+// Mount PostgreSQL-backed Core Enterprise API Router
+app.use('/api', apiRouter);
 
 // Persistent Admin Credentials, Sessions, and Audit Logs Files Path
 const ADMIN_CONFIG_FILE = path.resolve(process.cwd(), ".admin-credentials.json");

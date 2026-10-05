@@ -103,8 +103,51 @@ export const OrderModal: React.FC<OrderModalProps> = ({
       paymentMethod
     };
 
+    const firstItem = items[0];
+    const saleCode = firstItem?.package?.saleCode || "Sale-01";
+    let drinkOption: 'included' | 'exclude_juice' | 'replace_pepsi' = 'included';
+    if (firstItem?.selectedDrink === 'exclude_juice') {
+      drinkOption = 'exclude_juice';
+    } else if (firstItem?.selectedDrink === 'can_pepsi' || firstItem?.selectedDrink === 'can_cola') {
+      drinkOption = 'replace_pepsi';
+    }
+
+    let createdOrderNumber = `CB-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.floor(1000 + Math.random() * 9000)}`;
+    let targetWhatsappUrl = `https://wa.me/201284484868`;
+
+    try {
+      const response = await fetch("/api/public/bookings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customerName: fullName,
+          phone,
+          whatsapp: phone,
+          menuCode: saleCode,
+          quantity: totalBoxes,
+          pickupDate: eventDate,
+          pickupTime: eventTime,
+          pickupLocation: `${governorate} - ${address}`,
+          notes,
+          drinkOption,
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.order && data.order.orderNumber) {
+          createdOrderNumber = data.order.orderNumber;
+        }
+        if (data.whatsappLink) {
+          targetWhatsappUrl = data.whatsappLink;
+        }
+      }
+    } catch (e) {
+      console.warn("Public booking API call fallback:", e);
+    }
+
     const newOrder: Order = {
-      id: `CEL-${Math.floor(1000 + Math.random() * 9000)}`,
+      id: createdOrderNumber,
       customerInfo,
       items,
       totalBoxes,
@@ -116,7 +159,7 @@ export const OrderModal: React.FC<OrderModalProps> = ({
       createdAt: new Date().toISOString()
     };
 
-    // Save locally to browser as resilient backup
+    // Save locally as resilient backup
     try {
       const existing = JSON.parse(localStorage.getItem("celebre_customer_orders") || "[]");
       existing.unshift(newOrder);
@@ -126,74 +169,10 @@ export const OrderModal: React.FC<OrderModalProps> = ({
       console.warn("Local storage backup error:", err);
     }
 
-    // Save permanently to server database
+    // Open WhatsApp to coordinate with administration
     try {
-      await fetch("/api/orders", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: newOrder.id,
-          customerName: fullName,
-          phone,
-          occasion,
-          eventDate,
-          eventTime,
-          location: address,
-          governorate,
-          totalPrice,
-          totalBoxes,
-          depositPaid: 0,
-          remainingAmount: totalPrice,
-          shippingFee: 0,
-          paymentMethod,
-          notes,
-          packages: items.map(it => ({
-            id: it.package.id,
-            name: it.package.name,
-            packageCode: it.package.saleCode,
-            quantity: it.quantity,
-            pricePerUnit: it.package.pricePerBox,
-            selectedDrink: it.selectedDrink
-          }))
-        })
-      });
-    } catch (e) {
-      console.error("Order save error:", e);
-    }
-
-    // WhatsApp Direct Message Generation for management review
-    const packagesSummaryText = items.map((it, idx) => {
-      const drinkName = DRINK_MODIFICATION_OPTIONS.find(d => d.id === (it.selectedDrink || "default_juice"))?.label || "عصير بخيرة";
-      return `${idx + 1}. *${it.package.saleCode} - ${it.package.name}*:\n   - الكمية: ${it.quantity} وجبة\n   - المشروب: ${drinkName}\n   - الإجمالي: ${(it.quantity * it.package.pricePerBox).toLocaleString()} ج`;
-    }).join("\n");
-
-    const whatsappMessage = `*طلب حجز مبدئي لبدء عملية الحجز - كاترنج سيلبر 🌸*
-رقم الحجز: ${newOrder.id}
------------------------------
-📌 *نوع الطلب:* نموذج مبدئي لبدء عملية حجز العميل (دون رسوم مقدمة)
-*بيانات العميل:*
-- الاسم: ${fullName}
-- الهاتف: ${phone}
-- المناسبة: ${occasion}
-- تاريخ المناسبة: ${eventDate}
-- التوقيت: ${eventTime}
-- مكان الحفل / العنوان: ${address || "يتم التنسيق هاتفياً"}
-
-*تفاصيل الوجبات:*
-${packagesSummaryText}
-
-*الحساب المالي للحجز المبدئي:*
-- إجمالي عدد الوجبات: ${totalBoxes} علبة
-- إجمالي قيمة الوجبات: ${totalPrice.toLocaleString()} جنيه
-- مقدم الحجز المدفوع الآن: 0 جنيه (حجز مبدئي مجاني لبدء التنسيق)
-- مصاريف الشحن والتوصيل: (تعبأ وتحدد بواسطة أدمن الموقع عند المراجعة)
-- المبلغ المتبقي: كامل مبلغ الوجبات (${totalPrice.toLocaleString()} جنيه) + مصاريف الشحن
-- طريقة السداد المختارة لتسوية الحساب: ${paymentMethod === "instapay" ? "إنستاباي (InstaPay)" : paymentMethod === "vodafone_cash" ? "فودافون كاش" : "كاش عند الاستلام"}
-${notes ? `- ملاحظات العميل: ${notes}\n` : ""}-----------------------------
-⚠️ *ملاحظة:* تم حفظ هذا الحجز المبدئي بشكل دائم في قاعدة بيانات سيلبر برقم ${newOrder.id}. يتولى أدمن الموقع الوحيد استعراض الحجز وتأكيده وتحديد مصاريف الشحن. شكراً لاختياركم سيلبر! ✨`;
-
-    const encoded = encodeURIComponent(whatsappMessage);
-    window.open(`https://wa.me/201284484868?text=${encoded}`, "_blank");
+      window.open(targetWhatsappUrl, "_blank");
+    } catch {}
 
     onCompleteOrder(newOrder);
     onClose();
