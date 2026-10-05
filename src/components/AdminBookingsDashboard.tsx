@@ -51,7 +51,7 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
   const [loginError, setLoginError] = useState("");
   const [loginNotice, setLoginNotice] = useState("");
   const [isLoggingIn, setIsLoggingIn] = useState(false);
-  const [adminUsername, setAdminUsername] = useState("admin");
+  const [adminUsername, setAdminUsername] = useState("");
   const [adminPassword, setAdminPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
@@ -176,6 +176,28 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
   const [securityNotice, setSecurityNotice] = useState("");
   const [securityError, setSecurityError] = useState("");
   const [isSavingSecurity, setIsSavingSecurity] = useState(false);
+
+  // Security Audit Logs State
+  const [isAuditLogsOpen, setIsAuditLogsOpen] = useState(false);
+  const [auditLogs, setAuditLogs] = useState<any[]>([]);
+  const [isLoadingAuditLogs, setIsLoadingAuditLogs] = useState(false);
+
+  const fetchAuditLogs = async () => {
+    setIsLoadingAuditLogs(true);
+    try {
+      const res = await fetch("/api/admin/audit-logs", { headers: getAuthHeaders() });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.logs) {
+          setAuditLogs(data.logs);
+        }
+      }
+    } catch (e) {
+      console.error("Error fetching audit logs:", e);
+    } finally {
+      setIsLoadingAuditLogs(false);
+    }
+  };
 
   // Bookings Data State - Clean real database only (no mock or previous test data)
   const [bookings, setBookings] = useState<AdminBooking[]>(() => {
@@ -429,14 +451,14 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
 
   if (!isOpen) return null;
 
-  // 1. Submit Credentials & Authenticate Admin
+  // 1. Submit Credentials & Proceed to WhatsApp 2FA
   const handleLogin = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     const cleanUser = adminUsername.trim();
     const cleanPass = adminPassword.trim();
 
     if (!cleanUser || !cleanPass) {
-      setLoginError("يرجى إدخال اسم مستخدم الأدمن وكلمة السر المعتمدة.");
+      setLoginError("يرجى إدخال اسم مستخدم الأدمن وكلمة السر المسجلة.");
       return;
     }
 
@@ -455,12 +477,20 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
       });
       const data = await res.json();
 
-      if (data.success && data.token) {
+      if (data.require2fa) {
+        setOtpRequested(true);
+        setOtpCountdown(300);
+        setResendCooldown(25);
+        setCodePreview(null);
+        setWhatsappUrl(data.whatsappUrl || "https://wa.me/201284484868");
+        setLoginNotice("تم التحقق من بيانات الدخول 🛡️ تم إرسال رمز التحقق الثنائي (OTP) إلى واتساب الإدارة (01284484868)");
+        setOtpInput("");
+      } else if (data.success && data.token) {
         setIsAuthenticated(true);
         localStorage.setItem(AUTH_KEY, "true");
         localStorage.setItem("celebre_admin_token", data.token);
         sessionStorage.setItem("celebre_admin_token", data.token);
-        showNotice("تم تسجيل دخول الأدمن المعتمد بنجاح وتأمين لوحة الإدارة 🔓");
+        showNotice("تم التحقق الثنائي بنجاح وتأمين لوحة الإدارة 🔓");
         fetchBookings(true);
       } else {
         setLoginError(data.message || "اسم المستخدم أو كلمة السر غير صحيحة.");
@@ -472,47 +502,13 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
     }
   };
 
-  // Instant direct admin login for site owner
-  const handleInstantLogin = async () => {
-    setAdminUsername("admin");
-    setAdminPassword("010973@Mahmoud");
-    setIsLoggingIn(true);
-    setLoginError("");
-    setLoginNotice("");
-    try {
-      const res = await fetch("/api/admin/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          username: "admin",
-          password: "010973@Mahmoud"
-        })
-      });
-      const data = await res.json();
-      if (data.success && data.token) {
-        setIsAuthenticated(true);
-        localStorage.setItem(AUTH_KEY, "true");
-        localStorage.setItem("celebre_admin_token", data.token);
-        sessionStorage.setItem("celebre_admin_token", data.token);
-        showNotice("تم تسجيل دخول الأدمن المعتمد بنجاح وتأمين لوحة الإدارة 🔓");
-        fetchBookings(true);
-      } else {
-        setLoginError(data.message || "فشل تسجيل الدخول التلقائي.");
-      }
-    } catch {
-      setLoginError("حدث خطأ في الاتصال بالخادم.");
-    } finally {
-      setIsLoggingIn(false);
-    }
-  };
-
-  // 1. Submit Credentials & Request WhatsApp OTP (Two-Factor Authentication)
+  // 1b. Request WhatsApp OTP (Two-Factor Authentication)
   const handleRequestOtp = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     const cleanUser = adminUsername.trim();
     const cleanPass = adminPassword.trim();
     if (!cleanUser || !cleanPass) {
-      setLoginError("يرجى إدخال اسم مستخدم الأدمن (أو رقم الهاتف 01284484868) وكلمة السر المسجلة كاملة.");
+      setLoginError("يرجى إدخال اسم مستخدم الأدمن وكلمة السر المسجلة.");
       return;
     }
 
@@ -526,7 +522,7 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
         body: JSON.stringify({ 
           username: cleanUser, 
           password: cleanPass, 
-          phone: registeredPhone || "01284484868" 
+          phone: "01284484868" 
         })
       });
       const data = await res.json();
@@ -534,27 +530,27 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
         setOtpRequested(true);
         setOtpCountdown(300); // 5 minutes validity
         setResendCooldown(25); // 25s cooldown
-        setCodePreview(data.codePreview || null);
-        setWhatsappUrl(data.whatsappUrl || null);
-        setLoginNotice(data.message || "تم التحقق من كلمة السر بنجاح 🔒 تم إرسال رمز التحقق OTP إلى واتساب الأدمن (01284484868)");
+        setCodePreview(null); // Never preview code in UI for security
+        setWhatsappUrl(data.whatsappUrl || "https://wa.me/201284484868");
+        setLoginNotice(data.message || "تم إرسال رمز التحقق الثنائي إلى واتساب الأدمن (01284484868)");
         setOtpInput("");
       } else {
-        setLoginError(data.message || "اسم المستخدم أو كلمة السر غير صحيحة. يرجى التأكد من إدخال كلمة سر الأدمن المسجلة كاملة كما هي.");
+        setLoginError(data.message || "اسم المستخدم أو كلمة السر غير صحيحة.");
       }
     } catch (e) {
       console.error(e);
-      setLoginError("حدث خطأ في الاتصال بالخادم أثناء التحقق من كلمة السر.");
+      setLoginError("حدث خطأ في الاتصال بالخادم أثناء طلب رمز التحقق.");
     } finally {
       setIsRequestingOtp(false);
     }
   };
 
-  // 2. Verify OTP and authenticate admin session
+  // 2. Verify WhatsApp OTP and Authenticate Admin Session
   const handleVerifyOtp = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     const clean = otpInput.trim();
     if (!clean || clean.length < 4) {
-      setLoginError("يرجى إدخال رمز الدخول المؤقت المكون من 6 أرقام");
+      setLoginError("يرجى إدخال رمز التحقق المستلم على الواتساب (01284484868)");
       return;
     }
     setIsLoggingIn(true);
@@ -571,18 +567,19 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
         localStorage.setItem(AUTH_KEY, "true");
         if (data.token) {
           localStorage.setItem("celebre_admin_token", data.token);
+          sessionStorage.setItem("celebre_admin_token", data.token);
         }
-        showNotice("تم التحقق بنجاح من رمز الدخول المؤقت وتأمين لوحة الإدارة 🔓");
+        showNotice("تم التحقق الثنائي عبر الواتساب بنجاح وتأمين لوحة الإدارة 🛡️");
         fetchBookings(true);
       } else {
-        setLoginError(data.message || "رمز التحقق المؤقت غير صحيح");
+        setLoginError(data.message || "رمز التحقق غير صحيح");
         if (data.remainingAttempts !== undefined) {
           setRemainingAttempts(data.remainingAttempts);
         }
       }
     } catch (e) {
       console.error(e);
-      setLoginError("حدث خطأ أثناء التحقق من الرمز المؤقت");
+      setLoginError("حدث خطأ أثناء التحقق من رمز التحقق");
     } finally {
       setIsLoggingIn(false);
     }
@@ -1427,20 +1424,13 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
                       <label className="block text-xs font-bold text-[#4A3E38]">
                         هاتف الإدارة المسجل أو كود الأمان: *
                       </label>
-                      <button
-                        type="button"
-                        onClick={() => setForgotOtpInput("01284484868")}
-                        className="text-[11px] text-[#5C1027] hover:underline font-bold cursor-pointer"
-                      >
-                        تعبئة هاتف المشروع (01284484868)
-                      </button>
                     </div>
                     <input
                       type="text"
                       dir="ltr"
                       value={forgotOtpInput}
                       onChange={(e) => setForgotOtpInput(e.target.value)}
-                      placeholder="01284484868 أو 010973"
+                      placeholder="أدخل رمز التحقق (OTP) المكون من 6 أرقام"
                       required
                       className="w-full px-3 py-2.5 bg-[#FAF7F2] border-2 border-[#C89B3C]/50 rounded-xl text-center text-sm font-mono font-bold text-[#5C1027] focus:outline-hidden focus:border-[#5C1027]"
                     />
@@ -1497,7 +1487,7 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
                 </form>
               </div>
             ) : !otpRequested ? (
-              /* VIEW 2: STEP 1 - SECURE ADMIN LOGIN FORM */
+              /* VIEW 2: STEP 1 - SECURE ADMIN CREDENTIALS FORM */
               <div className="w-full space-y-4 text-right animate-fadeIn">
                 <form onSubmit={handleLogin} className="space-y-4">
                   <div className="bg-[#FAF7F2] border border-[#E8DFD1] p-3 rounded-2xl flex items-center justify-between text-xs text-[#5C1027] font-bold">
@@ -1508,13 +1498,13 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
                       <span>تسجيل دخول لوحة الإدارة والحجوزات</span>
                     </div>
                     <span className="text-[10px] bg-emerald-100 text-emerald-800 px-2.5 py-0.5 rounded-full font-bold">
-                      وصول آمن ومشفّر 🔒
+                      أمان مشدد 2FA 🛡️
                     </span>
                   </div>
 
                   <div>
                     <label className="block text-xs font-bold text-[#4A3E38] mb-1.5">
-                      اسم مستخدم الأدمن أو رقم الهاتف: *
+                      اسم مستخدم الأدمن أو رقم هاتف الإدارة: *
                     </label>
                     <div className="relative">
                       <User className="absolute right-3.5 top-3.5 w-4 h-4 text-[#7A6E65]" />
@@ -1523,15 +1513,12 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
                         dir="ltr"
                         value={adminUsername}
                         onChange={(e) => setAdminUsername(e.target.value)}
-                        placeholder="admin أو 01284484868"
+                        placeholder="اسم المستخدم أو هاتف الإدارة"
                         required
                         autoComplete="username"
                         className="w-full pr-10 pl-3 py-3 bg-[#FAF7F2] border-2 border-[#C89B3C]/50 rounded-2xl text-sm font-bold text-[#221B17] font-mono focus:outline-hidden focus:border-[#5C1027] transition-colors"
                       />
                     </div>
-                    <span className="text-[10px] text-[#7A6E65] mt-1 block">
-                      اسم المستخدم المعتمد: <strong className="font-mono text-[#5C1027]">admin</strong> أو هاتف الإدارة: <strong className="font-mono text-[#5C1027]">01284484868</strong>
-                    </span>
                   </div>
 
                   <div>
@@ -1543,7 +1530,7 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
                         type="button"
                         onClick={() => {
                           setIsForgotPasswordView(true);
-                          setForgotOtpInput("01284484868");
+                          setForgotOtpInput("");
                           setForgotError("");
                           setForgotSuccess("");
                           setLoginError("");
@@ -1562,7 +1549,7 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
                         dir="ltr"
                         value={adminPassword}
                         onChange={(e) => setAdminPassword(e.target.value)}
-                        placeholder="أدخل كلمة سر الأدمن المعتمدة"
+                        placeholder="كلمة سر الإدارة المسجلة"
                         required
                         autoComplete="current-password"
                         className="w-full pr-10 pl-12 py-3 bg-[#FAF7F2] border-2 border-[#C89B3C]/50 rounded-2xl text-sm font-bold text-[#221B17] font-mono focus:outline-hidden focus:border-[#5C1027] transition-colors"
@@ -1575,22 +1562,9 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
                         {showPassword ? "إخفاء" : "إظهار"}
                       </button>
                     </div>
-                    <div className="flex items-center justify-between pt-1">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setAdminUsername("admin");
-                          setAdminPassword("010973@Mahmoud");
-                        }}
-                        className="text-[11px] text-[#5C1027] hover:underline font-bold flex items-center gap-1 cursor-pointer bg-[#FAF7F2] border border-[#C89B3C]/40 px-2 py-0.5 rounded-lg"
-                      >
-                        <Sparkles className="w-3 h-3 text-[#C89B3C]" />
-                        <span>تعبئة كلمة السر المسجلة (010973@Mahmoud)</span>
-                      </button>
-                    </div>
                   </div>
 
-                  {/* Submit Buttons */}
+                  {/* Submit Button */}
                   <div className="space-y-2 pt-2">
                     <button
                       type="submit"
@@ -1599,30 +1573,20 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
                     >
                       <ShieldCheck className={`w-5 h-5 text-[#C89B3C] ${isLoggingIn ? "animate-spin" : ""}`} />
                       <span>
-                        {isLoggingIn ? "جاري الدخول وتأمين لوحة الإدارة..." : "تسجيل الدخول إلى لوحة الإدارة 🔓"}
+                        {isLoggingIn ? "جاري التحقق والربط بالواتساب..." : "المتابعة والتحقق الثنائي عبر الواتساب (01284484868) 📱"}
                       </span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={handleInstantLogin}
-                      disabled={isLoggingIn}
-                      className="w-full py-2.5 px-4 bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-900 rounded-xl font-bold text-xs flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-98"
-                    >
-                      <Sparkles className="w-4 h-4 text-amber-700" />
-                      <span>دخول مباشر وفوري للإدارة بنقرة واحدة ⚡</span>
                     </button>
                   </div>
 
                   <div className="p-3 bg-amber-50/80 border border-amber-200/90 rounded-2xl text-right text-[11px] text-amber-900 leading-relaxed space-y-1">
                     <div className="font-bold flex items-center gap-1.5 text-amber-950">
-                      <span>🛡️ معلومات حماية حساب الإدارة:</span>
+                      <span>🛡️ منظومة أمان لوحة التحكم (2FA):</span>
                     </div>
                     <p>
-                      • يتم حفظ جلسة الأدمن لمدة 30 يوماً على متصفحك بشكل آمن، لضمان استمرار الدخول التلقائي دون الحاجة لكتابة كلمة السر في كل زيارة.
+                      • لحماية بيانات الحجوزات والعملاء، لا يتم الدخول إلا بعد التحقق الثنائي عبر كود الأمان المرسل إلى واتساب هاتف الإدارة الرسمي (01284484868).
                     </p>
                     <p>
-                      • بعد تسجيل الدخول، يمكنك تغيير وتعيين كلمة سر جديدة في أي وقت من زر <strong>(أمان الحساب)</strong> في شريط اللوحة العلوي.
+                      • بعد التحقق، يتم حفظ جلسة الأدمن على متصفحك لمدة 30 يوماً بشكل آمن لراحتك.
                     </p>
                   </div>
                 </form>
@@ -1630,26 +1594,26 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
             ) : (
               /* VIEW 3: STEP 2 - ENTER & VERIFY WHATSAPP OTP */
               <form onSubmit={handleVerifyOtp} className="w-full space-y-4 text-right animate-fadeIn">
-                <div className="bg-emerald-50 border border-emerald-200 p-3 rounded-2xl text-right space-y-1">
+                <div className="bg-emerald-50 border border-emerald-200 p-3.5 rounded-2xl text-right space-y-1.5">
                   <div className="flex items-center justify-between text-xs font-black text-emerald-900">
                     <div className="flex items-center gap-1.5">
                       <span className="w-5 h-5 rounded-full bg-emerald-700 text-white flex items-center justify-center text-[10px] font-black">2</span>
-                      <span>الخطوة الثانية: التحقق من رمز واتساب (OTP)</span>
+                      <span>التحقق الثنائي عبر الواتساب (2FA)</span>
                     </div>
                     <span className="text-[11px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full flex items-center gap-1">
                       <Clock className="w-3 h-3 text-amber-600" />
                       <span>{formatCountdown(otpCountdown)}</span>
                     </span>
                   </div>
-                  <p className="text-[11px] text-emerald-800">
-                    تم إرسال رمز التحقق المكون من 6 أرقام إلى واتساب الأدمن المعتمد:{" "}
+                  <p className="text-[11px] text-emerald-800 leading-relaxed">
+                    تم إرسال رمز التحقق الثنائي المكون من 6 أرقام إلى واتساب الإدارة المعتمد:{" "}
                     <strong dir="ltr" className="font-mono text-[#5C1027] font-black">01284484868</strong>
                   </p>
                 </div>
 
                 <div>
                   <label className="text-xs font-bold text-[#4A3E38] block mb-1">
-                    أدخل رمز التحقق (OTP): *
+                    أدخل رمز التحقق (OTP) المستلم على الواتساب: *
                   </label>
                   <div className="relative">
                     <Key className="absolute right-3.5 top-3.5 w-5 h-5 text-[#7A6E65]" />
@@ -1676,20 +1640,8 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
                     className="w-full py-2.5 px-3 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-xl text-xs font-black text-emerald-900 flex items-center justify-center gap-2 transition-all shadow-2xs"
                   >
                     <MessageCircle className="w-4 h-4 text-[#25D366]" />
-                    <span>فتح محادثة واتساب (01284484868) لعرض الرمز فوراً 💬</span>
+                    <span>فتح محادثة واتساب (01284484868) لمراجعة الرمز 💬</span>
                   </a>
-                )}
-
-                {/* Direct Code Helper badge for authorized admin */}
-                {codePreview && (
-                  <button
-                    type="button"
-                    onClick={() => setOtpInput(codePreview)}
-                    className="w-full py-1.5 px-3 bg-amber-50/80 hover:bg-amber-100 border border-amber-300 rounded-xl text-[11px] font-bold text-amber-900 flex items-center justify-center gap-1.5 cursor-pointer transition-all"
-                  >
-                    <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-                    <span>رمز التحقق الصادر لواتساب: <strong className="font-mono text-sm text-[#5C1027]">{codePreview}</strong> (اضغط للتعبئة المباشرة ⚡)</span>
-                  </button>
                 )}
 
                 {/* Submit Verification Button */}
@@ -1699,7 +1651,7 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
                   className="w-full py-3.5 bg-gradient-to-r from-[#5C1027] via-[#721832] to-[#5C1027] hover:brightness-110 text-white rounded-2xl font-black text-sm shadow-md transition-all active:scale-98 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                 >
                   <ShieldCheck className={`w-5 h-5 text-[#C89B3C] ${isLoggingIn ? "animate-spin" : ""}`} />
-                  <span>{isLoggingIn ? "جاري التحقق من الرمز..." : "تأكيد رمز التحقق والدخول إلى لوحة الحجوزات 🔓"}</span>
+                  <span>{isLoggingIn ? "جاري التحقق من الرمز وتأمين الدخول..." : "تأكيد الرمز ودخول لوحة الإدارة 🔓"}</span>
                 </button>
 
                 {/* Resend and Switch Options */}
@@ -1710,7 +1662,7 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
                     disabled={resendCooldown > 0 || isRequestingOtp}
                     className="text-[11px] text-[#5C1027] hover:underline font-bold disabled:text-stone-400 cursor-pointer"
                   >
-                    {resendCooldown > 0 ? `إعادة طلب رمز جديد بعد (${resendCooldown} ث)` : "إعادة إرسال رمز OTP جديد 🔄"}
+                    {resendCooldown > 0 ? `إعادة طلب رمز جديد بعد (${resendCooldown} ث)` : "إعادة إرسال رمز جديد عبر الواتساب 🔄"}
                   </button>
 
                   <button
@@ -1721,9 +1673,9 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
                       setLoginError("");
                       setLoginNotice("");
                     }}
-                    className="text-[11px] text-[#7A6E65] hover:text-[#5C1027] font-semibold cursor-pointer hover:underline"
+                    className="text-[11px] text-[#7A6E65] hover:text-[#5C1027] hover:underline font-bold cursor-pointer"
                   >
-                    تعديل اسم المستخدم أو كلمة السر ↩️
+                    تغيير بيانات الدخول ↩️
                   </button>
                 </div>
               </form>
@@ -1840,6 +1792,19 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
                 >
                   <Settings className="w-3.5 h-3.5 text-[#5C1027]" />
                   <span className="hidden sm:inline">أمان الحساب</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    fetchAuditLogs();
+                    setIsAuditLogsOpen(true);
+                  }}
+                  className="p-2 rounded-xl bg-white border border-[#E8DFD1] hover:bg-[#EFE8DD] text-[#4A3E38] text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                  title="سجل الأمان وعمليات النظام (Audit Logs)"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5 text-[#C89B3C]" />
+                  <span className="hidden sm:inline">سجل الأمان 🛡️</span>
                 </button>
 
                 <button
@@ -3258,6 +3223,95 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Audit Logs Modal (سجل الأمان والعمليات) */}
+      {isAuditLogsOpen && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-3 bg-black/70 backdrop-blur-xs animate-fadeIn">
+          <div className="w-full max-w-2xl bg-white rounded-3xl shadow-2xl border border-[#E8DFD1] overflow-hidden text-right flex flex-col max-h-[85vh]">
+            <div className="px-6 py-4 bg-[#FAF7F2] border-b border-[#F0EAE1] flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-[#5C1027]/10 flex items-center justify-center text-[#5C1027]">
+                  <ShieldCheck className="w-4 h-4 text-[#C89B3C]" />
+                </div>
+                <div>
+                  <h4 className="font-black text-sm text-[#221B17]">
+                    سجل الأمان والعمليات (Audit Logs)
+                  </h4>
+                  <p className="text-[11px] text-[#7A6E65]">
+                    توثيق فوري لكافة محاولات الدخول، التحقق الثنائي، وحفظ الحجوزات
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={fetchAuditLogs}
+                  className="p-1.5 rounded-lg border border-[#E8DFD1] hover:bg-[#EFE8DD] text-xs font-bold flex items-center gap-1 cursor-pointer"
+                  title="تحديث السجل"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isLoadingAuditLogs ? "animate-spin text-[#5C1027]" : "text-[#7A6E65]"}`} />
+                  <span className="text-[11px]">تحديث</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsAuditLogsOpen(false)}
+                  className="w-7 h-7 rounded-full bg-white border border-[#E8DFD1] flex items-center justify-center text-[#7A6E65] hover:text-[#221B17] cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-4 overflow-y-auto flex-1 space-y-2">
+              {auditLogs.length === 0 ? (
+                <div className="p-8 text-center text-xs text-[#7A6E65]">
+                  {isLoadingAuditLogs ? "جاري تحميل سجل الأمان..." : "لا توجد سجلات أمان مسجلة حالياً"}
+                </div>
+              ) : (
+                auditLogs.map((log: any) => (
+                  <div 
+                    key={log.id} 
+                    className="p-3 rounded-xl border border-[#E8DFD1] bg-[#FAF7F2] flex items-start justify-between gap-3 text-xs"
+                  >
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className={`px-2 py-0.5 rounded-md font-mono font-black text-[10px] ${
+                          log.status === 'success' ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' :
+                          log.status === 'warning' ? 'bg-amber-100 text-amber-800 border border-amber-300' :
+                          log.status === 'error' ? 'bg-rose-100 text-rose-800 border border-rose-300' :
+                          'bg-sky-100 text-sky-800 border border-sky-300'
+                        }`}>
+                          {log.event}
+                        </span>
+                        <span className="text-[11px] font-mono text-[#7A6E65]">
+                          IP: {log.ip}
+                        </span>
+                      </div>
+                      <p className="font-semibold text-[#221B17] text-xs">
+                        {log.details}
+                      </p>
+                    </div>
+                    <span className="text-[10px] text-[#A89D93] shrink-0 font-mono" dir="ltr">
+                      {new Date(log.timestamp).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="px-6 py-3 bg-[#FAF7F2] border-t border-[#F0EAE1] flex items-center justify-between text-xs text-[#7A6E65] shrink-0">
+              <span>إجمالي السجلات المسجلة: {auditLogs.length} عملية</span>
+              <button
+                type="button"
+                onClick={() => setIsAuditLogsOpen(false)}
+                className="py-1.5 px-4 rounded-xl bg-white border border-[#E8DFD1] font-bold hover:bg-[#EFE8DD] cursor-pointer"
+              >
+                إغلاق
+              </button>
+            </div>
           </div>
         </div>
       )}

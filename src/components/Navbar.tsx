@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Phone, MessageCircle, ShoppingBag, Sparkles, Menu, X, Calculator, ShieldCheck, Truck, FileDown } from "lucide-react";
+import { Phone, MessageCircle, ShoppingBag, Sparkles, Menu, X, Calculator, Truck, FileDown, ShieldCheck } from "lucide-react";
 import { CelebreLogo } from "./CelebreLogo";
 
 interface NavbarProps {
@@ -11,7 +11,7 @@ interface NavbarProps {
   onOpenMenu?: () => void;
   onScrollToBoxMix?: () => void;
   onScrollToBoxSandwich?: () => void;
-  onOpenAdmin?: () => void;
+  onSecretAdminTrigger?: () => void;
 }
 
 // Social Media SVG Icons (Facebook, TikTok, Instagram)
@@ -44,9 +44,27 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenMenu,
   onScrollToBoxMix,
   onScrollToBoxSandwich,
-  onOpenAdmin
+  onSecretAdminTrigger
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const clickCountRef = React.useRef(0);
+  const clickTimeoutRef = React.useRef<any>(null);
+
+  const handleLogoClick = () => {
+    clickCountRef.current += 1;
+    if (clickTimeoutRef.current) clearTimeout(clickTimeoutRef.current);
+    if (clickCountRef.current >= 3) {
+      clickCountRef.current = 0;
+      if (onSecretAdminTrigger) {
+        onSecretAdminTrigger();
+      }
+      return;
+    }
+    clickTimeoutRef.current = setTimeout(() => {
+      clickCountRef.current = 0;
+    }, 1200);
+    onScrollToPackages();
+  };
 
   const handleWhatsApp = () => {
     window.open("https://wa.me/201284484868?text=السلام%20عليكم،%20أود%20الاستفسار%20عن%20عبوات%20كاترنج%20سيلبر%20للمناسبات", "_blank");
@@ -150,7 +168,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         <div className="flex items-center justify-between h-16 sm:h-20">
           {/* Official Celebre Logo Emblem with Clean Horizontal Title */}
           <div
-            onClick={onScrollToPackages}
+            onClick={handleLogoClick}
             className="flex items-center gap-2.5 sm:gap-3 cursor-pointer group py-1"
           >
             <CelebreLogo
@@ -365,16 +383,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             <Calculator className="w-4 h-4 text-[#C89B3C]" />
             <span>حاسبة تكاليف وميزانية المناسبة</span>
           </button>
-          <button
-            onClick={() => {
-              onOpenAdvisor();
-              setMobileMenuOpen(false);
-            }}
-            className="w-full text-right font-bold text-[#5C1027] py-2 px-3 rounded-lg bg-[#5C1027]/10 flex items-center gap-2"
-          >
-            <Sparkles className="w-4 h-4 text-[#C89B3C]" />
-            <span>مستشار الضيافة الذكي (اقتراح باقة فورية)</span>
-          </button>
+
           <div className="pt-2 border-t border-[#E8DFD1] flex gap-2">
             <button
               onClick={() => {
@@ -447,22 +456,6 @@ export const Navbar: React.FC<NavbarProps> = ({
               </a>
             </div>
           </div>
-
-          {onOpenAdmin && (
-            <div className="pt-2 border-t border-[#E8DFD1] text-center">
-              <button
-                type="button"
-                onClick={() => {
-                  onOpenAdmin();
-                  setMobileMenuOpen(false);
-                }}
-                className="w-full text-center text-[11px] text-[#7A6E65] hover:text-[#5C1027] font-semibold py-1 flex items-center justify-center gap-1.5 cursor-pointer"
-              >
-                <ShieldCheck className="w-3.5 h-3.5 text-[#C89B3C]" />
-                <span>بوابة الإدارة والحجوزات 🔒</span>
-              </button>
-            </div>
-          )}
         </div>
       )}
     </header>

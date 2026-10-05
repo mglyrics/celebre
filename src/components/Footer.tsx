@@ -1,13 +1,12 @@
 import React from "react";
-import { Phone, MessageCircle, MapPin, ShieldCheck, Heart, Lock } from "lucide-react";
+import { Phone, MessageCircle, MapPin, ShieldCheck, Heart } from "lucide-react";
 import { CelebreLogo } from "./CelebreLogo";
 
 interface FooterProps {
   onOpenPrivacy: () => void;
-  onOpenAdmin?: () => void;
 }
 
-export const Footer: React.FC<FooterProps> = ({ onOpenPrivacy, onOpenAdmin }) => {
+export const Footer: React.FC<FooterProps> = ({ onOpenPrivacy }) => {
   return (
     <footer className="bg-[#221B17] text-[#FAF7F2] pt-14 pb-28 sm:pb-24 lg:pb-12 border-t border-[#3B3029]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -132,19 +131,6 @@ export const Footer: React.FC<FooterProps> = ({ onOpenPrivacy, onOpenAdmin }) =>
             >
               سياسة الخصوصية والشروط
             </button>
-            {onOpenAdmin && (
-              <>
-                <span className="text-stone-600">•</span>
-                <button
-                  onClick={onOpenAdmin}
-                  className="hover:text-[#C89B3C] text-[11px] text-[#A89D93] transition-colors flex items-center gap-1 cursor-pointer"
-                  title="تسجيل دخول لوحة الإدارة والحجوزات"
-                >
-                  <Lock className="w-3 h-3 text-[#C89B3C]" />
-                  <span>بوابة الإدارة</span>
-                </button>
-              </>
-            )}
           </div>
         </div>
       </div>

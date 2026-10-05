@@ -1,1 +1,51 @@
-[]
+[
+  {
+    "id": "CEL-8320",
+    "customerName": "أحمد محمد",
+    "phone": "01012345678",
+    "occasion": "حفل زفاف",
+    "eventDate": "2026-11-15",
+    "eventTime": "7:00 مساءً",
+    "location": "بني سويف",
+    "governorate": "بني سويف - مدينة بني سويف",
+    "packages": [],
+    "totalPrice": 4500,
+    "totalBoxes": 100,
+    "depositAmount": 0,
+    "remainingAmount": 4500,
+    "shippingFee": 0,
+    "notes": "طلب تجريبي لاختبار تسجيل نموذج العميل",
+    "paymentMethod": "instapay",
+    "status": "pending",
+    "createdAt": "2026-10-05T08:39:12.742Z"
+  },
+  {
+    "id": "CEL-9386",
+    "customerName": "حجز مناسبة معتمد (CEL-9386)",
+    "phone": "01284484868",
+    "occasion": "حفل زفاف ومناسبة عائلية",
+    "eventDate": "2026-10-10",
+    "eventTime": "7:00 مساءً",
+    "location": "بني سويف - قاعة المناسبات الكبرى",
+    "governorate": "بني سويf",
+    "packages": [
+      {
+        "id": "pkg-sale-01",
+        "name": "العرض التوفيري الأول (Sale - 01)",
+        "packageCode": "Sale - 01",
+        "quantity": 100,
+        "pricePerUnit": 45,
+        "selectedDrink": "default_juice"
+      }
+    ],
+    "totalPrice": 4500,
+    "totalBoxes": 100,
+    "depositAmount": 500,
+    "remainingAmount": 4150,
+    "shippingFee": 150,
+    "notes": "حجز معتمد مسجل برقم CEL-9386 - تم التنسيق مع إدارة سيلبر هاتفياً",
+    "paymentMethod": "instapay",
+    "status": "confirmed",
+    "createdAt": "2026-10-03T18:30:00.000Z"
+  }
+]

@@ -116,6 +116,16 @@ export const OrderModal: React.FC<OrderModalProps> = ({
       createdAt: new Date().toISOString()
     };
 
+    // Save locally to browser as resilient backup
+    try {
+      const existing = JSON.parse(localStorage.getItem("celebre_customer_orders") || "[]");
+      existing.unshift(newOrder);
+      localStorage.setItem("celebre_customer_orders", JSON.stringify(existing));
+      localStorage.setItem("celebre_last_order_id", newOrder.id);
+    } catch (err) {
+      console.warn("Local storage backup error:", err);
+    }
+
     // Save permanently to server database
     try {
       await fetch("/api/orders", {
