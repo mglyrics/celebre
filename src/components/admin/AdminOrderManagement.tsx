@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { PublicMenuItem } from "../../types/publicMenu";
 import { ExportService, ComprehensiveReportData } from "../../services/exportService.ts";
+import { safeFetchJson } from "../../utils/safeApi.ts";
 
 interface AdminOrderManagementProps {
   isOpen: boolean;
@@ -241,11 +242,10 @@ export const AdminOrderManagement: React.FC<AdminOrderManagementProps> = ({
   // Check auth session on open
   useEffect(() => {
     if (token && isOpen) {
-      fetch("/api/admin/auth/me", { headers: getHeaders() })
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.success && data.user) {
-            setAdminUser(data.user);
+      safeFetchJson("/api/admin/auth/me", { headers: getHeaders() })
+        .then((result) => {
+          if (result.ok && result.data?.success && result.data?.user) {
+            setAdminUser(result.data.user);
           } else {
             setToken("");
             try {
@@ -315,17 +315,25 @@ export const AdminOrderManagement: React.FC<AdminOrderManagementProps> = ({
     setAuthError("");
 
     try {
-      const res = await fetch("/api/admin/auth/login", {
+      const result = await safeFetchJson<{
+        success: boolean;
+        message?: string;
+        needOtp?: boolean;
+        require2fa?: boolean;
+        userId?: number;
+        phone?: string;
+        whatsappLink?: string;
+      }>("/api/admin/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password }),
       });
-      const data = await res.json();
 
-      if (!res.ok || !data.success) {
-        throw new Error(data.message || "بيانات الدخول غير صحيحة");
+      if (!result.ok || !result.data?.success) {
+        throw new Error(result.error || "بيانات الدخول غير صحيحة");
       }
 
+      const data = result.data;
       if (data.needOtp || data.require2fa) {
         setLoginUserId(data.userId);
         setLoginPhone(data.phone || "");
@@ -333,7 +341,12 @@ export const AdminOrderManagement: React.FC<AdminOrderManagementProps> = ({
         setLoginStep("otp");
       }
     } catch (err: any) {
-      setAuthError(err.message || "فشل تسجيل الدخول");
+      const rawMsg = String(err?.message || "");
+      if (rawMsg.includes("is not valid JSON") || rawMsg.includes("Unexpected token")) {
+        setAuthError("تعذر الاتصال بخادم المصادقة أو أن المسار غير مهيأ بصيغة صالحة. يرجى التأكد من تشغيل خادم الـ API.");
+      } else {
+        setAuthError(rawMsg || "فشل تسجيل الدخول");
+      }
     } finally {
       setAuthLoading(false);
     }
@@ -346,17 +359,22 @@ export const AdminOrderManagement: React.FC<AdminOrderManagementProps> = ({
     setAuthError("");
 
     try {
-      const res = await fetch("/api/admin/auth/verify-otp", {
+      const result = await safeFetchJson<{
+        success: boolean;
+        message?: string;
+        token?: string;
+        session?: any;
+      }>("/api/admin/auth/verify-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId: loginUserId, otp }),
       });
-      const data = await res.json();
 
-      if (!res.ok || !data.success) {
-        throw new Error(data.message || "رمز التحقق OTP غير صحيح");
+      if (!result.ok || !result.data?.success || !result.data?.token) {
+        throw new Error(result.error || "رمز التحقق OTP غير صحيح");
       }
 
+      const data = result.data;
       const newToken = data.token;
       setToken(newToken);
       setAdminUser(data.session);
@@ -366,7 +384,12 @@ export const AdminOrderManagement: React.FC<AdminOrderManagementProps> = ({
       } catch {}
       setLoginStep("credentials");
     } catch (err: any) {
-      setAuthError(err.message || "فشل التحقق من OTP");
+      const rawMsg = String(err?.message || "");
+      if (rawMsg.includes("is not valid JSON") || rawMsg.includes("Unexpected token")) {
+        setAuthError("تعذر التحقق من رمز OTP بسبب عدم استجابة الخادم بصيغة JSON صالحة.");
+      } else {
+        setAuthError(rawMsg || "فشل التحقق من OTP");
+      }
     } finally {
       setAuthLoading(false);
     }

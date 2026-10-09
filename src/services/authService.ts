@@ -50,6 +50,14 @@ export class AuthService {
       const legacyHash = crypto.pbkdf2Sync(password, salt, 10000, 64, 'sha512').toString('hex');
       return legacyHash === hash;
     }
+    // Backward compatibility for combined salt:hash stored in passwordHash column
+    if (hash.includes(':')) {
+      const [embeddedSalt, embeddedHash] = hash.split(':');
+      if (embeddedSalt && embeddedHash) {
+        const legacyHash = crypto.pbkdf2Sync(password, embeddedSalt, 10000, 64, 'sha512').toString('hex');
+        return legacyHash === embeddedHash;
+      }
+    }
     return false;
   }
 

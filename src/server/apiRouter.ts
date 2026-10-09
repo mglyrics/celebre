@@ -27,19 +27,66 @@ import { WhatsAppService } from '../services/whatsappService.ts';
 
 export const apiRouter = Router();
 
-// Middleware: Authenticate Admin Session from Bearer token
+// In-Memory Rate Limiter Store
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+
+export const createRateLimiter = (options: { max: number; windowMs: number; message: string }) => {
+  return (req: Request, res: Response, next: NextFunction) => {
+    const ip = (req.ip || req.socket.remoteAddress || 'unknown').replace(/^.*:/, '');
+    const key = `${req.baseUrl || ''}${req.path}_${ip}`;
+    const now = Date.now();
+    const entry = rateLimitMap.get(key);
+
+    if (!entry || now > entry.resetAt) {
+      rateLimitMap.set(key, { count: 1, resetAt: now + options.windowMs });
+      return next();
+    }
+
+    if (entry.count >= options.max) {
+      return res.status(429).json({
+        success: false,
+        message: options.message,
+        retryAfterSeconds: Math.ceil((entry.resetAt - now) / 1000),
+      });
+    }
+
+    entry.count++;
+    next();
+  };
+};
+
+export const authRateLimiter = createRateLimiter({
+  max: 10,
+  windowMs: 15 * 60 * 1000, // 10 attempts per 15 minutes
+  message: 'تم تجاوز الحد الأقصى لمحاولات تسجيل الدخول. يرجى المحاولة بعد 15 دقيقة.',
+});
+
+export const bookingRateLimiter = createRateLimiter({
+  max: 15,
+  windowMs: 15 * 60 * 1000, // 15 bookings per 15 minutes
+  message: 'تم تجاوز الحد الأقصى لتسجيل الحجوزات من هذا الجهاز. يرجى المحاولة لاحقاً.',
+});
+
+// Helper: XSS Input Sanitization
+export const sanitizeString = (val?: any, maxLen = 255): string => {
+  if (typeof val !== 'string') return '';
+  return val.replace(/<[^>]*>?/gm, '').trim().slice(0, maxLen);
+};
+
+// Middleware: Authenticate Admin Session from Bearer token or HttpOnly Cookie
 export interface AuthenticatedRequest extends Request {
   adminSession?: AdminSession;
 }
 
 export const requireAdminAuth = (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  let token = '';
   const authHeader = req.headers.authorization || (req.headers['x-admin-token'] as string);
-  let token = authHeader ? (authHeader.startsWith('Bearer ') ? authHeader.substring(7) : authHeader) : '';
-  if (!token && req.headers.cookie) {
-    const match = req.headers.cookie.split(';').find((c) => c.trim().startsWith('admin_session='));
-    if (match) {
-      token = match.split('=')[1]?.trim();
-    }
+
+  if (authHeader) {
+    token = authHeader.startsWith('Bearer ') ? authHeader.substring(7) : authHeader;
+  } else if (req.headers.cookie) {
+    const match = req.headers.cookie.match(/admin_session=([^;]+)/);
+    if (match) token = match[1];
   }
 
   if (!token) {
@@ -139,7 +186,7 @@ apiRouter.get('/public/settings', async (_req: Request, res: Response) => {
 });
 
 // 3. Public Preliminary Booking (NO online payment!)
-apiRouter.post('/public/bookings', async (req: Request, res: Response) => {
+apiRouter.post('/public/bookings', bookingRateLimiter, async (req: Request, res: Response) => {
   try {
     const {
       customerName,
@@ -154,19 +201,26 @@ apiRouter.post('/public/bookings', async (req: Request, res: Response) => {
       drinkOption,
     } = req.body;
 
+    const cleanCustomerName = sanitizeString(customerName, 100);
+    const cleanPhone = sanitizeString(phone, 25);
+    const cleanWhatsapp = sanitizeString(whatsapp || phone, 25);
+    const cleanLocation = sanitizeString(pickupLocation, 255);
+    const cleanTime = sanitizeString(pickupTime, 50);
+    const cleanNotes = sanitizeString(notes, 500);
+
     const ip = req.ip || req.socket.remoteAddress || 'unknown';
     const userAgent = req.headers['user-agent'] || 'unknown';
 
     const result = await OrderService.createPreliminaryBooking({
-      customerName,
-      phone,
-      whatsapp,
+      customerName: cleanCustomerName,
+      phone: cleanPhone,
+      whatsapp: cleanWhatsapp,
       menuCode,
       quantity: Number(quantity),
       pickupDate,
-      pickupTime,
-      pickupLocation,
-      notes,
+      pickupTime: cleanTime,
+      pickupLocation: cleanLocation,
+      notes: cleanNotes,
       drinkOption: drinkOption || 'included',
       ip,
       userAgent,
@@ -229,8 +283,9 @@ apiRouter.post('/public/bookings', async (req: Request, res: Response) => {
    ADMIN AUTH APIS (Username + Password + WhatsApp 2FA OTP)
    ========================================================================== */
 
-// Admin Login Step 1: Check Username + Password -> Trigger WhatsApp OTP
-apiRouter.post('/admin/auth/login', async (req: Request, res: Response) => {
+// Admin Login Step 1: Check Username + Password -> Trigger WhatsApp OTP (Protected by Rate Limiter & Lockout)
+apiRouter.post('/admin/auth/login', authRateLimiter, async (req: Request, res: Response) => {
+  res.setHeader('Content-Type', 'application/json');
   try {
     const { username, password } = req.body;
     if (!username || !password) {
@@ -243,7 +298,7 @@ apiRouter.post('/admin/auth/login', async (req: Request, res: Response) => {
     // Generate & Dispatch OTP
     const otpResult = await AuthService.generateAndDispatchOtp(user.id, user.phone, ip);
 
-    res.json({
+    return res.status(200).json({
       success: true,
       needOtp: true,
       require2fa: true,
@@ -254,12 +309,21 @@ apiRouter.post('/admin/auth/login', async (req: Request, res: Response) => {
       message: `تم التحقق من بيانات الدخول 🛡️ تم إرسال رمز التحقق الثنائي (OTP) إلى هاتف الإدارة المسجل (${user.phone}). صالح لمدة 5 دقائق.`,
     });
   } catch (error: any) {
-    res.status(401).json({ success: false, message: error.message || 'بيانات الدخول غير صحيحة' });
+    const msg = error.message || 'بيانات الدخول غير صحيحة';
+    if (msg.includes('تجاوز الحد الأقصى') || msg.includes('الانتظار')) {
+      return res.status(429).json({ success: false, message: msg });
+    }
+    if (msg.includes('غير صحيحة') || msg.includes('موقوف') || msg.includes('قفل الحساب') || msg.includes('غير موجود')) {
+      return res.status(401).json({ success: false, message: msg });
+    }
+    console.error('[Admin Login Error]:', error);
+    return res.status(500).json({ success: false, message: 'حدث خطأ في الخادم أثناء تسجيل الدخول' });
   }
 });
 
-// Admin Login Step 2: Verify OTP -> Receive Session Token
-apiRouter.post('/admin/auth/verify-otp', async (req: Request, res: Response) => {
+// Admin Login Step 2: Verify OTP -> Receive Session Token (Protected by Rate Limiter & Cookie Engine)
+apiRouter.post('/admin/auth/verify-otp', authRateLimiter, async (req: Request, res: Response) => {
+  res.setHeader('Content-Type', 'application/json');
   try {
     let { userId, otp } = req.body;
     if (!otp) {
@@ -285,23 +349,28 @@ apiRouter.post('/admin/auth/verify-otp', async (req: Request, res: Response) => 
     const ip = req.ip || req.socket.remoteAddress || 'unknown';
     const session = await AuthService.verifyOtpAndCreateSession(Number(userId), String(otp), ip);
 
-    // Set secure HttpOnly SameSite cookie for production session protection
-    const isProd = process.env.NODE_ENV === 'production';
-    res.cookie('admin_session', session.token, {
-      httpOnly: true,
-      secure: isProd,
-      sameSite: 'strict',
-      maxAge: 24 * 60 * 60 * 1000,
-    });
+    // Set Secure HttpOnly SameSite Cookie
+    res.setHeader(
+      'Set-Cookie',
+      `admin_session=${session.token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=86400${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`
+    );
 
-    res.json({
+    return res.status(200).json({
       success: true,
       message: 'تم التحقق بنجاح وتأكيد هوية الأدمن',
       token: session.token,
       session,
     });
   } catch (error: any) {
-    res.status(401).json({ success: false, message: error.message || 'فشل التحقق من رمز OTP' });
+    const msg = error.message || 'فشل التحقق من رمز OTP';
+    if (msg.includes('تجاوز') || msg.includes('الانتظار')) {
+      return res.status(429).json({ success: false, message: msg });
+    }
+    if (msg.includes('غير صحيح') || msg.includes('منتهي') || msg.includes('مستخدم')) {
+      return res.status(401).json({ success: false, message: msg });
+    }
+    console.error('[Admin Verify OTP Error]:', error);
+    return res.status(500).json({ success: false, message: 'حدث خطأ في الخادم أثناء التحقق من الرمز' });
   }
 });
 
@@ -312,27 +381,71 @@ apiRouter.get('/admin/auth/me', requireAdminAuth, (req: AuthenticatedRequest, re
 
 // Admin Logout
 apiRouter.post('/admin/auth/logout', (req: Request, res: Response) => {
-  const authHeader = req.headers.authorization || (req.headers['x-admin-token'] as string);
-  let token = authHeader ? (authHeader.startsWith('Bearer ') ? authHeader.substring(7) : authHeader) : '';
-  if (!token && req.headers.cookie) {
-    const match = req.headers.cookie.split(';').find((c) => c.trim().startsWith('admin_session='));
-    if (match) token = match.split('=')[1]?.trim();
-  }
+  const token =
+    req.headers.authorization?.replace('Bearer ', '') ||
+    (req.headers['x-admin-token'] as string) ||
+    req.headers.cookie?.match(/admin_session=([^;]+)/)?.[1];
+
   if (token) {
-    AuthService.logout(token, req.ip || req.socket.remoteAddress);
+    AuthService.logout(token, req.ip);
   }
-  const isProd = process.env.NODE_ENV === 'production';
-  res.clearCookie('admin_session', {
-    httpOnly: true,
-    secure: isProd,
-    sameSite: 'strict',
-  });
+
+  // Clear Secure Cookie
+  res.setHeader('Set-Cookie', 'admin_session=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0');
   res.json({ success: true, message: 'تم تسجيل الخروج بنجاح' });
 });
 
 /* ==========================================================================
-   ADMIN ORDERS MANAGEMENT APIS
+   ADMIN DASHBOARD & ORDERS MANAGEMENT APIS
    ========================================================================== */
+
+// 1. Dashboard KPI Statistics
+apiRouter.get('/admin/dashboard/stats', requireAdminAuth, requirePermission('reports.view'), async (_req: AuthenticatedRequest, res: Response) => {
+  try {
+    const allOrders = await db.select().from(orders);
+
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    const stats = {
+      totalOrders: allOrders.length,
+      todayOrders: allOrders.filter((o) => o.pickupDate === todayStr || o.createdAt.toISOString().startsWith(todayStr)).length,
+      pendingBooking: allOrders.filter((o) => o.orderStatus === 'PENDING_BOOKING').length,
+      confirmed: allOrders.filter((o) => o.orderStatus === 'CONFIRMED').length,
+      inProduction: allOrders.filter((o) => o.orderStatus === 'IN_PRODUCTION' || o.orderStatus === 'SENT_TO_SUPPLIER').length,
+      ready: allOrders.filter((o) => o.orderStatus === 'READY').length,
+      completed: allOrders.filter((o) => o.orderStatus === 'COMPLETED' || o.orderStatus === 'DELIVERED').length,
+      cancelled: allOrders.filter((o) => o.orderStatus === 'CANCELLED').length,
+
+      // Customer Financials
+      totalCustomerSales: allOrders
+        .filter((o) => o.orderStatus !== 'CANCELLED')
+        .reduce((sum, o) => sum + parseFloat(o.totalAmount || '0'), 0),
+      totalCustomerPaid: allOrders.reduce((sum, o) => sum + parseFloat(o.customerPaid || '0'), 0),
+      totalCustomerRemaining: allOrders
+        .filter((o) => o.orderStatus !== 'CANCELLED')
+        .reduce((sum, o) => sum + parseFloat(o.customerRemaining || '0'), 0),
+
+      // Supplier Financials (Factory)
+      totalSupplierCost: allOrders
+        .filter((o) => o.orderStatus !== 'CANCELLED')
+        .reduce((sum, o) => sum + parseFloat(o.supplierTotal || '0'), 0),
+      totalSupplierPaid: allOrders.reduce((sum, o) => sum + parseFloat(o.supplierPaid || '0'), 0),
+      totalSupplierRemaining: allOrders
+        .filter((o) => o.orderStatus !== 'CANCELLED')
+        .reduce((sum, o) => sum + parseFloat(o.supplierRemaining || '0'), 0),
+
+      // Celebre Gross Profit
+      totalGrossProfit: allOrders
+        .filter((o) => o.orderStatus !== 'CANCELLED')
+        .reduce((sum, o) => sum + parseFloat(o.distributorProfit || '0'), 0),
+    };
+
+    res.json({ success: true, stats });
+  } catch (error: any) {
+    console.error('Error fetching dashboard stats:', error);
+    res.status(500).json({ success: false, message: 'فشل استخراج الإحصائيات' });
+  }
+});
 
 // 2. Orders List with search, status filter, sort, pagination
 apiRouter.get('/admin/orders', requireAdminAuth, requirePermission('orders.view'), async (req: AuthenticatedRequest, res: Response) => {
@@ -965,7 +1078,7 @@ apiRouter.get('/admin/reports/financial', requireAdminAuth, requirePermission('r
 // =========================================================================
 
 // 8.1. Dashboard Real-Time Executive Overview Stats
-apiRouter.get('/admin/dashboard/stats', requireAdminAuth, requirePermission('orders.view'), async (req: AuthenticatedRequest, res: Response) => {
+apiRouter.get('/admin/dashboard/stats', requireAdminAuth, requirePermission('orders.view'), async (_req: AuthenticatedRequest, res: Response) => {
   try {
     const rawOrders = await db
       .select({
@@ -1061,77 +1174,45 @@ apiRouter.get('/admin/dashboard/stats', requireAdminAuth, requirePermission('ord
     // CRITICAL: Celebre Gross Profit is strictly Customer Total - Supplier Total (NEVER based on payments!)
     const celebreGrossProfit = customerSales - supplierCost;
 
-    // RBAC: Check User Permissions for Factory Costs & Profit Visibility
-    const userRole = req.adminSession?.role || '';
-    const userPerms = req.adminSession?.permissions || [];
-    const canViewFactory =
-      userRole === 'SUPER_ADMIN' ||
-      userPerms.includes('prices.edit') ||
-      userPerms.includes('supplier_payments.view');
-
-    const sanitizedTodayOrders = todayOrdersList.map((o) => ({
-      ...o,
-      supplierTotal: canViewFactory ? o.supplierTotal : null,
-      supplierPaid: canViewFactory ? o.supplierPaid : null,
-      supplierRemaining: canViewFactory ? o.supplierRemaining : null,
-      distributorProfit: canViewFactory ? o.distributorProfit : null,
-    }));
-
     const recentOrders = rawOrders.slice(0, 8).map((o) => ({
       ...o,
       totalAmount: parseFloat(o.totalAmount),
       customerPaid: parseFloat(o.customerPaid),
       customerRemaining: parseFloat(o.customerRemaining),
-      supplierTotal: canViewFactory ? parseFloat(o.supplierTotal) : null,
-      supplierPaid: canViewFactory ? parseFloat(o.supplierPaid) : null,
-      supplierRemaining: canViewFactory ? parseFloat(o.supplierRemaining) : null,
-      distributorProfit: canViewFactory ? parseFloat(o.distributorProfit) : null,
+      supplierTotal: parseFloat(o.supplierTotal),
+      supplierPaid: parseFloat(o.supplierPaid),
+      supplierRemaining: parseFloat(o.supplierRemaining),
+      distributorProfit: parseFloat(o.distributorProfit),
     }));
 
     res.json({
       success: true,
-      canViewFactory,
       stats: {
         todayDate: todayStr,
         todayOrdersCount,
-        todayOrders: todayOrdersCount,
         pendingBookingCount,
-        pendingBooking: pendingBookingCount,
         confirmedCount,
-        confirmed: confirmedCount,
         inProgressCount,
-        inProduction: inProgressCount,
         readyCount,
-        ready: readyCount,
         completedCount,
-        completed: completedCount,
         cancelledCount,
-        cancelled: cancelledCount,
         totalOrdersCount: rawOrders.length,
-        totalOrders: rawOrders.length,
 
         // Financials - Customer Side
         customerSales,
-        totalCustomerSales: customerSales,
         customerPaid,
-        totalCustomerPaid: customerPaid,
         customerRemaining,
-        totalCustomerRemaining: customerRemaining,
 
-        // Financials - Supplier Side (strictly redacted if unauthorized)
-        supplierCost: canViewFactory ? supplierCost : null,
-        totalSupplierCost: canViewFactory ? supplierCost : null,
-        supplierPaid: canViewFactory ? supplierPaid : null,
-        totalSupplierPaid: canViewFactory ? supplierPaid : null,
-        supplierRemaining: canViewFactory ? supplierRemaining : null,
-        totalSupplierRemaining: canViewFactory ? supplierRemaining : null,
+        // Financials - Supplier Side
+        supplierCost,
+        supplierPaid,
+        supplierRemaining,
 
-        // Financials - Celebre Gross Profit (Customer Total - Supplier Total)
-        celebreGrossProfit: canViewFactory ? celebreGrossProfit : null,
-        totalGrossProfit: canViewFactory ? celebreGrossProfit : null,
+        // Financials - Margin
+        celebreGrossProfit,
 
         // Lists
-        todayOrdersList: sanitizedTodayOrders,
+        todayOrders: todayOrdersList,
         recentOrders,
       },
     });
@@ -1903,5 +1984,24 @@ apiRouter.get('/admin/payment-audit-logs', requireAdminAuth, requirePermission('
   } catch (error: any) {
     res.status(500).json({ success: false, message: 'فشل تحميل سجل رقابة المدفوعات' });
   }
+});
+
+// Catch-all: Ensure all unhandled /api/* routes strictly return application/json 404 (NEVER HTML)
+apiRouter.all('*', (req: Request, res: Response) => {
+  res.setHeader('Content-Type', 'application/json');
+  res.status(404).json({
+    success: false,
+    message: `مسار API غير موجود (${req.method} ${req.originalUrl})`,
+  });
+});
+
+// Global API error handler: Ensure any uncaught errors return application/json 500 (NEVER HTML)
+apiRouter.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+  console.error('[API Router Unhandled Error]:', err);
+  res.setHeader('Content-Type', 'application/json');
+  res.status(err.status || 500).json({
+    success: false,
+    message: err.message || 'حدث خطأ غير متوقع في الخادم',
+  });
 });
 
