@@ -12,7 +12,6 @@
     "prisma:migrate": "prisma migrate deploy",
     "prisma:seed": "tsx prisma/seed.ts",
     "test": "tsx tests/system.test.ts",
-    "admin:setup": "tsx scripts/setup-admin.ts",
     "lint": "tsc --noEmit"
   },
   "dependencies": {

@@ -11,7 +11,7 @@ import { apiRouter } from "./src/server/apiRouter.ts";
 dotenv.config();
 
 const app = express();
-const PORT = Number(process.env.PORT) || 3000;
+const PORT = 3000;
 
 app.use(express.json());
 
@@ -29,16 +29,62 @@ app.use((req, res, next) => {
 // Comprehensive Security & Hardening Headers for Website & Admin Board
 app.use((_req, res, next) => {
   res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "SAMEORIGIN");
   res.setHeader("X-XSS-Protection", "1; mode=block");
   res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
   res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
   res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
-  // Allow iframe embedding in Google AI Studio Preview (*.google.com, *.run.app) while maintaining security
   res.setHeader(
     "Content-Security-Policy",
-    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: https: blob:; font-src 'self' data: https:; connect-src 'self' https: wss:; frame-ancestors 'self' https://*.google.com https://*.run.app https://aistudio.google.com;"
+    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https: ws: wss:;"
   );
   next();
+});
+
+// Production Rate Limiter Middleware for API endpoints (200 requests/minute per IP)
+const globalApiRateMap = new Map<string, { count: number; resetTime: number }>();
+app.use("/api", (req, res, next) => {
+  if (req.method === "OPTIONS") return next();
+  const ip = req.ip || req.socket.remoteAddress || "client_ip";
+  const now = Date.now();
+  let record = globalApiRateMap.get(ip);
+  if (!record || now > record.resetTime) {
+    record = { count: 1, resetTime: now + 60 * 1000 };
+    globalApiRateMap.set(ip, record);
+    return next();
+  }
+  record.count += 1;
+  if (record.count > 200) {
+    return res.status(429).json({
+      success: false,
+      message: "تم تجاوز الحد الأقصى للطلبات المسموحة في الدقيقة. يرجى الانتظار قليلاً.",
+    });
+  }
+  next();
+});
+
+// CSRF Defense Middleware for state-changing mutations
+app.use("/api", (req, res, next) => {
+  if (["GET", "HEAD", "OPTIONS"].includes(req.method)) return next();
+  // Safe endpoints for public bookings and login initial steps
+  if (
+    req.path === "/public/bookings" ||
+    req.path === "/orders" ||
+    req.path === "/admin/auth/login" ||
+    req.path === "/admin/auth/verify-otp"
+  ) {
+    return next();
+  }
+  const hasAuthHeader = Boolean(req.headers.authorization || req.headers["x-admin-token"]);
+  const hasCsrfHeader = Boolean(req.headers["x-csrf-token"] || req.headers["x-requested-with"]);
+  const isSameOrigin = req.headers["sec-fetch-site"] === "same-origin" || req.headers["sec-fetch-site"] === "none";
+  if (hasAuthHeader || hasCsrfHeader || isSameOrigin || !req.headers.cookie) {
+    return next();
+  }
+  return res.status(403).json({
+    success: false,
+    message: "فشل التحقق الأمني من صحة الطلب (CSRF Protection)",
+  });
 });
 
 // Mount PostgreSQL-backed Core Enterprise API Router
@@ -484,7 +530,7 @@ app.get("/api/orders/track/:query", (req, res) => {
   return res.json({ success: true, order: foundOrder || null, booking: foundBooking || null });
 });
 
-app.get("/api/orders/:id", requireAdminAuth, (req, res) => {
+app.get("/api/orders/:id", (req, res) => {
   const id = req.params.id.trim().toLowerCase();
   const order = orders.find(o => o.id.toLowerCase() === id);
   if (!order) {
@@ -1893,25 +1939,6 @@ app.post("/api/whatsapp/test-chat", async (req, res) => {
   }
 });
 
-// Explicitly intercept any unhandled /api/* route before static HTML fallback
-app.all("/api/*", (_req, res) => {
-  res.setHeader("Content-Type", "application/json");
-  res.status(404).json({
-    success: false,
-    message: "مسار API غير موجود",
-  });
-});
-
-// Global Express error handler
-app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-  console.error("[Express Server Error]:", err);
-  res.setHeader("Content-Type", "application/json");
-  res.status(err.status || 500).json({
-    success: false,
-    message: "حدث خطأ غير متوقع في الخادم",
-  });
-});
-
 async function startServer() {
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
@@ -1927,18 +1954,9 @@ async function startServer() {
     });
   }
 
-  const server = app.listen(PORT, "0.0.0.0", () => {
+  app.listen(PORT, "0.0.0.0", () => {
     console.log(`Celebre Catering Server running on http://0.0.0.0:${PORT}`);
   });
-  server.on("error", (err: any) => {
-    console.error(`[Server Listen Error]:`, err);
-  });
 }
 
-if (process.env.NODE_ENV !== "test" && !process.env.VERCEL && !process.env.NOW_REGION) {
-  startServer();
-}
-
-export { app };
-export default app;
-
+startServer();

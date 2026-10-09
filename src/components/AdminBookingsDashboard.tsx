@@ -13,7 +13,6 @@ import html2canvas from "html2canvas-pro";
 import { AdminBooking } from "../types";
 import { CATERING_PACKAGES } from "../data/cateringData";
 import { CelebreLogo, CelebreClocheIcon } from "./CelebreLogo";
-import { safeFetchJson } from "../utils/safeApi";
 
 interface AdminBookingsDashboardProps {
   isOpen: boolean;
@@ -488,7 +487,7 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
     setLoginNotice("");
 
     try {
-      const result = await safeFetchJson<any>("/api/admin/auth/login", {
+      const res = await fetch("/api/admin/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -496,13 +495,8 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
           password: cleanPass
         })
       });
+      const data = await res.json();
 
-      if (!result.ok || !result.data?.success) {
-        setLoginError(result.error || "اسم المستخدم أو كلمة السر غير صحيحة.");
-        return;
-      }
-
-      const data = result.data;
       if (data.require2fa || data.needOtp) {
         if (data.userId) setLoginUserId(data.userId);
         setOtpRequested(true);
@@ -550,7 +544,7 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
     setLoginError("");
     setLoginNotice("");
     try {
-      const result = await safeFetchJson<any>("/api/admin/auth/login", {
+      const res = await fetch("/api/admin/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
@@ -558,21 +552,19 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
           password: cleanPass
         })
       });
-
-      if (!result.ok || !result.data?.success) {
-        setLoginError(result.error || "اسم المستخدم أو كلمة السر غير صحيحة.");
-        return;
+      const data = await res.json();
+      if (data.success) {
+        if (data.userId) setLoginUserId(data.userId);
+        setOtpRequested(true);
+        setOtpCountdown(300); // 5 minutes validity
+        setResendCooldown(60); // 60s cooldown
+        setCodePreview(null); // Never preview code in UI for security
+        setWhatsappUrl(data.whatsappUrl || data.whatsappLink || "https://wa.me/201284484868");
+        setLoginNotice(data.message || "تم إرسال رمز التحقق الثنائي إلى واتساب الأدمن (01284484868)");
+        setOtpInput("");
+      } else {
+        setLoginError(data.message || "اسم المستخدم أو كلمة السر غير صحيحة.");
       }
-
-      const data = result.data;
-      if (data.userId) setLoginUserId(data.userId);
-      setOtpRequested(true);
-      setOtpCountdown(300); // 5 minutes validity
-      setResendCooldown(60); // 60s cooldown
-      setCodePreview(null); // Never preview code in UI for security
-      setWhatsappUrl(data.whatsappUrl || data.whatsappLink || "https://wa.me/201284484868");
-      setLoginNotice(data.message || "تم إرسال رمز التحقق الثنائي إلى واتساب الأدمن (01284484868)");
-      setOtpInput("");
     } catch (e) {
       console.error(e);
       setLoginError("حدث خطأ في الاتصال بالخادم أثناء طلب رمز التحقق.");
@@ -592,36 +584,34 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
     setIsLoggingIn(true);
     setLoginError("");
     try {
-      const result = await safeFetchJson<any>("/api/admin/auth/verify-otp", {
+      const res = await fetch("/api/admin/auth/verify-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ otp: clean, userId: loginUserId || undefined })
       });
-
-      if (!result.ok || !result.data?.success) {
-        setLoginError(result.error || "رمز التحقق OTP غير صحيح");
-        if (result.data?.remainingAttempts !== undefined) {
-          setRemainingAttempts(result.data.remainingAttempts);
+      const data = await res.json();
+      if (data.success) {
+        setIsAuthenticated(true);
+        localStorage.setItem(AUTH_KEY, "true");
+        const token = data.token || data.session?.token;
+        if (token) {
+          localStorage.setItem("celebre_admin_token", token);
+          sessionStorage.setItem("celebre_admin_token", token);
         }
-        return;
+        if (data.session) {
+          setCurrentAdminRole(data.session.role || "SUPER_ADMIN");
+          setCurrentAdminPerms(data.session.permissions || []);
+          localStorage.setItem("celebre_admin_role", data.session.role || "SUPER_ADMIN");
+          localStorage.setItem("celebre_admin_perms", JSON.stringify(data.session.permissions || []));
+        }
+        showNotice("تم التحقق الثنائي عبر الواتساب بنجاح وتأمين لوحة الإدارة 🛡️");
+        fetchBookings(true);
+      } else {
+        setLoginError(data.message || "رمز التحقق غير صحيح");
+        if (data.remainingAttempts !== undefined) {
+          setRemainingAttempts(data.remainingAttempts);
+        }
       }
-
-      const data = result.data;
-      setIsAuthenticated(true);
-      localStorage.setItem(AUTH_KEY, "true");
-      const token = data.token || data.session?.token;
-      if (token) {
-        localStorage.setItem("celebre_admin_token", token);
-        sessionStorage.setItem("celebre_admin_token", token);
-      }
-      if (data.session) {
-        setCurrentAdminRole(data.session.role || "SUPER_ADMIN");
-        setCurrentAdminPerms(data.session.permissions || []);
-        localStorage.setItem("celebre_admin_role", data.session.role || "SUPER_ADMIN");
-        localStorage.setItem("celebre_admin_perms", JSON.stringify(data.session.permissions || []));
-      }
-      showNotice("تم التحقق الثنائي عبر الواتساب بنجاح وتأمين لوحة الإدارة 🛡️");
-      fetchBookings(true);
     } catch (e) {
       console.error(e);
       setLoginError("حدث خطأ أثناء التحقق من رمز التحقق");
