@@ -147,6 +147,12 @@ export const orders = pgTable('orders', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
   completedAt: timestamp('completed_at'),
   cancelledAt: timestamp('cancelled_at'),
+
+  // WhatsApp Messaging Layer Tracking
+  lastMessageAt: timestamp('last_message_at'),
+  lastMessageBy: text('last_message_by'),
+  lastMessageType: text('last_message_type'),
+  lastMessageRecipient: text('last_message_recipient'),
 }, (table) => [
   index('order_number_idx').on(table.orderNumber),
   index('order_status_idx').on(table.orderStatus),

@@ -106,9 +106,9 @@ export const OrderModal: React.FC<OrderModalProps> = ({
     const firstItem = items[0];
     const saleCode = firstItem?.package?.saleCode || "Sale-01";
     let drinkOption: 'included' | 'exclude_juice' | 'replace_pepsi' = 'included';
-    if (firstItem?.selectedDrink === 'exclude_juice') {
+    if (firstItem?.selectedDrink === 'no_drink') {
       drinkOption = 'exclude_juice';
-    } else if (firstItem?.selectedDrink === 'can_pepsi' || firstItem?.selectedDrink === 'can_cola') {
+    } else if (firstItem?.selectedDrink === 'pepsi') {
       drinkOption = 'replace_pepsi';
     }
 

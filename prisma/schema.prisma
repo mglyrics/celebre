@@ -1,5 +1,5 @@
-// Prisma Schema for Celebre Catering Management System
-// Target Database: PostgreSQL (Compatible with Vercel Postgres, Supabase, Neon, Railway)
+// Prisma Schema for CELEBRE CATERING MANAGEMENT SYSTEM
+// Target: PostgreSQL (Production-Ready for Vercel, Supabase, Neon, AWS RDS, Cloud SQL)
 
 generator client {
   provider = "prisma-client-js"
@@ -10,113 +10,67 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// 1. Roles
-enum RoleName {
-  SUPER_ADMIN
-  ADMIN
-  MANAGER
-  ACCOUNTANT
-  ORDER_MANAGER
-  VIEWER
-}
-
-model Role {
-  id          String           @id @default(uuid())
-  name        RoleName         @unique
-  displayName String           @map("display_name")
-  description String?
-  permissions RolePermission[]
-  users       AdminUser[]
-  createdAt   DateTime         @default(now()) @map("created_at")
-  updatedAt   DateTime         @updatedAt @map("updated_at")
-
-  @@map("roles")
-}
-
-model RolePermission {
-  id            String   @id @default(uuid())
-  roleId        String   @map("role_id")
-  role          Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
-  permissionKey String   @map("permission_key")
-  createdAt     DateTime @default(now()) @map("created_at")
-
-  @@unique([roleId, permissionKey])
-  @@map("role_permissions")
-}
-
-// 2. Admin Users
-model AdminUser {
-  id           String     @id @default(uuid())
-  username     String     @unique
-  email        String     @unique
-  passwordHash String     @map("password_hash")
-  fullName     String     @map("full_name")
-  phone        String?
-  roleId       String     @map("role_id")
-  role         Role       @relation(fields: [roleId], references: [id])
-  isActive     Boolean    @default(true) @map("is_active")
-  isLocked     Boolean    @default(false) @map("is_locked")
-  lastLoginAt  DateTime?  @map("last_login_at")
-  otpCodes     OtpCode[]
-  auditLogs    AuditLog[]
-  createdAt    DateTime   @default(now()) @map("created_at")
-  updatedAt    DateTime   @updatedAt @map("updated_at")
-
-  @@map("admin_users")
-}
-
-// 3. OTP Verification Codes
-model OtpCode {
-  id        String     @id @default(uuid())
-  userId    String?    @map("user_id")
-  user      AdminUser? @relation(fields: [userId], references: [id], onDelete: Cascade)
-  phone     String
-  codeHash  String     @map("code_hash")
-  expiresAt DateTime   @map("expires_at")
-  attempts  Int        @default(0)
-  isUsed    Boolean    @default(false) @map("is_used")
-  createdAt DateTime   @default(now()) @map("created_at")
-
-  @@map("otp_codes")
-}
-
-// 4. Customers
+// 1. Customers
 model Customer {
   id        String            @id @default(uuid())
   fullName  String            @map("full_name")
   phone     String            @unique
   whatsapp  String?
   email     String?
-  address   String?
   notes     String?
-  orders    Order[]
-  payments  CustomerPayment[]
   createdAt DateTime          @default(now()) @map("created_at")
   updatedAt DateTime          @updatedAt @map("updated_at")
+
+  orders    Order[]
+  payments  CustomerPayment[]
 
   @@index([phone])
   @@map("customers")
 }
 
-// 5. Menu Items (Sale-01 to Sale-18)
+// 2. Suppliers / Factories
+model Supplier {
+  id             String            @id @default(uuid())
+  name           String
+  companyName    String?           @map("company_name")
+  phone          String
+  whatsapp       String?
+  email          String?
+  address        String?
+  taxNumber      String?           @map("tax_number")
+  notes          String?
+  isActive       Boolean           @default(true) @map("is_active")
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
+
+  supplierOrders SupplierOrder[]
+  payments       SupplierPayment[]
+
+  @@map("suppliers")
+}
+
+// 3. Menu Items
 model MenuItem {
-  id               String                  @id @default(uuid())
-  code             String                  @unique // e.g. "Sale-01"
+  id               String               @id @default(uuid())
+  code             String               @unique // e.g. "Sale-01" to "Sale-18"
   name             String
   description      String?
-  distributorPrice Decimal                 @map("distributor_price") @db.Decimal(10, 2)
-  supplierPrice    Decimal                 @map("supplier_price") @db.Decimal(10, 2)
-  isActive         Boolean                 @default(true) @map("is_active")
-  sortOrder        Int                     @default(0) @map("sort_order")
+  distributorPrice Decimal              @map("distributor_price") @db.Decimal(10, 2)
+  supplierPrice    Decimal              @map("supplier_price") @db.Decimal(10, 2)
+  isActive         Boolean              @default(true) @map("is_active")
+  sortOrder        Int                  @default(0) @map("sort_order")
+  createdAt        DateTime             @default(now()) @map("created_at")
+  updatedAt        DateTime             @updatedAt @map("updated_at")
+
   components       MenuItemComponent[]
   priceHistory     MenuPriceHistory[]
   orderItems       OrderItem[]
-  createdAt        DateTime                @default(now()) @map("created_at")
-  updatedAt        DateTime                @updatedAt @map("updated_at")
 
+  @@index([code])
   @@map("menu_items")
 }
 
+// 4. Menu Item Components
 model MenuItemComponent {
   id            String   @id @default(uuid())
   menuItemId    String   @map("menu_item_id")
@@ -129,6 +83,7 @@ model MenuItemComponent {
   @@map("menu_item_components")
 }
 
+// 5. Menu Price History
 model MenuPriceHistory {
   id               String    @id @default(uuid())
   menuItemId       String    @map("menu_item_id")
@@ -143,27 +98,7 @@ model MenuPriceHistory {
   @@map("menu_price_history")
 }
 
-// 6. Suppliers / Factory
-model Supplier {
-  id             String          @id @default(uuid())
-  name           String
-  companyName    String?         @map("company_name")
-  phone          String
-  whatsapp       String?
-  email          String?
-  address        String?
-  taxNumber      String?         @map("tax_number")
-  notes          String?
-  isActive       Boolean         @default(true) @map("is_active")
-  supplierOrders SupplierOrder[]
-  payments       SupplierPayment[]
-  createdAt      DateTime        @default(now()) @map("created_at")
-  updatedAt      DateTime        @updatedAt @map("updated_at")
-
-  @@map("suppliers")
-}
-
-// 7. Orders
+// 6. Orders
 enum OrderStatus {
   PENDING_BOOKING
   CONFIRMED
@@ -185,33 +120,33 @@ model Order {
   pickupTime        String            @map("pickup_time")
   pickupLocation    String            @map("pickup_location")
   customerNotes     String?           @map("customer_notes")
-  cancelReason      String?           @map("cancel_reason")
   
-  // Financials - Customer (Celebre Distributor Pricing)
-  subtotal          Decimal           @default(0) @db.Decimal(12, 2)
-  discount          Decimal           @default(0) @db.Decimal(12, 2)
-  adjustments       Decimal           @default(0) @db.Decimal(12, 2)
-  totalAmount       Decimal           @map("total_amount") @db.Decimal(12, 2) // Customer Total
+  // Financials - Customer Account
+  subtotal          Decimal           @default(0) @map("subtotal") @db.Decimal(12, 2)
+  discount          Decimal           @default(0) @map("discount") @db.Decimal(12, 2)
+  adjustments       Decimal           @default(0) @map("adjustments") @db.Decimal(12, 2)
+  totalAmount       Decimal           @map("total_amount") @db.Decimal(12, 2)
   customerPaid      Decimal           @default(0) @map("customer_paid") @db.Decimal(12, 2)
   customerRemaining Decimal           @map("customer_remaining") @db.Decimal(12, 2)
 
-  // Financials - Factory / Supplier Account (Independent)
+  // Financials - Supplier Account (Strictly Independent)
   supplierTotal     Decimal           @default(0) @map("supplier_total") @db.Decimal(12, 2)
   supplierPaid      Decimal           @default(0) @map("supplier_paid") @db.Decimal(12, 2)
   supplierRemaining Decimal           @default(0) @map("supplier_remaining") @db.Decimal(12, 2)
 
-  // Distributor Gross Profit (Customer Total - Supplier Total)
+  // Gross Margin Snapshot
   distributorProfit Decimal           @default(0) @map("distributor_profit") @db.Decimal(12, 2)
-
-  items             OrderItem[]
-  customerPayments  CustomerPayment[]
-  supplierOrders    SupplierOrder[]
-  supplierPayments  SupplierPayment[]
 
   createdAt         DateTime          @default(now()) @map("created_at")
   updatedAt         DateTime          @updatedAt @map("updated_at")
   completedAt       DateTime?         @map("completed_at")
   cancelledAt       DateTime?         @map("cancelled_at")
+  cancelReason      String?           @map("cancel_reason")
+
+  items             OrderItem[]
+  customerPayments  CustomerPayment[]
+  supplierOrders    SupplierOrder[]
+  supplierPayments  SupplierPayment[]
 
   @@index([orderNumber])
   @@index([orderStatus])
@@ -219,7 +154,7 @@ model Order {
   @@map("orders")
 }
 
-// 8. Order Items with Historical Price Snapshots
+// 7. Order Items (Preserving exact historical price snapshot)
 model OrderItem {
   id                   String             @id @default(uuid())
   orderId              String             @map("order_id")
@@ -230,30 +165,29 @@ model OrderItem {
   menuName             String             @map("menu_name")
   quantity             Int
 
-  // Snapshot prices at time of booking
+  // Snapshot prices at moment of order creation
   distributorUnitPrice Decimal            @map("distributor_unit_price") @db.Decimal(10, 2)
   supplierUnitPrice    Decimal            @map("supplier_unit_price") @db.Decimal(10, 2)
-
   distributorTotal     Decimal            @map("distributor_total") @db.Decimal(12, 2)
   supplierTotal        Decimal            @map("supplier_total") @db.Decimal(12, 2)
-
-  customerAdjustment   Decimal            @default(0) @map("customer_adjustment") @db.Decimal(10, 2) // e.g. -5 (no juice), +10 (pepsi)
+  
+  customerAdjustment   Decimal            @default(0) @map("customer_adjustment") @db.Decimal(10, 2)
   supplierAdjustment   Decimal            @default(0) @map("supplier_adjustment") @db.Decimal(10, 2)
-
   customerTotal        Decimal            @map("customer_total") @db.Decimal(12, 2)
   supplierTotalFinal   Decimal            @map("supplier_total_final") @db.Decimal(12, 2)
-  profit               Decimal            @db.Decimal(12, 2) // customerTotal - supplierTotalFinal
+  profit               Decimal            @map("profit") @db.Decimal(12, 2)
 
   options              OrderItemOption[]
 
   @@map("order_items")
 }
 
+// 8. Order Item Options (Drink selections, modifications)
 model OrderItemOption {
   id                    String    @id @default(uuid())
   orderItemId           String    @map("order_item_id")
   orderItem             OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
-  optionType            String    @map("option_type") // e.g. "DRINK_EXCLUDE_JUICE", "DRINK_REPLACE_PEPSI"
+  optionType            String    @map("option_type")
   optionName            String    @map("option_name")
   distributorAdjustment Decimal   @default(0) @map("distributor_adjustment") @db.Decimal(10, 2)
   supplierAdjustment    Decimal   @default(0) @map("supplier_adjustment") @db.Decimal(10, 2)
@@ -261,92 +195,140 @@ model OrderItemOption {
   @@map("order_item_options")
 }
 
-// 9. Customer Payments (Manual Verification Only - NO Gateway)
-enum PaymentMethod {
-  INSTAPAY
-  CASH
-  BANK_TRANSFER
-  OTHER
-}
-
-enum PaymentStatus {
-  PENDING_REVIEW
-  VERIFIED
-  REJECTED
-}
-
-model CustomerPayment {
-  id               String        @id @default(uuid())
-  orderId          String        @map("order_id")
-  order            Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  customerId       String        @map("customer_id")
-  customer         Customer      @relation(fields: [customerId], references: [id])
-  amount           Decimal       @db.Decimal(12, 2)
-  paymentMethod    PaymentMethod @default(INSTAPAY) @map("payment_method")
-  paymentStatus    PaymentStatus @default(PENDING_REVIEW) @map("payment_status")
-  paymentReference String?       @map("payment_reference")
-  notes            String?
-  receivedBy       String?       @map("received_by")
-  paidAt           DateTime      @default(now()) @map("paid_at")
-  createdAt        DateTime      @default(now()) @map("created_at")
-
-  @@map("customer_payments")
-}
-
-// 10. Supplier Orders
-enum SupplierOrderStatus {
-  PENDING
-  ACCEPTED
-  IN_PRODUCTION
-  READY
-  DELIVERED
-  CANCELLED
-}
-
+// 9. Supplier Orders
 model SupplierOrder {
-  id                  String              @id @default(uuid())
-  orderId             String              @map("order_id")
-  order               Order               @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  supplierId          String              @map("supplier_id")
-  supplier            Supplier            @relation(fields: [supplierId], references: [id])
-  supplierOrderNumber String              @unique @map("supplier_order_number")
-  supplierTotal       Decimal             @map("supplier_total") @db.Decimal(12, 2)
-  supplierPaid        Decimal             @default(0) @map("supplier_paid") @db.Decimal(12, 2)
-  supplierRemaining   Decimal             @map("supplier_remaining") @db.Decimal(12, 2)
-  status              SupplierOrderStatus @default(PENDING)
+  id                  String            @id @default(uuid())
+  orderId             String            @map("order_id")
+  order               Order             @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  supplierId          String            @map("supplier_id")
+  supplier            Supplier          @relation(fields: [supplierId], references: [id])
+  supplierOrderNumber String            @unique @map("supplier_order_number")
+  supplierTotal       Decimal           @map("supplier_total") @db.Decimal(12, 2)
+  supplierPaid        Decimal           @default(0) @map("supplier_paid") @db.Decimal(12, 2)
+  supplierRemaining   Decimal           @map("supplier_remaining") @db.Decimal(12, 2)
+  status              String            @default("PENDING") @map("status")
+  createdAt           DateTime          @default(now()) @map("created_at")
+  updatedAt           DateTime          @updatedAt @map("updated_at")
+
   payments            SupplierPayment[]
-  createdAt           DateTime            @default(now()) @map("created_at")
-  updatedAt           DateTime            @updatedAt @map("updated_at")
 
   @@map("supplier_orders")
 }
 
-// 11. Supplier Payments (Independent from customer payments)
+// 10. Customer Payments (Manual verification by Admin - NO Gateway)
+model CustomerPayment {
+  id               String   @id @default(uuid())
+  orderId          String   @map("order_id")
+  order            Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  customerId       String   @map("customer_id")
+  customer         Customer @relation(fields: [customerId], references: [id])
+  amount           Decimal  @map("amount") @db.Decimal(12, 2)
+  paymentMethod    String   @default("INSTAPAY") @map("payment_method")
+  paymentStatus    String   @default("PENDING_REVIEW") @map("payment_status")
+  paymentReference String?  @map("payment_reference")
+  notes            String?
+  receivedBy       String?  @map("received_by")
+  paidAt           DateTime @default(now()) @map("paid_at")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  @@map("customer_payments")
+}
+
+// 11. Supplier Payments (Payments from Celebre to the Factory)
 model SupplierPayment {
-  id              String         @id @default(uuid())
-  supplierOrderId String         @map("supplier_order_id")
-  supplierOrder   SupplierOrder  @relation(fields: [supplierOrderId], references: [id], onDelete: Cascade)
-  supplierId      String         @map("supplier_id")
-  supplier        Supplier       @relation(fields: [supplierId], references: [id])
-  orderId         String?        @map("order_id")
-  order           Order?         @relation(fields: [orderId], references: [id])
-  amount          Decimal        @db.Decimal(12, 2)
-  paymentMethod   PaymentMethod  @default(INSTAPAY) @map("payment_method")
+  id              String        @id @default(uuid())
+  supplierOrderId String        @map("supplier_order_id")
+  supplierOrder   SupplierOrder @relation(fields: [supplierOrderId], references: [id], onDelete: Cascade)
+  supplierId      String        @map("supplier_id")
+  supplier        Supplier      @relation(fields: [supplierId], references: [id])
+  orderId         String?       @map("order_id")
+  order           Order?        @relation(fields: [orderId], references: [id])
+  amount          Decimal       @map("amount") @db.Decimal(12, 2)
+  paymentMethod   String        @default("INSTAPAY") @map("payment_method")
   reference       String?
   notes           String?
-  paidBy          String?        @map("paid_by")
-  paidAt          DateTime       @default(now()) @map("paid_at")
-  createdAt       DateTime       @default(now()) @map("created_at")
+  paidBy          String?       @map("paid_by")
+  paidAt          DateTime      @default(now()) @map("paid_at")
+  createdAt       DateTime      @default(now()) @map("created_at")
 
   @@map("supplier_payments")
 }
 
-// 12. Security Audit Log
+// 12. Roles
+model Role {
+  id          String           @id @default(uuid())
+  name        String           @unique
+  description String?
+  
+  users       AdminUser[]
+  permissions RolePermission[]
+
+  @@map("roles")
+}
+
+// 13. Permissions
+model Permission {
+  id            String           @id @default(uuid())
+  permissionKey String           @unique @map("permission_key")
+  description   String?
+
+  roles         RolePermission[]
+
+  @@map("permissions")
+}
+
+// 14. Role Permissions
+model RolePermission {
+  roleId       String     @map("role_id")
+  permissionId String     @map("permission_id")
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+// 15. Admin Users
+model AdminUser {
+  id           String     @id @default(uuid())
+  username     String     @unique
+  email        String     @unique
+  passwordHash String     @map("password_hash")
+  fullName     String     @map("full_name")
+  roleId       String     @map("role_id")
+  role         Role       @relation(fields: [roleId], references: [id])
+  isActive     Boolean    @default(true) @map("is_active")
+  isLocked     Boolean    @default(false) @map("is_locked")
+  lastLoginAt  DateTime?  @map("last_login_at")
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+
+  otpCodes     OtpCode[]
+  auditLogs    AuditLog[]
+
+  @@map("admin_users")
+}
+
+// 16. OTP Verification Codes
+model OtpCode {
+  id        String     @id @default(uuid())
+  userId    String?    @map("user_id")
+  user      AdminUser? @relation(fields: [userId], references: [id], onDelete: Cascade)
+  codeHash  String     @map("code_hash")
+  purpose   String     @default("ADMIN_LOGIN")
+  expiresAt DateTime   @map("expires_at")
+  usedAt    DateTime?  @map("used_at")
+  attempts  Int        @default(0)
+  createdAt DateTime   @default(now()) @map("created_at")
+
+  @@map("otp_codes")
+}
+
+// 17. Security Audit Log
 model AuditLog {
   id        String     @id @default(uuid())
   userId    String?    @map("user_id")
   user      AdminUser? @relation(fields: [userId], references: [id])
-  username  String?
   action    String
   entity    String
   entityId  String?    @map("entity_id")

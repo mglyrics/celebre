@@ -25,6 +25,8 @@ export interface CreateBookingInput {
   pickupLocation: string;
   notes?: string;
   drinkOption: 'included' | 'exclude_juice' | 'replace_pepsi';
+  initialStatus?: string;
+  adminUsername?: string;
   ip?: string;
   userAgent?: string;
 }
@@ -75,8 +77,13 @@ export class OrderService {
       let juiceDiscount = 5;
       let pepsiMarkup = 10;
       for (const s of settings) {
-        if (s.key === 'juice_exclusion_discount') juiceDiscount = parseFloat(s.value) || 5;
-        if (s.key === 'pepsi_replacement_markup') pepsiMarkup = parseFloat(s.value) || 10;
+        if (s.key === 'REMOVE_JUICE') juiceDiscount = Math.abs(parseFloat(s.value)) || 5;
+        else if (s.key === 'REPLACE_JUICE_WITH_PEPSI') pepsiMarkup = Math.abs(parseFloat(s.value)) || 10;
+        else if (s.key === 'juice_exclusion_discount' && !settings.some((x) => x.key === 'REMOVE_JUICE')) {
+          juiceDiscount = Math.abs(parseFloat(s.value)) || 5;
+        } else if (s.key === 'pepsi_replacement_markup' && !settings.some((x) => x.key === 'REPLACE_JUICE_WITH_PEPSI')) {
+          pepsiMarkup = Math.abs(parseFloat(s.value)) || 10;
+        }
       }
       return { juiceDiscount, pepsiMarkup };
     } catch {
@@ -163,13 +170,16 @@ export class OrderService {
         customerId = newCust[0].id;
       }
 
+      const orderStatus = input.initialStatus || 'PENDING_BOOKING';
+      const actorName = input.adminUsername || 'العميل (حجز مبدئي عبر الموقع)';
+
       // Create Order
       const newOrders = await tx
         .insert(orders)
         .values({
           orderNumber,
           customerId,
-          orderStatus: 'PENDING_BOOKING',
+          orderStatus,
           pickupDate: input.pickupDate,
           pickupTime: input.pickupTime,
           pickupLocation: input.pickupLocation,
@@ -188,7 +198,7 @@ export class OrderService {
 
       const order = newOrders[0];
 
-      // Create Order Item (Snapshots exact prices)
+      // Create Order Item (Snapshots exact prices at creation time)
       const newOrderItems = await tx
         .insert(orderItems)
         .values({
@@ -220,9 +230,10 @@ export class OrderService {
         supplierAdjustment: '0.00',
       });
 
-      // Create Supplier Order (Linked to primary factory)
+      // Create Supplier Order (Linked to the exact same order_id)
       const primarySupplier = await tx.select().from(suppliers).limit(1);
       if (primarySupplier.length > 0) {
+        const supStatus = orderStatus === 'SENT_TO_SUPPLIER' ? 'SENT' : (orderStatus === 'CONFIRMED' ? 'CONFIRMED' : 'PENDING_CONFIRMATION');
         await tx.insert(supplierOrders).values({
           orderId: order.id,
           supplierId: primarySupplier[0].id,
@@ -230,13 +241,13 @@ export class OrderService {
           supplierTotal: this.toDecimalStr(supplierTotal),
           supplierPaid: '0.00',
           supplierRemaining: this.toDecimalStr(supplierTotal),
-          status: 'PENDING_CONFIRMATION',
+          status: supStatus,
         });
       }
 
-      // Log Audit
+      // Log Audit for Order Creation
       await tx.insert(auditLogs).values({
-        userName: 'العميل (حجز مبدئي عبر الموقع)',
+        userName: actorName,
         action: 'ORDER_CREATED',
         entity: 'orders',
         entityId: String(order.id),
@@ -247,7 +258,9 @@ export class OrderService {
           menuCode: input.menuCode,
           quantity: input.quantity,
           customerTotal,
-          orderStatus: 'PENDING_BOOKING',
+          supplierTotal,
+          grossProfit,
+          orderStatus,
         },
         ip: input.ip,
         userAgent: input.userAgent,
@@ -259,6 +272,7 @@ export class OrderService {
         customerName: input.customerName,
         phone: cleanPhone,
         customerTotal,
+        supplierTotal,
         optionName,
       };
     });
@@ -266,6 +280,7 @@ export class OrderService {
 
   /**
    * Records a manual customer payment (received outside system via InstaPay/Cash/Bank)
+   * Payment Status: PENDING_REVIEW, VERIFIED, REJECTED
    */
   public static async recordCustomerPayment(
     orderId: number,
@@ -274,9 +289,20 @@ export class OrderService {
     paymentReference: string,
     notes: string,
     adminUsername: string,
-    ip?: string
+    ip?: string,
+    paymentStatus: 'PENDING_REVIEW' | 'VERIFIED' | 'REJECTED' = 'VERIFIED'
   ) {
     if (amount <= 0) throw new Error('مبلغ الدفعة يجب أن يكون أكبر من صفر');
+
+    const validMethods = ['INSTAPAY', 'CASH', 'BANK_TRANSFER', 'OTHER'];
+    if (!validMethods.includes(paymentMethod)) {
+      throw new Error('طريقة الدفع غير صالحة');
+    }
+
+    const validStatuses = ['PENDING_REVIEW', 'VERIFIED', 'REJECTED'];
+    if (!validStatuses.includes(paymentStatus)) {
+      throw new Error('حالة الدفعة غير صالحة');
+    }
 
     return await db.transaction(async (tx) => {
       const orderList = await tx.select().from(orders).where(eq(orders.id, orderId)).limit(1);
@@ -284,16 +310,21 @@ export class OrderService {
       const order = orderList[0];
 
       // Insert payment record
-      await tx.insert(customerPayments).values({
-        orderId,
-        customerId: order.customerId,
-        amount: this.toDecimalStr(amount),
-        paymentMethod,
-        paymentStatus: 'VERIFIED',
-        paymentReference,
-        notes,
-        receivedBy: adminUsername,
-      });
+      const insertedPayments = await tx
+        .insert(customerPayments)
+        .values({
+          orderId,
+          customerId: order.customerId,
+          amount: this.toDecimalStr(amount),
+          paymentMethod,
+          paymentStatus,
+          paymentReference,
+          notes,
+          receivedBy: adminUsername,
+        })
+        .returning();
+
+      const newPayment = insertedPayments[0];
 
       // Recalculate customer_paid strictly from VERIFIED payments
       const allVerifiedPayments = await tx
@@ -303,11 +334,12 @@ export class OrderService {
 
       const totalCustomerPaid = parseFloat(allVerifiedPayments[0]?.total || '0');
       const orderTotal = parseFloat(order.totalAmount);
+      // Strictly prevent negative remaining balance
       const customerRemaining = Math.max(0, orderTotal - totalCustomerPaid);
 
-      // Auto update status from PENDING_BOOKING to CONFIRMED on first verified payment
+      // Auto update order status from PENDING_BOOKING to CONFIRMED if at least one verified payment exists
       let newOrderStatus = order.orderStatus;
-      if (order.orderStatus === 'PENDING_BOOKING') {
+      if (order.orderStatus === 'PENDING_BOOKING' && totalCustomerPaid > 0) {
         newOrderStatus = 'CONFIRMED';
       }
 
@@ -321,16 +353,18 @@ export class OrderService {
         })
         .where(eq(orders.id, orderId));
 
-      // Audit Log
+      // Audit Log for Payment Creation
       await tx.insert(auditLogs).values({
         userName: adminUsername,
         action: 'CUSTOMER_PAYMENT_ADDED',
         entity: 'customer_payments',
-        entityId: String(orderId),
+        entityId: String(newPayment.id),
         newData: {
+          orderId,
           orderNumber: order.orderNumber,
           amount,
           paymentMethod,
+          paymentStatus,
           paymentReference,
           newPaid: totalCustomerPaid,
           newRemaining: customerRemaining,
@@ -338,7 +372,96 @@ export class OrderService {
         ip,
       });
 
-      return { totalCustomerPaid, customerRemaining, orderStatus: newOrderStatus };
+      return { payment: newPayment, totalCustomerPaid, customerRemaining, orderStatus: newOrderStatus };
+    });
+  }
+
+  /**
+   * Updates an existing customer payment (amount, status, method, reference, notes)
+   * Recalculates verified customer payments with zero tolerance for negative balance
+   */
+  public static async updateCustomerPayment(
+    paymentId: number,
+    data: {
+      amount?: number;
+      paymentMethod?: 'INSTAPAY' | 'CASH' | 'BANK_TRANSFER' | 'OTHER';
+      paymentStatus?: 'PENDING_REVIEW' | 'VERIFIED' | 'REJECTED';
+      paymentReference?: string;
+      notes?: string;
+    },
+    adminUsername: string,
+    ip?: string
+  ) {
+    return await db.transaction(async (tx) => {
+      const existingList = await tx.select().from(customerPayments).where(eq(customerPayments.id, paymentId)).limit(1);
+      if (!existingList.length) throw new Error('سجل الدفعة غير موجود');
+      const oldPayment = existingList[0];
+      const orderId = oldPayment.orderId;
+
+      const orderList = await tx.select().from(orders).where(eq(orders.id, orderId)).limit(1);
+      if (!orderList.length) throw new Error('الطلب المرتبط بالدفعة غير موجود');
+      const order = orderList[0];
+
+      const updateData: any = {};
+      if (data.amount !== undefined) {
+        if (data.amount <= 0) throw new Error('مبلغ الدفعة يجب أن يكون أكبر من صفر');
+        updateData.amount = this.toDecimalStr(data.amount);
+      }
+      if (data.paymentMethod) {
+        const validMethods = ['INSTAPAY', 'CASH', 'BANK_TRANSFER', 'OTHER'];
+        if (!validMethods.includes(data.paymentMethod)) throw new Error('طريقة الدفع غير صالحة');
+        updateData.paymentMethod = data.paymentMethod;
+      }
+      if (data.paymentStatus) {
+        const validStatuses = ['PENDING_REVIEW', 'VERIFIED', 'REJECTED'];
+        if (!validStatuses.includes(data.paymentStatus)) throw new Error('حالة الدفعة غير صالحة');
+        updateData.paymentStatus = data.paymentStatus;
+      }
+      if (data.paymentReference !== undefined) updateData.paymentReference = data.paymentReference;
+      if (data.notes !== undefined) updateData.notes = data.notes;
+
+      await tx.update(customerPayments).set(updateData).where(eq(customerPayments.id, paymentId));
+
+      // Recalculate customer_paid strictly from VERIFIED payments
+      const allVerified = await tx
+        .select({ total: sql<string>`COALESCE(SUM(amount), 0)` })
+        .from(customerPayments)
+        .where(and(eq(customerPayments.orderId, orderId), eq(customerPayments.paymentStatus, 'VERIFIED')));
+
+      const totalCustomerPaid = parseFloat(allVerified[0]?.total || '0');
+      const orderTotal = parseFloat(order.totalAmount);
+      const customerRemaining = Math.max(0, orderTotal - totalCustomerPaid);
+
+      await tx
+        .update(orders)
+        .set({
+          customerPaid: this.toDecimalStr(totalCustomerPaid),
+          customerRemaining: this.toDecimalStr(customerRemaining),
+          updatedAt: new Date(),
+        })
+        .where(eq(orders.id, orderId));
+
+      // Audit Log for Payment Update
+      await tx.insert(auditLogs).values({
+        userName: adminUsername,
+        action: 'CUSTOMER_PAYMENT_UPDATED',
+        entity: 'customer_payments',
+        entityId: String(paymentId),
+        oldData: {
+          amount: parseFloat(oldPayment.amount),
+          paymentMethod: oldPayment.paymentMethod,
+          paymentStatus: oldPayment.paymentStatus,
+          paymentReference: oldPayment.paymentReference,
+        },
+        newData: {
+          ...updateData,
+          newPaid: totalCustomerPaid,
+          newRemaining: customerRemaining,
+        },
+        ip,
+      });
+
+      return { totalCustomerPaid, customerRemaining };
     });
   }
 
@@ -362,16 +485,107 @@ export class OrderService {
       if (!supOrders.length) throw new Error('أمر التوريد غير موجود');
       const supOrder = supOrders[0];
 
-      await tx.insert(supplierPayments).values({
-        supplierOrderId,
-        supplierId: supOrder.supplierId,
-        orderId: supOrder.orderId,
-        amount: this.toDecimalStr(amount),
-        paymentMethod,
-        reference,
-        notes,
-        paidBy: adminUsername,
+      const inserted = await tx
+        .insert(supplierPayments)
+        .values({
+          supplierOrderId,
+          supplierId: supOrder.supplierId,
+          orderId: supOrder.orderId,
+          amount: this.toDecimalStr(amount),
+          paymentMethod,
+          reference,
+          notes,
+          paidBy: adminUsername,
+        })
+        .returning();
+
+      const newPayment = inserted[0];
+
+      // Recalculate supplier_paid
+      const allSupPayments = await tx
+        .select({ total: sql<string>`COALESCE(SUM(amount), 0)` })
+        .from(supplierPayments)
+        .where(eq(supplierPayments.supplierOrderId, supplierOrderId));
+
+      const totalSupplierPaid = parseFloat(allSupPayments[0]?.total || '0');
+      const supTotal = parseFloat(supOrder.supplierTotal);
+      // Strictly prevent negative remaining balance
+      const supplierRemaining = Math.max(0, supTotal - totalSupplierPaid);
+
+      await tx
+        .update(supplierOrders)
+        .set({
+          supplierPaid: this.toDecimalStr(totalSupplierPaid),
+          supplierRemaining: this.toDecimalStr(supplierRemaining),
+          updatedAt: new Date(),
+        })
+        .where(eq(supplierOrders.id, supplierOrderId));
+
+      // Also update orders table supplier columns (never touches customer columns!)
+      await tx
+        .update(orders)
+        .set({
+          supplierPaid: this.toDecimalStr(totalSupplierPaid),
+          supplierRemaining: this.toDecimalStr(supplierRemaining),
+          updatedAt: new Date(),
+        })
+        .where(eq(orders.id, supOrder.orderId));
+
+      // Audit Log
+      await tx.insert(auditLogs).values({
+        userName: adminUsername,
+        action: 'SUPPLIER_PAYMENT_ADDED',
+        entity: 'supplier_payments',
+        entityId: String(newPayment.id),
+        newData: {
+          supplierOrderId,
+          supplierOrderNumber: supOrder.supplierOrderNumber,
+          amount,
+          reference,
+          totalSupplierPaid,
+          supplierRemaining,
+        },
+        ip,
       });
+
+      return { payment: newPayment, totalSupplierPaid, supplierRemaining };
+    });
+  }
+
+  /**
+   * Updates an existing supplier payment (amount, method, reference, notes)
+   */
+  public static async updateSupplierPayment(
+    paymentId: number,
+    data: {
+      amount?: number;
+      paymentMethod?: string;
+      reference?: string;
+      notes?: string;
+    },
+    adminUsername: string,
+    ip?: string
+  ) {
+    return await db.transaction(async (tx) => {
+      const existingList = await tx.select().from(supplierPayments).where(eq(supplierPayments.id, paymentId)).limit(1);
+      if (!existingList.length) throw new Error('سجل دفعة المصنع غير موجود');
+      const oldPayment = existingList[0];
+      const supplierOrderId = oldPayment.supplierOrderId;
+
+      const supOrders = await tx.select().from(supplierOrders).where(eq(supplierOrders.id, supplierOrderId)).limit(1);
+      if (!supOrders.length) throw new Error('أمر التوريد المرتبط بالدفعة غير موجود');
+      const supOrder = supOrders[0];
+
+      const updateData: any = {};
+      if (data.amount !== undefined) {
+        if (data.amount <= 0) throw new Error('مبلغ الدفعة يجب أن يكون أكبر من صفر');
+        updateData.amount = this.toDecimalStr(data.amount);
+      }
+      if (data.paymentMethod) updateData.paymentMethod = data.paymentMethod;
+      if (data.reference !== undefined) updateData.reference = data.reference;
+      if (data.notes !== undefined) updateData.notes = data.notes;
+
+      await tx.update(supplierPayments).set(updateData).where(eq(supplierPayments.id, paymentId));
 
       // Recalculate supplier_paid
       const allSupPayments = await tx
@@ -392,7 +606,6 @@ export class OrderService {
         })
         .where(eq(supplierOrders.id, supplierOrderId));
 
-      // Also update orders table supplier columns
       await tx
         .update(orders)
         .set({
@@ -405,13 +618,16 @@ export class OrderService {
       // Audit Log
       await tx.insert(auditLogs).values({
         userName: adminUsername,
-        action: 'SUPPLIER_PAYMENT_ADDED',
+        action: 'SUPPLIER_PAYMENT_UPDATED',
         entity: 'supplier_payments',
-        entityId: String(supplierOrderId),
+        entityId: String(paymentId),
+        oldData: {
+          amount: parseFloat(oldPayment.amount),
+          paymentMethod: oldPayment.paymentMethod,
+          reference: oldPayment.reference,
+        },
         newData: {
-          supplierOrderNumber: supOrder.supplierOrderNumber,
-          amount,
-          reference,
+          ...updateData,
           totalSupplierPaid,
           supplierRemaining,
         },
@@ -464,6 +680,34 @@ export class OrderService {
         updateData.completedAt = new Date();
       }
 
+      if (newStatus === 'CONFIRMED' || newStatus === 'SENT_TO_SUPPLIER') {
+        const existingSup = await tx.select().from(supplierOrders).where(eq(supplierOrders.orderId, orderId)).limit(1);
+        if (existingSup.length === 0) {
+          const primarySupplier = await tx.select().from(suppliers).limit(1);
+          if (primarySupplier.length > 0) {
+            await tx.insert(supplierOrders).values({
+              orderId: order.id,
+              supplierId: primarySupplier[0].id,
+              supplierOrderNumber: `SUP-${order.orderNumber.replace('CB-', '')}`,
+              supplierTotal: order.supplierTotal,
+              supplierPaid: order.supplierPaid,
+              supplierRemaining: order.supplierRemaining,
+              status: newStatus === 'SENT_TO_SUPPLIER' ? 'SENT' : 'CONFIRMED',
+            });
+          }
+        } else if (newStatus === 'SENT_TO_SUPPLIER') {
+          await tx
+            .update(supplierOrders)
+            .set({ status: 'SENT', updatedAt: new Date() })
+            .where(eq(supplierOrders.orderId, orderId));
+        } else if (newStatus === 'CONFIRMED' && existingSup[0].status === 'PENDING_CONFIRMATION') {
+          await tx
+            .update(supplierOrders)
+            .set({ status: 'CONFIRMED', updatedAt: new Date() })
+            .where(eq(supplierOrders.orderId, orderId));
+        }
+      }
+
       await tx.update(orders).set(updateData).where(eq(orders.id, orderId));
 
       await tx.insert(auditLogs).values({
@@ -491,6 +735,9 @@ export class OrderService {
       pickupLocation?: string;
       customerNotes?: string;
       quantity?: number;
+      customerName?: string;
+      phone?: string;
+      whatsapp?: string;
     },
     adminUsername: string,
     ip?: string
@@ -502,6 +749,14 @@ export class OrderService {
 
       const oldData = { ...order };
       const updateData: any = { updatedAt: new Date() };
+
+      if (details.customerName || details.phone || details.whatsapp) {
+        const custUpdates: any = { updatedAt: new Date() };
+        if (details.customerName) custUpdates.fullName = details.customerName.trim();
+        if (details.phone) custUpdates.phone = details.phone.trim();
+        if (details.whatsapp) custUpdates.whatsapp = details.whatsapp.trim();
+        await tx.update(customers).set(custUpdates).where(eq(customers.id, order.customerId));
+      }
 
       if (details.pickupDate) updateData.pickupDate = details.pickupDate;
       if (details.pickupTime) updateData.pickupTime = details.pickupTime;

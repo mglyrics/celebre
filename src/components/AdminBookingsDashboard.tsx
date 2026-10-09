@@ -54,6 +54,22 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
   const [adminUsername, setAdminUsername] = useState("");
   const [adminPassword, setAdminPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [loginUserId, setLoginUserId] = useState<number | null>(null);
+  const [currentAdminRole, setCurrentAdminRole] = useState<string>(() => {
+    try {
+      return localStorage.getItem("celebre_admin_role") || "SUPER_ADMIN";
+    } catch {
+      return "SUPER_ADMIN";
+    }
+  });
+  const [currentAdminPerms, setCurrentAdminPerms] = useState<string[]>(() => {
+    try {
+      const p = localStorage.getItem("celebre_admin_perms");
+      return p ? JSON.parse(p) : [];
+    } catch {
+      return [];
+    }
+  });
 
   // Forgot Password Recovery State (استعادة كلمة السر عبر هاتف المشروع 01284484868)
   const [isForgotPasswordView, setIsForgotPasswordView] = useState(false);
@@ -481,19 +497,27 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
       });
       const data = await res.json();
 
-      if (data.require2fa) {
+      if (data.require2fa || data.needOtp) {
+        if (data.userId) setLoginUserId(data.userId);
         setOtpRequested(true);
         setOtpCountdown(300);
-        setResendCooldown(25);
+        setResendCooldown(60);
         setCodePreview(null);
-        setWhatsappUrl(data.whatsappUrl || "https://wa.me/201284484868");
-        setLoginNotice("تم التحقق من بيانات الدخول 🛡️ تم إرسال رمز التحقق الثنائي (OTP) إلى واتساب الإدارة (01284484868)");
+        setWhatsappUrl(data.whatsappUrl || data.whatsappLink || "https://wa.me/201284484868");
+        setLoginNotice(data.message || "تم التحقق من بيانات الدخول 🛡️ تم إرسال رمز التحقق الثنائي (OTP) إلى واتساب الإدارة (01284484868)");
         setOtpInput("");
-      } else if (data.success && data.token) {
+      } else if (data.success && (data.token || data.session?.token)) {
         setIsAuthenticated(true);
         localStorage.setItem(AUTH_KEY, "true");
-        localStorage.setItem("celebre_admin_token", data.token);
-        sessionStorage.setItem("celebre_admin_token", data.token);
+        const token = data.token || data.session?.token;
+        localStorage.setItem("celebre_admin_token", token);
+        sessionStorage.setItem("celebre_admin_token", token);
+        if (data.session) {
+          setCurrentAdminRole(data.session.role || "SUPER_ADMIN");
+          setCurrentAdminPerms(data.session.permissions || []);
+          localStorage.setItem("celebre_admin_role", data.session.role || "SUPER_ADMIN");
+          localStorage.setItem("celebre_admin_perms", JSON.stringify(data.session.permissions || []));
+        }
         showNotice("تم التحقق الثنائي بنجاح وتأمين لوحة الإدارة 🔓");
         fetchBookings(true);
       } else {
@@ -520,22 +544,22 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
     setLoginError("");
     setLoginNotice("");
     try {
-      const res = await fetch("/api/admin/auth/request-otp", {
+      const res = await fetch("/api/admin/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
           username: cleanUser, 
-          password: cleanPass, 
-          phone: "01284484868" 
+          password: cleanPass
         })
       });
       const data = await res.json();
       if (data.success) {
+        if (data.userId) setLoginUserId(data.userId);
         setOtpRequested(true);
         setOtpCountdown(300); // 5 minutes validity
-        setResendCooldown(25); // 25s cooldown
+        setResendCooldown(60); // 60s cooldown
         setCodePreview(null); // Never preview code in UI for security
-        setWhatsappUrl(data.whatsappUrl || "https://wa.me/201284484868");
+        setWhatsappUrl(data.whatsappUrl || data.whatsappLink || "https://wa.me/201284484868");
         setLoginNotice(data.message || "تم إرسال رمز التحقق الثنائي إلى واتساب الأدمن (01284484868)");
         setOtpInput("");
       } else {
@@ -563,15 +587,22 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
       const res = await fetch("/api/admin/auth/verify-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ otp: clean })
+        body: JSON.stringify({ otp: clean, userId: loginUserId || undefined })
       });
       const data = await res.json();
       if (data.success) {
         setIsAuthenticated(true);
         localStorage.setItem(AUTH_KEY, "true");
-        if (data.token) {
-          localStorage.setItem("celebre_admin_token", data.token);
-          sessionStorage.setItem("celebre_admin_token", data.token);
+        const token = data.token || data.session?.token;
+        if (token) {
+          localStorage.setItem("celebre_admin_token", token);
+          sessionStorage.setItem("celebre_admin_token", token);
+        }
+        if (data.session) {
+          setCurrentAdminRole(data.session.role || "SUPER_ADMIN");
+          setCurrentAdminPerms(data.session.permissions || []);
+          localStorage.setItem("celebre_admin_role", data.session.role || "SUPER_ADMIN");
+          localStorage.setItem("celebre_admin_perms", JSON.stringify(data.session.permissions || []));
         }
         showNotice("تم التحقق الثنائي عبر الواتساب بنجاح وتأمين لوحة الإدارة 🛡️");
         fetchBookings(true);
@@ -743,10 +774,21 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      const token = localStorage.getItem("celebre_admin_token");
+      if (token) {
+        await fetch("/api/admin/auth/logout", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` }
+        });
+      }
+    } catch {}
     setIsAuthenticated(false);
     localStorage.removeItem(AUTH_KEY);
     localStorage.removeItem("celebre_admin_token");
+    localStorage.removeItem("celebre_admin_role");
+    localStorage.removeItem("celebre_admin_perms");
     setOtpRequested(false);
     setOtpInput("");
     showNotice("تم تسجيل الخروج بنجاح.");
@@ -1820,6 +1862,14 @@ export const AdminBookingsDashboard: React.FC<AdminBookingsDashboardProps> = ({
                   <RefreshCw className={`w-3.5 h-3.5 ${isLoadingBookings ? "animate-spin text-[#5C1027]" : "text-[#4A3E38]"}`} />
                   <span className="hidden sm:inline">تحديث</span>
                 </button>
+
+                <div
+                  className="px-2.5 py-1.5 rounded-xl bg-[#5C1027]/10 border border-[#C89B3C]/50 text-[#5C1027] text-xs font-black flex items-center gap-1.5 shadow-2xs"
+                  title={`رتبة الحساب: ${currentAdminRole} • الصلاحيات النشطة: ${currentAdminPerms.length > 0 ? currentAdminPerms.length + ' صلاحية' : 'كاملة'}`}
+                >
+                  <ShieldCheck className="w-3.5 h-3.5 text-[#C89B3C]" />
+                  <span>{currentAdminRole}</span>
+                </div>
 
                 <button
                   type="button"

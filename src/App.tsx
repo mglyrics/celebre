@@ -1,46 +1,89 @@
 import React, { useState, useEffect } from "react";
 import confetti from "canvas-confetti";
-import { CateringPackage, CartItem, Order, DrinkModificationId } from "./types";
-import { CATERING_PACKAGES } from "./data/cateringData";
-
-import { Navbar } from "./components/Navbar";
-import { Hero } from "./components/Hero";
-import { PackagesSection } from "./components/PackagesSection";
-import { PackageDetailModal } from "./components/PackageDetailModal";
-import { OrderModal } from "./components/OrderModal";
-import { CartDrawer } from "./components/CartDrawer";
-import { EventCalculator } from "./components/EventCalculator";
-import { AiCateringAdvisor } from "./components/AiCateringAdvisor";
-import { GalleryShowcase } from "./components/GalleryShowcase";
-import { WhyCelebre } from "./components/WhyCelebre";
-import { TestimonialsSection } from "./components/TestimonialsSection";
-import { FaqSection } from "./components/FaqSection";
-import { Footer } from "./components/Footer";
-import { InvoiceModal } from "./components/InvoiceModal";
-import { PrivacyPolicyModal } from "./components/PrivacyPolicyModal";
-import { FloatingQuickBar } from "./components/FloatingQuickBar";
-import { AdminBookingsDashboard } from "./components/AdminBookingsDashboard";
-import { LocationGreetingBar } from "./components/LocationGreetingBar";
-import { InteractiveMenuModal } from "./components/InteractiveMenuModal";
+import { PublicMenuItem, BookingOrderResult } from "./types/publicMenu";
+import { PublicNavbar } from "./components/public/PublicNavbar";
+import { PublicHome } from "./components/public/PublicHome";
+import { PublicMenu } from "./components/public/PublicMenu";
+import { OfferDetailsModal } from "./components/public/OfferDetailsModal";
+import { PublicBookingForm } from "./components/public/PublicBookingForm";
+import { BookingConfirmationModal } from "./components/public/BookingConfirmationModal";
+import { PublicFooter } from "./components/public/PublicFooter";
+import { AdminOrderManagement } from "./components/admin/AdminOrderManagement";
 
 export const App: React.FC = () => {
-  const [packages] = useState<CateringPackage[]>(CATERING_PACKAGES);
-  const [cart, setCart] = useState<CartItem[]>([]);
+  // Navigation: "home" | "menu" | "booking"
+  const [activePage, setActivePage] = useState<"home" | "menu" | "booking">("home");
 
-  // Modals state
-  const [selectedPackageForDetail, setSelectedPackageForDetail] = useState<CateringPackage | null>(null);
-  const [isCartOpen, setIsCartOpen] = useState(false);
-  const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
-  const [isAdvisorOpen, setIsAdvisorOpen] = useState(false);
-  const [isCalculatorOpen, setIsCalculatorOpen] = useState(false);
-  const [isPrivacyOpen, setIsPrivacyOpen] = useState(false);
-  const [lastOrder, setLastOrder] = useState<Order | null>(null);
-  const [isInvoiceOpen, setIsInvoiceOpen] = useState(false);
+  // Menu items from Database
+  const [menuItems, setMenuItems] = useState<PublicMenuItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Selected item for Offer Details Modal
+  const [selectedItemForDetails, setSelectedItemForDetails] = useState<PublicMenuItem | null>(null);
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+
+  // Pre-selected menu code for Booking Form
+  const [selectedMenuCodeForBooking, setSelectedMenuCodeForBooking] = useState<string | null>(null);
+
+  // Last completed preliminary booking
+  const [lastBookingOrder, setLastBookingOrder] = useState<BookingOrderResult | null>(null);
+  const [lastWhatsappLink, setLastWhatsappLink] = useState<string | undefined>(undefined);
+  const [isConfirmationOpen, setIsConfirmationOpen] = useState(false);
+
+  // Admin Order Management state (No link shown on public site, accessed via #admin or key shortcut)
   const [isAdminOpen, setIsAdminOpen] = useState(false);
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
-  // Global shortcut to open admin dashboard: Ctrl+Shift+A or Alt+A, and URL triggers (#admin or ?admin)
+  // Fetch the 18 Sales from Database via /api/public/menu
   useEffect(() => {
+    const fetchMenu = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await fetch("/api/public/menu");
+        if (!res.ok) {
+          throw new Error("فشل تحميل قائمة الوجبات من قاعدة البيانات");
+        }
+        const data = await res.json();
+        if (data.success && Array.isArray(data.menu)) {
+          setMenuItems(data.menu);
+        } else {
+          throw new Error(data.message || "استجابة غير صحيحة من الخادم");
+        }
+      } catch (err: any) {
+        console.error("Error loading public menu:", err);
+        setError("تعذر تحميل قائمة الوجبات حالياً. يرجى التحقق من الاتصال بالإنترنت.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchMenu();
+  }, []);
+
+  // Sync hash routing (#home, #menu, #booking, and hidden #admin)
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash.toLowerCase().replace("#", "");
+      const search = window.location.search.toLowerCase();
+
+      if (hash === "admin" || hash === "dashboard" || search.includes("admin")) {
+        setIsAdminOpen(true);
+      } else if (hash === "menu") {
+        setActivePage("menu");
+        setIsAdminOpen(false);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      } else if (hash === "booking" || hash === "book") {
+        setActivePage("booking");
+        setIsAdminOpen(false);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      } else if (hash === "home" || hash === "") {
+        setActivePage("home");
+        setIsAdminOpen(false);
+      }
+    };
+
+    // Secret shortcut for admin: Ctrl+Shift+A or Alt+A
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "a") || (e.altKey && e.key.toLowerCase() === "a")) {
         e.preventDefault();
@@ -48,257 +91,125 @@ export const App: React.FC = () => {
       }
     };
 
-    const checkUrlTrigger = () => {
-      if (typeof window !== "undefined") {
-        const hash = window.location.hash.toLowerCase();
-        const search = window.location.search.toLowerCase();
-        if (hash === "#admin" || hash === "#dashboard" || search.includes("admin") || search.includes("dashboard")) {
-          setIsAdminOpen(true);
-        }
-      }
-    };
-
-    checkUrlTrigger();
+    handleHashChange();
+    window.addEventListener("hashchange", handleHashChange);
     window.addEventListener("keydown", handleKeyDown);
-    window.addEventListener("hashchange", checkUrlTrigger);
-    window.addEventListener("popstate", checkUrlTrigger);
     return () => {
+      window.removeEventListener("hashchange", handleHashChange);
       window.removeEventListener("keydown", handleKeyDown);
-      window.removeEventListener("hashchange", checkUrlTrigger);
-      window.removeEventListener("popstate", checkUrlTrigger);
     };
   }, []);
 
-  // Cart operations
-  const handleAddToCart = (pkg: CateringPackage, quantity: number, selectedDrink: DrinkModificationId = "default_juice") => {
-    setCart((prev) => {
-      const existingIdx = prev.findIndex((item) => item.package.id === pkg.id);
-      if (existingIdx > -1) {
-        const updated = [...prev];
-        updated[existingIdx] = {
-          ...updated[existingIdx],
-          quantity: updated[existingIdx].quantity + quantity,
-          selectedDrink
-        };
-        return updated;
-      }
-      return [...prev, { package: pkg, quantity, selectedDrink }];
-    });
-    setIsCartOpen(true);
+  const navigateTo = (page: "home" | "menu" | "booking") => {
+    setActivePage(page);
+    window.location.hash = `#${page}`;
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  // Direct order: bypasses cart browsing and opens OrderModal directly for instant checkout!
-  const handleDirectOrder = (pkg: CateringPackage, quantity: number, selectedDrink: DrinkModificationId = "default_juice") => {
-    setCart([{ package: pkg, quantity, selectedDrink }]);
-    setIsOrderModalOpen(true);
+  const handleOpenDetails = (item: PublicMenuItem) => {
+    setSelectedItemForDetails(item);
+    setIsDetailsOpen(true);
   };
 
-  const handleUpdateQuantity = (packageId: string, quantity: number) => {
-    if (quantity <= 0) {
-      handleRemoveItem(packageId);
-      return;
-    }
-    setCart((prev) =>
-      prev.map((item) =>
-        item.package.id === packageId ? { ...item, quantity } : item
-      )
-    );
+  const handleSelectForBooking = (code: string) => {
+    setSelectedMenuCodeForBooking(code);
+    setIsDetailsOpen(false);
+    navigateTo("booking");
   };
 
-  const handleUpdateDrink = (packageId: string, drink: DrinkModificationId) => {
-    setCart((prev) =>
-      prev.map((item) =>
-        item.package.id === packageId ? { ...item, selectedDrink: drink } : item
-      )
-    );
-  };
-
-  const handleRemoveItem = (packageId: string) => {
-    setCart((prev) => prev.filter((item) => item.package.id !== packageId));
-  };
-
-  const handleCompleteOrder = (order: Order) => {
-    setLastOrder(order);
-    setCart([]);
-    setIsInvoiceOpen(true);
+  const handleBookingSuccess = (order: BookingOrderResult, whatsappLink?: string) => {
+    setLastBookingOrder(order);
+    setLastWhatsappLink(whatsappLink);
+    setIsConfirmationOpen(true);
 
     try {
       confetti({
-        particleCount: 100,
-        spread: 70,
-        origin: { y: 0.6 }
+        particleCount: 120,
+        spread: 80,
+        origin: { y: 0.6 },
+        colors: ["#721832", "#C89B3C", "#25D366", "#FAF7F2"],
       });
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const handleScrollToPackages = () => {
-    const el = document.getElementById("packages-section");
-    if (el) {
-      el.scrollIntoView({ behavior: "smooth" });
-    }
-  };
-
-  const handleScrollToBoxMix = () => {
-    const el = document.getElementById("section-box-mix");
-    if (el) {
-      el.scrollIntoView({ behavior: "smooth", block: "start" });
-    } else {
-      handleScrollToPackages();
-    }
-  };
-
-  const handleScrollToBoxSandwich = () => {
-    const el = document.getElementById("section-box-sandwich");
-    if (el) {
-      el.scrollIntoView({ behavior: "smooth", block: "start" });
-    } else {
-      handleScrollToPackages();
-    }
+    } catch {}
   };
 
   return (
-    <div className="min-h-screen min-h-[100dvh] flex flex-col bg-[#FAF7F2] text-[#221B17] w-full max-w-[100vw] overflow-x-hidden">
-      {/* Localized Hospitality Bar for Client's Detected Geographic Location */}
-      <LocationGreetingBar variant="topbar" />
-
-      {/* Navbar with Slogan */}
-      <Navbar
-        cartCount={cart.reduce((sum, it) => sum + it.quantity, 0)}
-        onOpenCart={() => setIsCartOpen(true)}
-        onOpenAdvisor={() => setIsAdvisorOpen(true)}
-        onOpenCalculator={() => setIsCalculatorOpen(true)}
-        onScrollToPackages={handleScrollToPackages}
-        onOpenMenu={() => setIsMenuOpen(true)}
-        onScrollToBoxMix={handleScrollToBoxMix}
-        onScrollToBoxSandwich={handleScrollToBoxSandwich}
-        onSecretAdminTrigger={() => setIsAdminOpen(true)}
+    <div className="min-h-screen min-h-[100dvh] flex flex-col bg-[#FAF7F2] text-[#221B17] font-['Alexandria',sans-serif] selection:bg-[#721832] selection:text-white" dir="rtl">
+      {/* Public Navbar - Strictly no admin URL displayed */}
+      <PublicNavbar
+        activePage={activePage}
+        onNavigate={navigateTo}
+        selectedMenuCode={selectedMenuCodeForBooking}
       />
 
-      {/* Main Content */}
+      {/* Main Pages Router */}
       <main className="flex-1">
-        {/* Hero Section with Quick Price Simulator (Flexible meal count) */}
-        <Hero
-          onExplorePackages={handleScrollToPackages}
-          onOpenAdvisor={() => setIsAdvisorOpen(true)}
-          onOpenMenu={() => setIsMenuOpen(true)}
-          onScrollToBoxMix={handleScrollToBoxMix}
-          onScrollToBoxSandwich={handleScrollToBoxSandwich}
-        />
+        {activePage === "home" && (
+          <PublicHome
+            menuItems={menuItems}
+            onNavigate={navigateTo}
+            onSelectForDetails={handleOpenDetails}
+            onSelectForBooking={handleSelectForBooking}
+          />
+        )}
 
-        {/* Packages Section (12 meals, expandable details accordion, in-card drink customizer, in-card quantity > 300 flexible input, 1-click order) */}
-        <PackagesSection
-          packages={packages}
-          onSelectPackage={(pkg) => setSelectedPackageForDetail(pkg)}
-          onAddToCart={handleAddToCart}
-          onDirectOrder={handleDirectOrder}
-          onOpenMenu={() => setIsMenuOpen(true)}
-        />
+        {activePage === "menu" && (
+          <PublicMenu
+            menuItems={menuItems}
+            loading={loading}
+            error={error}
+            onSelectForDetails={handleOpenDetails}
+            onSelectForBooking={handleSelectForBooking}
+          />
+        )}
 
-        {/* Gallery Showcase of gold carton boxes and mosque distributions */}
-        <GalleryShowcase />
-
-        {/* Why Celebre Value Pillars */}
-        <WhyCelebre />
-
-        {/* Verified Customer Reviews */}
-        <TestimonialsSection />
-
-        {/* Frequently Asked Questions */}
-        <FaqSection />
+        {activePage === "booking" && (
+          <div className="py-8 sm:py-12">
+            <PublicBookingForm
+              menuItems={menuItems}
+              initialMenuCode={selectedMenuCodeForBooking}
+              onBookingSuccess={handleBookingSuccess}
+              onCancel={() => navigateTo("menu")}
+            />
+          </div>
+        )}
       </main>
 
-      {/* Footer */}
-      <Footer 
-        onOpenPrivacy={() => setIsPrivacyOpen(true)} 
-      />
-
-      {/* Floating Quick Bar for mobile & desktop immediate access */}
-      <FloatingQuickBar
-        cartCount={cart.reduce((sum, it) => sum + it.quantity, 0)}
-        onOpenCart={() => setIsCartOpen(true)}
-        onScrollToPackages={handleScrollToPackages}
-        onOpenAdvisor={() => setIsAdvisorOpen(true)}
-        onOpenMenu={() => setIsMenuOpen(true)}
-      />
+      {/* Public Footer - Strictly no admin URL displayed */}
+      <PublicFooter onNavigate={navigateTo} />
 
       {/* Modals */}
-      <PackageDetailModal
-        packageItem={selectedPackageForDetail}
-        onClose={() => setSelectedPackageForDetail(null)}
-        onAddToCart={handleAddToCart}
-        onDirectOrder={handleDirectOrder}
+      {/* 1. Offer Details Modal */}
+      <OfferDetailsModal
+        item={selectedItemForDetails}
+        isOpen={isDetailsOpen}
+        onClose={() => setIsDetailsOpen(false)}
+        onSelectForBooking={handleSelectForBooking}
       />
 
-      <CartDrawer
-        isOpen={isCartOpen}
-        onClose={() => setIsCartOpen(false)}
-        items={cart}
-        onUpdateQuantity={handleUpdateQuantity}
-        onUpdateDrink={handleUpdateDrink}
-        onRemoveItem={handleRemoveItem}
-        onProceedToOrder={() => {
-          setIsCartOpen(false);
-          setIsOrderModalOpen(true);
+      {/* 2. Booking Confirmation Modal */}
+      <BookingConfirmationModal
+        order={lastBookingOrder}
+        isOpen={isConfirmationOpen}
+        onClose={() => setIsConfirmationOpen(false)}
+        onNewBooking={() => {
+          setIsConfirmationOpen(false);
+          navigateTo("booking");
         }}
+        whatsappLink={lastWhatsappLink}
       />
 
-      <OrderModal
-        isOpen={isOrderModalOpen}
-        onClose={() => setIsOrderModalOpen(false)}
-        items={cart}
-        onUpdateQuantity={handleUpdateQuantity}
-        onUpdateDrink={handleUpdateDrink}
-        onCompleteOrder={handleCompleteOrder}
-      />
-
-      <EventCalculator
-        isOpen={isCalculatorOpen}
-        onClose={() => setIsCalculatorOpen(false)}
-        packages={packages}
-        onSelectPackageForOrder={(pkg, count) => {
-          handleDirectOrder(pkg, count);
-        }}
-      />
-
-      <AiCateringAdvisor
-        isOpen={isAdvisorOpen}
-        onClose={() => setIsAdvisorOpen(false)}
-        packages={packages}
-        onSelectSuggestedPackage={(pkg, count) => {
-          handleDirectOrder(pkg, count);
-        }}
-      />
-
-      <InvoiceModal
-        order={lastOrder}
-        onClose={() => setIsInvoiceOpen(false)}
-      />
-
-      <PrivacyPolicyModal
-        isOpen={isPrivacyOpen}
-        onClose={() => setIsPrivacyOpen(false)}
-      />
-
-      {/* Admin Bookings Management Dashboard (Accessed exclusively via #admin or shortcut) */}
-      <AdminBookingsDashboard
+      {/* 3. Admin Order Management Dashboard (Protected by RBAC + OTP Auth) */}
+      <AdminOrderManagement
         isOpen={isAdminOpen}
         onClose={() => {
           setIsAdminOpen(false);
           try {
             if (window.location.hash.toLowerCase() === "#admin" || window.location.hash.toLowerCase() === "#dashboard") {
-              window.history.replaceState(null, "", window.location.pathname + window.location.search);
+              window.history.replaceState(null, "", window.location.pathname);
             }
           } catch {}
         }}
-      />
-
-      {/* Interactive Current Offers Menu Modal (PDF / JPG Export) */}
-      <InteractiveMenuModal
-        isOpen={isMenuOpen}
-        onClose={() => setIsMenuOpen(false)}
-        packages={packages}
+        menuItems={menuItems}
       />
     </div>
   );

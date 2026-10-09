@@ -112,8 +112,10 @@ export async function seedDatabase() {
   }
 
   // 3. Admin Users
-  const defaultAdminPass = process.env.ADMIN_INITIAL_PASSWORD || 'CelebreAdmin2026!';
-  const { hash, salt } = hashPassword(defaultAdminPass);
+  // Secure: No hardcoded admin password in codebase. Controlled by ADMIN_INITIAL_PASSWORD or dynamic generation.
+  const adminPasswordFromEnv = process.env.ADMIN_INITIAL_PASSWORD;
+  const initialAdminPass = adminPasswordFromEnv || crypto.randomBytes(12).toString('base64').replace(/[^a-zA-Z0-9]/g, 'A');
+  const { hash, salt } = hashPassword(initialAdminPass);
 
   const existingAdmin = await db.select().from(adminUsers).where(eq(adminUsers.username, 'admin')).limit(1);
   let adminUserId = existingAdmin[0]?.id;
@@ -132,33 +134,40 @@ export async function seedDatabase() {
       })
       .returning();
     adminUserId = inserted[0].id;
-    console.log('✅ Admin user created (username: admin, phone: 01284484868)');
+    if (!adminPasswordFromEnv) {
+      console.log(`🔐 [SECURE SETUP] Generated Admin initial password: ${initialAdminPass}`);
+      console.log('ℹ️ Please set ADMIN_INITIAL_PASSWORD in your environment variables for production.');
+    } else {
+      console.log('✅ Admin user created using ADMIN_INITIAL_PASSWORD environment variable.');
+    }
   }
 
-  // 4. Default Supplier (Factory)
+  // 4. Default Supplier (Factory: Celebre Factory)
   const existingSupplier = await db.select().from(suppliers).limit(1);
   let defaultSupplierId = existingSupplier[0]?.id;
   if (!existingSupplier.length) {
     const inserted = await db
       .insert(suppliers)
       .values({
-        name: 'مصنع التجهيزات الفندقية المركزي (المورد الرئيسي)',
+        name: 'Celebre Factory',
         companyName: 'Celebre Central Production & Catering Factory',
         phone: '01284484868',
         whatsapp: '201284484868',
         email: 'factory@celebre-eg.com',
         address: 'المنطقة الصناعية - شرق النيل - محافظة بني سويف',
         taxNumber: 'EG-784-938-2026',
-        notes: 'المورد المعتمد لتجهيز عبوات الكاترنج الفاخرة وساندوتشات المناسبات',
+        notes: 'المورد والمصنع المركزي المعتمد لتجهيز عبوات الكاترنج الفاخرة وساندوتشات المناسبات',
         isActive: true,
       })
       .returning();
     defaultSupplierId = inserted[0].id;
-    console.log('✅ Default factory/supplier created');
+    console.log('✅ Default factory/supplier created: "Celebre Factory"');
   }
 
-  // 5. App Settings (Dynamic Juice Exclusion & Pepsi Replacement)
+  // 5. App Settings (Dynamic Juice Exclusion & Pepsi Replacement from Database Configuration)
   const defaultSettings = [
+    { key: 'REMOVE_JUICE', value: '-5', description: 'خصم استبعاد العصير من سعر العميل (جنيه مصري)' },
+    { key: 'REPLACE_JUICE_WITH_PEPSI', value: '+10', description: 'إضافة استبدال العصير ببيبسي على سعر العميل (جنيه مصري)' },
     { key: 'juice_exclusion_discount', value: '5', description: 'خصم استبعاد العصير من سعر العميل (جنيه مصري)' },
     { key: 'pepsi_replacement_markup', value: '10', description: 'إضافة استبدال العصير ببيبسي على سعر العميل (جنيه مصري)' },
     { key: 'official_whatsapp_admin', value: '01284484868', description: 'رقم واتساب الإدارة الرئيسي للتواصل والتأكيد' },

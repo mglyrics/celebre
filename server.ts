@@ -34,7 +34,57 @@ app.use((_req, res, next) => {
   res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
   res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
   res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+  res.setHeader(
+    "Content-Security-Policy",
+    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https: ws: wss:;"
+  );
   next();
+});
+
+// Production Rate Limiter Middleware for API endpoints (200 requests/minute per IP)
+const globalApiRateMap = new Map<string, { count: number; resetTime: number }>();
+app.use("/api", (req, res, next) => {
+  if (req.method === "OPTIONS") return next();
+  const ip = req.ip || req.socket.remoteAddress || "client_ip";
+  const now = Date.now();
+  let record = globalApiRateMap.get(ip);
+  if (!record || now > record.resetTime) {
+    record = { count: 1, resetTime: now + 60 * 1000 };
+    globalApiRateMap.set(ip, record);
+    return next();
+  }
+  record.count += 1;
+  if (record.count > 200) {
+    return res.status(429).json({
+      success: false,
+      message: "تم تجاوز الحد الأقصى للطلبات المسموحة في الدقيقة. يرجى الانتظار قليلاً.",
+    });
+  }
+  next();
+});
+
+// CSRF Defense Middleware for state-changing mutations
+app.use("/api", (req, res, next) => {
+  if (["GET", "HEAD", "OPTIONS"].includes(req.method)) return next();
+  // Safe endpoints for public bookings and login initial steps
+  if (
+    req.path === "/public/bookings" ||
+    req.path === "/orders" ||
+    req.path === "/admin/auth/login" ||
+    req.path === "/admin/auth/verify-otp"
+  ) {
+    return next();
+  }
+  const hasAuthHeader = Boolean(req.headers.authorization || req.headers["x-admin-token"]);
+  const hasCsrfHeader = Boolean(req.headers["x-csrf-token"] || req.headers["x-requested-with"]);
+  const isSameOrigin = req.headers["sec-fetch-site"] === "same-origin" || req.headers["sec-fetch-site"] === "none";
+  if (hasAuthHeader || hasCsrfHeader || isSameOrigin || !req.headers.cookie) {
+    return next();
+  }
+  return res.status(403).json({
+    success: false,
+    message: "فشل التحقق الأمني من صحة الطلب (CSRF Protection)",
+  });
 });
 
 // Mount PostgreSQL-backed Core Enterprise API Router

@@ -14,8 +14,13 @@ import {
   supplierPayments,
   auditLogs,
   appSettings,
+  adminUsers,
+  roles,
+  permissions,
+  rolePermissions,
+  otpTokens,
 } from '../db/schema.ts';
-import { eq, desc, and, sql, gte, lte, like, or } from 'drizzle-orm';
+import { eq, desc, and, sql, gte, lte, like, or, inArray, gt } from 'drizzle-orm';
 import { OrderService } from '../services/orderService.ts';
 import { AuthService, AdminSession } from '../services/authService.ts';
 import { WhatsAppService } from '../services/whatsappService.ts';
@@ -29,11 +34,18 @@ export interface AuthenticatedRequest extends Request {
 
 export const requireAdminAuth = (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   const authHeader = req.headers.authorization || (req.headers['x-admin-token'] as string);
-  if (!authHeader) {
+  let token = authHeader ? (authHeader.startsWith('Bearer ') ? authHeader.substring(7) : authHeader) : '';
+  if (!token && req.headers.cookie) {
+    const match = req.headers.cookie.split(';').find((c) => c.trim().startsWith('admin_session='));
+    if (match) {
+      token = match.split('=')[1]?.trim();
+    }
+  }
+
+  if (!token) {
     return res.status(401).json({ success: false, message: 'غير مصرح - يرجى تسجيل الدخول كإدارة معتمدة' });
   }
 
-  const token = authHeader.startsWith('Bearer ') ? authHeader.substring(7) : authHeader;
   const session = AuthService.getSession(token);
 
   if (!session) {
@@ -234,10 +246,12 @@ apiRouter.post('/admin/auth/login', async (req: Request, res: Response) => {
     res.json({
       success: true,
       needOtp: true,
+      require2fa: true,
       userId: user.id,
       phone: user.phone,
       whatsappLink: otpResult.whatsappLink,
-      message: `تم إرسال رمز التحقق الثنائي (OTP) إلى هاتف الإدارة المسجل (${user.phone}). صالح لمدة 5 دقائق.`,
+      whatsappUrl: otpResult.whatsappLink,
+      message: `تم التحقق من بيانات الدخول 🛡️ تم إرسال رمز التحقق الثنائي (OTP) إلى هاتف الإدارة المسجل (${user.phone}). صالح لمدة 5 دقائق.`,
     });
   } catch (error: any) {
     res.status(401).json({ success: false, message: error.message || 'بيانات الدخول غير صحيحة' });
@@ -247,17 +261,43 @@ apiRouter.post('/admin/auth/login', async (req: Request, res: Response) => {
 // Admin Login Step 2: Verify OTP -> Receive Session Token
 apiRouter.post('/admin/auth/verify-otp', async (req: Request, res: Response) => {
   try {
-    const { userId, otp } = req.body;
-    if (!userId || !otp) {
-      return res.status(400).json({ success: false, message: 'معرف المستخدم ورمز OTP مطلوبان' });
+    let { userId, otp } = req.body;
+    if (!otp) {
+      return res.status(400).json({ success: false, message: 'رمز OTP مطلوب' });
+    }
+
+    if (!userId) {
+      // Find user with active pending OTP token
+      const recentOtp = await db
+        .select()
+        .from(otpTokens)
+        .where(and(eq(otpTokens.isUsed, false), gt(otpTokens.expiresAt, new Date())))
+        .orderBy(desc(otpTokens.id))
+        .limit(1);
+
+      if (recentOtp.length > 0 && recentOtp[0].userId) {
+        userId = recentOtp[0].userId;
+      } else {
+        userId = 1; // Default to primary admin
+      }
     }
 
     const ip = req.ip || req.socket.remoteAddress || 'unknown';
     const session = await AuthService.verifyOtpAndCreateSession(Number(userId), String(otp), ip);
 
+    // Set secure HttpOnly SameSite cookie for production session protection
+    const isProd = process.env.NODE_ENV === 'production';
+    res.cookie('admin_session', session.token, {
+      httpOnly: true,
+      secure: isProd,
+      sameSite: 'strict',
+      maxAge: 24 * 60 * 60 * 1000,
+    });
+
     res.json({
       success: true,
       message: 'تم التحقق بنجاح وتأكيد هوية الأدمن',
+      token: session.token,
       session,
     });
   } catch (error: any) {
@@ -272,64 +312,27 @@ apiRouter.get('/admin/auth/me', requireAdminAuth, (req: AuthenticatedRequest, re
 
 // Admin Logout
 apiRouter.post('/admin/auth/logout', (req: Request, res: Response) => {
-  const token = req.headers.authorization?.replace('Bearer ', '') || (req.headers['x-admin-token'] as string);
-  if (token) {
-    AuthService.logout(token, req.ip);
+  const authHeader = req.headers.authorization || (req.headers['x-admin-token'] as string);
+  let token = authHeader ? (authHeader.startsWith('Bearer ') ? authHeader.substring(7) : authHeader) : '';
+  if (!token && req.headers.cookie) {
+    const match = req.headers.cookie.split(';').find((c) => c.trim().startsWith('admin_session='));
+    if (match) token = match.split('=')[1]?.trim();
   }
+  if (token) {
+    AuthService.logout(token, req.ip || req.socket.remoteAddress);
+  }
+  const isProd = process.env.NODE_ENV === 'production';
+  res.clearCookie('admin_session', {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: 'strict',
+  });
   res.json({ success: true, message: 'تم تسجيل الخروج بنجاح' });
 });
 
 /* ==========================================================================
-   ADMIN DASHBOARD & ORDERS MANAGEMENT APIS
+   ADMIN ORDERS MANAGEMENT APIS
    ========================================================================== */
-
-// 1. Dashboard KPI Statistics
-apiRouter.get('/admin/dashboard/stats', requireAdminAuth, requirePermission('reports.view'), async (_req: AuthenticatedRequest, res: Response) => {
-  try {
-    const allOrders = await db.select().from(orders);
-
-    const todayStr = new Date().toISOString().split('T')[0];
-
-    const stats = {
-      totalOrders: allOrders.length,
-      todayOrders: allOrders.filter((o) => o.pickupDate === todayStr || o.createdAt.toISOString().startsWith(todayStr)).length,
-      pendingBooking: allOrders.filter((o) => o.orderStatus === 'PENDING_BOOKING').length,
-      confirmed: allOrders.filter((o) => o.orderStatus === 'CONFIRMED').length,
-      inProduction: allOrders.filter((o) => o.orderStatus === 'IN_PRODUCTION' || o.orderStatus === 'SENT_TO_SUPPLIER').length,
-      ready: allOrders.filter((o) => o.orderStatus === 'READY').length,
-      completed: allOrders.filter((o) => o.orderStatus === 'COMPLETED' || o.orderStatus === 'DELIVERED').length,
-      cancelled: allOrders.filter((o) => o.orderStatus === 'CANCELLED').length,
-
-      // Customer Financials
-      totalCustomerSales: allOrders
-        .filter((o) => o.orderStatus !== 'CANCELLED')
-        .reduce((sum, o) => sum + parseFloat(o.totalAmount || '0'), 0),
-      totalCustomerPaid: allOrders.reduce((sum, o) => sum + parseFloat(o.customerPaid || '0'), 0),
-      totalCustomerRemaining: allOrders
-        .filter((o) => o.orderStatus !== 'CANCELLED')
-        .reduce((sum, o) => sum + parseFloat(o.customerRemaining || '0'), 0),
-
-      // Supplier Financials (Factory)
-      totalSupplierCost: allOrders
-        .filter((o) => o.orderStatus !== 'CANCELLED')
-        .reduce((sum, o) => sum + parseFloat(o.supplierTotal || '0'), 0),
-      totalSupplierPaid: allOrders.reduce((sum, o) => sum + parseFloat(o.supplierPaid || '0'), 0),
-      totalSupplierRemaining: allOrders
-        .filter((o) => o.orderStatus !== 'CANCELLED')
-        .reduce((sum, o) => sum + parseFloat(o.supplierRemaining || '0'), 0),
-
-      // Celebre Gross Profit
-      totalGrossProfit: allOrders
-        .filter((o) => o.orderStatus !== 'CANCELLED')
-        .reduce((sum, o) => sum + parseFloat(o.distributorProfit || '0'), 0),
-    };
-
-    res.json({ success: true, stats });
-  } catch (error: any) {
-    console.error('Error fetching dashboard stats:', error);
-    res.status(500).json({ success: false, message: 'فشل استخراج الإحصائيات' });
-  }
-});
 
 // 2. Orders List with search, status filter, sort, pagination
 apiRouter.get('/admin/orders', requireAdminAuth, requirePermission('orders.view'), async (req: AuthenticatedRequest, res: Response) => {
@@ -431,10 +434,23 @@ apiRouter.get('/admin/orders/:id', requireAdminAuth, requirePermission('orders.v
     const sPayments = supOrders.length
       ? await db.select().from(supplierPayments).where(eq(supplierPayments.supplierOrderId, supOrders[0].id))
       : [];
+    const cPaymentIds = cPayments.map((p) => String(p.id));
+    const sPaymentIds = sPayments.map((p) => String(p.id));
+
+    const auditConditions = [
+      and(eq(auditLogs.entity, 'orders'), eq(auditLogs.entityId, String(orderId)))
+    ];
+    if (cPaymentIds.length > 0) {
+      auditConditions.push(and(eq(auditLogs.entity, 'customer_payments'), inArray(auditLogs.entityId, cPaymentIds)));
+    }
+    if (sPaymentIds.length > 0) {
+      auditConditions.push(and(eq(auditLogs.entity, 'supplier_payments'), inArray(auditLogs.entityId, sPaymentIds)));
+    }
+
     const logs = await db
       .select()
       .from(auditLogs)
-      .where(and(eq(auditLogs.entity, 'orders'), eq(auditLogs.entityId, String(orderId))))
+      .where(or(...auditConditions))
       .orderBy(desc(auditLogs.createdAt));
 
     // Pre-generate WhatsApp message texts and deep links
@@ -462,10 +478,15 @@ apiRouter.get('/admin/orders/:id', requireAdminAuth, requirePermission('orders.v
       orderStatus: order.orderStatus,
     };
 
-    const customerMsg = WhatsAppService.generateCustomerBookingMessage(msgPayload);
-    const supplierMsg = WhatsAppService.generateSupplierOrderMessage(msgPayload);
+    const customerMsg = WhatsAppService.generateCustomerMessage(msgPayload);
+    const supplierMsg = WhatsAppService.generateSupplierMessage(msgPayload);
     const customerWhatsappLink = WhatsAppService.createDeepLink(customer?.phone || '', customerMsg);
     const supplierWhatsappLink = WhatsAppService.createDeepLink('01284484868', supplierMsg);
+
+    const customerUpdateMsg = WhatsAppService.generateCustomerUpdateMessage(msgPayload);
+    const supplierUpdateMsg = WhatsAppService.generateSupplierUpdateMessage(msgPayload);
+    const customerUpdateLink = WhatsAppService.createDeepLink(customer?.phone || '', customerUpdateMsg);
+    const supplierUpdateLink = WhatsAppService.createDeepLink('01284484868', supplierUpdateMsg);
 
     res.json({
       success: true,
@@ -509,13 +530,103 @@ apiRouter.get('/admin/orders/:id', requireAdminAuth, requirePermission('orders.v
       whatsapp: {
         customerMessage: customerMsg,
         supplierMessage: supplierMsg,
+        customerUpdateMessage: customerUpdateMsg,
+        supplierUpdateMessage: supplierUpdateMsg,
         customerLink: customerWhatsappLink,
         supplierLink: supplierWhatsappLink,
+        customerUpdateLink: customerUpdateLink,
+        supplierUpdateLink: supplierUpdateLink,
+        hasApiCredentials: WhatsAppService.hasApiCredentials(),
+        lastMessageAt: order.lastMessageAt,
+        lastMessageBy: order.lastMessageBy,
+        lastMessageType: order.lastMessageType,
+        lastMessageRecipient: order.lastMessageRecipient,
       },
     });
   } catch (error: any) {
     console.error('Error fetching order details:', error);
     res.status(500).json({ success: false, message: 'فشل تحميل تفاصيل الطلب' });
+  }
+});
+
+// =========================================================================
+// WHATSAPP MESSAGING LAYER ENDPOINTS
+// =========================================================================
+
+// 1. Send Customer Message (تأكيد الطلب والحجز للعميل)
+apiRouter.post('/admin/orders/:id/whatsapp/customer-message', requireAdminAuth, requirePermission('orders.view'), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const orderId = Number(req.params.id);
+    const adminUser = req.adminSession?.username || 'admin';
+    const result = await WhatsAppService.sendCustomerMessage(orderId, adminUser);
+    res.json({ success: true, message: result.statusDescription, result });
+  } catch (error: any) {
+    res.status(400).json({ success: false, message: error.message || 'فشل إرسال رسالة العميل' });
+  }
+});
+
+// 2. Send Supplier Message (أمر التوريد والتشغيل للمصنع)
+apiRouter.post('/admin/orders/:id/whatsapp/supplier-message', requireAdminAuth, requirePermission('orders.view'), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const orderId = Number(req.params.id);
+    const adminUser = req.adminSession?.username || 'admin';
+    const result = await WhatsAppService.sendSupplierMessage(orderId, adminUser);
+    res.json({ success: true, message: result.statusDescription, result });
+  } catch (error: any) {
+    res.status(400).json({ success: false, message: error.message || 'فشل إرسال رسالة المصنع' });
+  }
+});
+
+// 3. Send Customer Update (تحديث العميل - تعديل حالة أو سداد دفعة)
+apiRouter.post('/admin/orders/:id/whatsapp/customer-update', requireAdminAuth, requirePermission('orders.view'), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const orderId = Number(req.params.id);
+    const adminUser = req.adminSession?.username || 'admin';
+    const { updateReason } = req.body;
+    const result = await WhatsAppService.sendCustomerUpdate(orderId, adminUser, updateReason);
+    res.json({ success: true, message: result.statusDescription, result });
+  } catch (error: any) {
+    res.status(400).json({ success: false, message: error.message || 'فشل إرسال تحديث العميل' });
+  }
+});
+
+// 4. Send Supplier Update (تحديث المصنع - تعديل حالة أو تحويل مالي)
+apiRouter.post('/admin/orders/:id/whatsapp/supplier-update', requireAdminAuth, requirePermission('orders.view'), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const orderId = Number(req.params.id);
+    const adminUser = req.adminSession?.username || 'admin';
+    const { updateReason } = req.body;
+    const result = await WhatsAppService.sendSupplierUpdate(orderId, adminUser, updateReason);
+    res.json({ success: true, message: result.statusDescription, result });
+  } catch (error: any) {
+    res.status(400).json({ success: false, message: error.message || 'فشل إرسال تحديث المصنع' });
+  }
+});
+
+// 5. Unified WhatsApp Dispatch Dispatcher
+apiRouter.post('/admin/orders/:id/whatsapp/dispatch', requireAdminAuth, requirePermission('orders.view'), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const orderId = Number(req.params.id);
+    const adminUser = req.adminSession?.username || 'admin';
+    const { messageType, action, updateReason } = req.body;
+    const type = (messageType || action || 'CUSTOMER_MESSAGE').toUpperCase();
+
+    let result;
+    if (type === 'CUSTOMER_MESSAGE') {
+      result = await WhatsAppService.sendCustomerMessage(orderId, adminUser);
+    } else if (type === 'SUPPLIER_MESSAGE') {
+      result = await WhatsAppService.sendSupplierMessage(orderId, adminUser);
+    } else if (type === 'CUSTOMER_UPDATE') {
+      result = await WhatsAppService.sendCustomerUpdate(orderId, adminUser, updateReason);
+    } else if (type === 'SUPPLIER_UPDATE') {
+      result = await WhatsAppService.sendSupplierUpdate(orderId, adminUser, updateReason);
+    } else {
+      return res.status(400).json({ success: false, message: 'نوع الرسالة غير معروف' });
+    }
+
+    res.json({ success: true, message: result.statusDescription, result });
+  } catch (error: any) {
+    res.status(400).json({ success: false, message: error.message || 'فشل إنشاء وإرسال رسالة واتساب' });
   }
 });
 
@@ -552,6 +663,78 @@ apiRouter.put('/admin/orders/:id/details', requireAdminAuth, requirePermission('
   }
 });
 
+// Alias: PUT /admin/orders/:id
+apiRouter.put('/admin/orders/:id', requireAdminAuth, requirePermission('orders.edit'), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const orderId = Number(req.params.id);
+    const adminUser = req.adminSession?.username || 'admin';
+    const ip = req.ip || req.socket.remoteAddress || 'unknown';
+
+    // If status is present in payload, update status as well
+    if (req.body.status) {
+      if (req.body.status === 'CANCELLED' && !AuthService.hasPermission(req.adminSession!, 'orders.cancel')) {
+        return res.status(403).json({ success: false, message: 'ليس لديك صلاحية إلغاء الطلبات' });
+      }
+      await OrderService.updateOrderStatus(orderId, req.body.status, req.body.cancelReason, adminUser, ip);
+    }
+
+    await OrderService.updateOrderDetails(orderId, req.body, adminUser, ip);
+    res.json({ success: true, message: 'تم تحديث الطلب بنجاح' });
+  } catch (error: any) {
+    res.status(400).json({ success: false, message: error.message || 'فشل تحديث الطلب' });
+  }
+});
+
+// Create Order from Admin Panel
+apiRouter.post('/admin/orders', requireAdminAuth, requirePermission('orders.create'), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const {
+      customerName,
+      phone,
+      whatsapp,
+      menuCode,
+      quantity,
+      pickupDate,
+      pickupTime,
+      pickupLocation,
+      notes,
+      drinkOption,
+      initialStatus,
+    } = req.body;
+
+    const adminUser = req.adminSession?.username || 'admin';
+    const ip = req.ip || req.socket.remoteAddress || 'unknown';
+    const userAgent = req.headers['user-agent'] || 'unknown';
+
+    const result = await OrderService.createPreliminaryBooking({
+      customerName,
+      phone,
+      whatsapp,
+      menuCode,
+      quantity: Number(quantity),
+      pickupDate,
+      pickupTime,
+      pickupLocation,
+      notes,
+      drinkOption: drinkOption || 'included',
+      initialStatus: initialStatus || 'CONFIRMED',
+      adminUsername: adminUser,
+      ip,
+      userAgent,
+    });
+
+    res.json({
+      success: true,
+      message: 'تم إنشاء الطلب وتوثيق أمر التوريد والأسعار المسجلة بنجاح',
+      order: result.order,
+      orderId: result.order.id,
+      orderNumber: result.order.orderNumber,
+    });
+  } catch (error: any) {
+    res.status(400).json({ success: false, message: error.message || 'فشل إنشاء الطلب' });
+  }
+});
+
 // 6. Record Customer Payment (Manual - InstaPay / Cash)
 apiRouter.post(
   '/admin/orders/:id/customer-payment',
@@ -560,7 +743,7 @@ apiRouter.post(
   async (req: AuthenticatedRequest, res: Response) => {
     try {
       const orderId = Number(req.params.id);
-      const { amount, paymentMethod, paymentReference, notes } = req.body;
+      const { amount, paymentMethod, paymentStatus, paymentReference, notes } = req.body;
       const adminUser = req.adminSession?.username || 'admin';
       const ip = req.ip || req.socket.remoteAddress || 'unknown';
 
@@ -571,7 +754,8 @@ apiRouter.post(
         paymentReference || '',
         notes || '',
         adminUser,
-        ip
+        ip,
+        paymentStatus || 'VERIFIED'
       );
 
       res.json({
@@ -581,6 +765,63 @@ apiRouter.post(
       });
     } catch (error: any) {
       res.status(400).json({ success: false, message: error.message || 'فشل تسجيل الدفعة' });
+    }
+  }
+);
+
+// 6b. Edit Customer Payment (customer_payments.edit)
+apiRouter.put(
+  '/admin/customer-payments/:id',
+  requireAdminAuth,
+  requirePermission('customer_payments.edit'),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const paymentId = Number(req.params.id);
+      const { amount, paymentMethod, paymentStatus, paymentReference, notes } = req.body;
+      const adminUser = req.adminSession?.username || 'admin';
+      const ip = req.ip || req.socket.remoteAddress || 'unknown';
+
+      const result = await OrderService.updateCustomerPayment(
+        paymentId,
+        {
+          amount: amount !== undefined ? parseFloat(amount) : undefined,
+          paymentMethod,
+          paymentStatus,
+          paymentReference,
+          notes,
+        },
+        adminUser,
+        ip
+      );
+
+      res.json({
+        success: true,
+        message: 'تم تعديل دفعة العميل وإعادة احتساب المدفوع والمتبقي بدقة',
+        data: result,
+      });
+    } catch (error: any) {
+      res.status(400).json({ success: false, message: error.message || 'فشل تعديل دفعة العميل' });
+    }
+  }
+);
+
+// 6c. Customer Payment History for an Order
+apiRouter.get(
+  '/admin/orders/:id/customer-payments',
+  requireAdminAuth,
+  requirePermission('customer_payments.view'),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const orderId = Number(req.params.id);
+      const history = await db
+        .select()
+        .from(customerPayments)
+        .where(eq(customerPayments.orderId, orderId))
+        .orderBy(desc(customerPayments.paidAt));
+
+      res.json({ success: true, payments: history });
+    } catch (error: any) {
+      res.status(500).json({ success: false, message: 'فشل تحميل سجل دفعات العميل' });
     }
   }
 );
@@ -623,6 +864,62 @@ apiRouter.post(
   }
 );
 
+// 7b. Edit Supplier Payment (supplier_payments.edit)
+apiRouter.put(
+  '/admin/supplier-payments/:id',
+  requireAdminAuth,
+  requirePermission('supplier_payments.edit'),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const paymentId = Number(req.params.id);
+      const { amount, paymentMethod, reference, notes } = req.body;
+      const adminUser = req.adminSession?.username || 'admin';
+      const ip = req.ip || req.socket.remoteAddress || 'unknown';
+
+      const result = await OrderService.updateSupplierPayment(
+        paymentId,
+        {
+          amount: amount !== undefined ? parseFloat(amount) : undefined,
+          paymentMethod,
+          reference,
+          notes,
+        },
+        adminUser,
+        ip
+      );
+
+      res.json({
+        success: true,
+        message: 'تم تعديل دفعة المصنع وتحديث رصيد المورد المسجل بنجاح',
+        data: result,
+      });
+    } catch (error: any) {
+      res.status(400).json({ success: false, message: error.message || 'فشل تعديل دفعة المصنع' });
+    }
+  }
+);
+
+// 7c. Supplier Payment History
+apiRouter.get(
+  '/admin/orders/:id/supplier-payments',
+  requireAdminAuth,
+  requirePermission('supplier_payments.view'),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const orderId = Number(req.params.id);
+      const history = await db
+        .select()
+        .from(supplierPayments)
+        .where(eq(supplierPayments.orderId, orderId))
+        .orderBy(desc(supplierPayments.paidAt));
+
+      res.json({ success: true, payments: history });
+    } catch (error: any) {
+      res.status(500).json({ success: false, message: 'فشل تحميل سجل دفعات المصنع' });
+    }
+  }
+);
+
 // 8. Financial Report
 apiRouter.get('/admin/reports/financial', requireAdminAuth, requirePermission('reports.view'), async (req: AuthenticatedRequest, res: Response) => {
   try {
@@ -661,6 +958,566 @@ apiRouter.get('/admin/reports/financial', requireAdminAuth, requirePermission('r
     res.json({ success: true, summary, orders: activeOrders });
   } catch (error: any) {
     res.status(500).json({ success: false, message: 'فشل إنشاء التقرير المالي' });
+  }
+});
+// =========================================================================
+// ADMIN DASHBOARD STATS & COMPREHENSIVE REPORTS ENDPOINTS
+// =========================================================================
+
+// 8.1. Dashboard Real-Time Executive Overview Stats
+apiRouter.get('/admin/dashboard/stats', requireAdminAuth, requirePermission('orders.view'), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const rawOrders = await db
+      .select({
+        id: orders.id,
+        orderNumber: orders.orderNumber,
+        customerId: orders.customerId,
+        orderStatus: orders.orderStatus,
+        cancelReason: orders.cancelReason,
+        pickupDate: orders.pickupDate,
+        pickupTime: orders.pickupTime,
+        pickupLocation: orders.pickupLocation,
+        totalAmount: orders.totalAmount,
+        customerPaid: orders.customerPaid,
+        customerRemaining: orders.customerRemaining,
+        supplierTotal: orders.supplierTotal,
+        supplierPaid: orders.supplierPaid,
+        supplierRemaining: orders.supplierRemaining,
+        distributorProfit: orders.distributorProfit,
+        createdAt: orders.createdAt,
+        customerName: customers.fullName,
+        customerPhone: customers.phone,
+      })
+      .from(orders)
+      .leftJoin(customers, eq(orders.customerId, customers.id))
+      .orderBy(desc(orders.id));
+
+    const todayStr = new Date().toISOString().slice(0, 10);
+
+    // Order Status Aggregates
+    let todayOrdersCount = 0;
+    let pendingBookingCount = 0;
+    let confirmedCount = 0;
+    let inProgressCount = 0;
+    let readyCount = 0;
+    let completedCount = 0;
+    let cancelledCount = 0;
+
+    const todayOrdersList: any[] = [];
+
+    for (const o of rawOrders) {
+      const orderDateStr = o.pickupDate || (o.createdAt ? new Date(o.createdAt).toISOString().slice(0, 10) : '');
+      const isToday = orderDateStr === todayStr;
+
+      if (isToday) {
+        todayOrdersCount++;
+        todayOrdersList.push({
+          ...o,
+          totalAmount: parseFloat(o.totalAmount),
+          customerPaid: parseFloat(o.customerPaid),
+          customerRemaining: parseFloat(o.customerRemaining),
+          supplierTotal: parseFloat(o.supplierTotal),
+          supplierPaid: parseFloat(o.supplierPaid),
+          supplierRemaining: parseFloat(o.supplierRemaining),
+          distributorProfit: parseFloat(o.distributorProfit),
+        });
+      }
+
+      switch (o.orderStatus) {
+        case 'PENDING_BOOKING':
+          pendingBookingCount++;
+          break;
+        case 'CONFIRMED':
+          confirmedCount++;
+          break;
+        case 'SENT_TO_SUPPLIER':
+        case 'IN_PRODUCTION':
+          inProgressCount++;
+          break;
+        case 'READY':
+          readyCount++;
+          break;
+        case 'DELIVERED':
+        case 'COMPLETED':
+          completedCount++;
+          break;
+        case 'CANCELLED':
+          cancelledCount++;
+          break;
+      }
+    }
+
+    // Active (Non-cancelled) Orders for Financial Totals
+    const activeOrders = rawOrders.filter((o) => o.orderStatus !== 'CANCELLED');
+
+    const customerSales = activeOrders.reduce((sum, o) => sum + parseFloat(o.totalAmount), 0);
+    const customerPaid = activeOrders.reduce((sum, o) => sum + parseFloat(o.customerPaid), 0);
+    const customerRemaining = activeOrders.reduce((sum, o) => sum + parseFloat(o.customerRemaining), 0);
+
+    const supplierCost = activeOrders.reduce((sum, o) => sum + parseFloat(o.supplierTotal), 0);
+    const supplierPaid = activeOrders.reduce((sum, o) => sum + parseFloat(o.supplierPaid), 0);
+    const supplierRemaining = activeOrders.reduce((sum, o) => sum + parseFloat(o.supplierRemaining), 0);
+
+    // CRITICAL: Celebre Gross Profit is strictly Customer Total - Supplier Total (NEVER based on payments!)
+    const celebreGrossProfit = customerSales - supplierCost;
+
+    // RBAC: Check User Permissions for Factory Costs & Profit Visibility
+    const userRole = req.adminSession?.role || '';
+    const userPerms = req.adminSession?.permissions || [];
+    const canViewFactory =
+      userRole === 'SUPER_ADMIN' ||
+      userPerms.includes('prices.edit') ||
+      userPerms.includes('supplier_payments.view');
+
+    const sanitizedTodayOrders = todayOrdersList.map((o) => ({
+      ...o,
+      supplierTotal: canViewFactory ? o.supplierTotal : null,
+      supplierPaid: canViewFactory ? o.supplierPaid : null,
+      supplierRemaining: canViewFactory ? o.supplierRemaining : null,
+      distributorProfit: canViewFactory ? o.distributorProfit : null,
+    }));
+
+    const recentOrders = rawOrders.slice(0, 8).map((o) => ({
+      ...o,
+      totalAmount: parseFloat(o.totalAmount),
+      customerPaid: parseFloat(o.customerPaid),
+      customerRemaining: parseFloat(o.customerRemaining),
+      supplierTotal: canViewFactory ? parseFloat(o.supplierTotal) : null,
+      supplierPaid: canViewFactory ? parseFloat(o.supplierPaid) : null,
+      supplierRemaining: canViewFactory ? parseFloat(o.supplierRemaining) : null,
+      distributorProfit: canViewFactory ? parseFloat(o.distributorProfit) : null,
+    }));
+
+    res.json({
+      success: true,
+      canViewFactory,
+      stats: {
+        todayDate: todayStr,
+        todayOrdersCount,
+        todayOrders: todayOrdersCount,
+        pendingBookingCount,
+        pendingBooking: pendingBookingCount,
+        confirmedCount,
+        confirmed: confirmedCount,
+        inProgressCount,
+        inProduction: inProgressCount,
+        readyCount,
+        ready: readyCount,
+        completedCount,
+        completed: completedCount,
+        cancelledCount,
+        cancelled: cancelledCount,
+        totalOrdersCount: rawOrders.length,
+        totalOrders: rawOrders.length,
+
+        // Financials - Customer Side
+        customerSales,
+        totalCustomerSales: customerSales,
+        customerPaid,
+        totalCustomerPaid: customerPaid,
+        customerRemaining,
+        totalCustomerRemaining: customerRemaining,
+
+        // Financials - Supplier Side (strictly redacted if unauthorized)
+        supplierCost: canViewFactory ? supplierCost : null,
+        totalSupplierCost: canViewFactory ? supplierCost : null,
+        supplierPaid: canViewFactory ? supplierPaid : null,
+        totalSupplierPaid: canViewFactory ? supplierPaid : null,
+        supplierRemaining: canViewFactory ? supplierRemaining : null,
+        totalSupplierRemaining: canViewFactory ? supplierRemaining : null,
+
+        // Financials - Celebre Gross Profit (Customer Total - Supplier Total)
+        celebreGrossProfit: canViewFactory ? celebreGrossProfit : null,
+        totalGrossProfit: canViewFactory ? celebreGrossProfit : null,
+
+        // Lists
+        todayOrdersList: sanitizedTodayOrders,
+        recentOrders,
+      },
+    });
+  } catch (error: any) {
+    console.error('Error fetching dashboard stats:', error);
+    res.status(500).json({ success: false, message: 'فشل تحميل بيانات لوحة القيادة' });
+  }
+});
+
+// 8.2. Comprehensive Reports with Date Ranges & Multi-dimensional Breakdowns
+apiRouter.get('/admin/reports/comprehensive', requireAdminAuth, requirePermission('reports.view'), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { period = 'monthly', from_date, to_date } = req.query as {
+      period?: 'daily' | 'weekly' | 'monthly' | 'custom';
+      from_date?: string;
+      to_date?: string;
+    };
+
+    const now = new Date();
+    let startDateStr = '';
+    let endDateStr = now.toISOString().slice(0, 10);
+
+    if (period === 'daily') {
+      startDateStr = endDateStr;
+    } else if (period === 'weekly') {
+      const pastWeek = new Date(now);
+      pastWeek.setDate(pastWeek.getDate() - 7);
+      startDateStr = pastWeek.toISOString().slice(0, 10);
+    } else if (period === 'monthly') {
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      startDateStr = `${year}-${month}-01`;
+    } else if (period === 'custom') {
+      startDateStr = from_date || `${now.getFullYear()}-01-01`;
+      endDateStr = to_date || now.toISOString().slice(0, 10);
+    } else {
+      startDateStr = `${now.getFullYear()}-01-01`;
+    }
+
+    // 1. Fetch all orders with customers
+    const rawOrders = await db
+      .select({
+        id: orders.id,
+        orderNumber: orders.orderNumber,
+        customerId: orders.customerId,
+        orderStatus: orders.orderStatus,
+        cancelReason: orders.cancelReason,
+        pickupDate: orders.pickupDate,
+        pickupTime: orders.pickupTime,
+        pickupLocation: orders.pickupLocation,
+        totalAmount: orders.totalAmount,
+        customerPaid: orders.customerPaid,
+        customerRemaining: orders.customerRemaining,
+        supplierTotal: orders.supplierTotal,
+        supplierPaid: orders.supplierPaid,
+        supplierRemaining: orders.supplierRemaining,
+        distributorProfit: orders.distributorProfit,
+        createdAt: orders.createdAt,
+        customerName: customers.fullName,
+        customerPhone: customers.phone,
+      })
+      .from(orders)
+      .leftJoin(customers, eq(orders.customerId, customers.id))
+      .orderBy(desc(orders.id));
+
+    // Filter orders by date range (using pickupDate or createdAt)
+    const filteredOrders = rawOrders.filter((o) => {
+      const d = o.pickupDate || (o.createdAt ? new Date(o.createdAt).toISOString().slice(0, 10) : '');
+      return d >= startDateStr && d <= endDateStr;
+    });
+
+    const filteredOrderIds = new Set(filteredOrders.map((o) => o.id));
+
+    // Calculate Status Counts in Period
+    let completedCount = 0;
+    let cancelledCount = 0;
+    let pendingCount = 0;
+    let inProgressCount = 0;
+    let readyCount = 0;
+    let confirmedCount = 0;
+
+    for (const o of filteredOrders) {
+      switch (o.orderStatus) {
+        case 'COMPLETED':
+        case 'DELIVERED':
+          completedCount++;
+          break;
+        case 'CANCELLED':
+          cancelledCount++;
+          break;
+        case 'PENDING_BOOKING':
+          pendingCount++;
+          break;
+        case 'SENT_TO_SUPPLIER':
+        case 'IN_PRODUCTION':
+          inProgressCount++;
+          break;
+        case 'READY':
+          readyCount++;
+          break;
+        case 'CONFIRMED':
+          confirmedCount++;
+          break;
+      }
+    }
+
+    // Active (Non-cancelled) Orders in period for financials
+    const activeFiltered = filteredOrders.filter((o) => o.orderStatus !== 'CANCELLED');
+
+    const customerSales = activeFiltered.reduce((sum, o) => sum + parseFloat(o.totalAmount), 0);
+    const customerPaid = activeFiltered.reduce((sum, o) => sum + parseFloat(o.customerPaid), 0);
+    const customerRemaining = activeFiltered.reduce((sum, o) => sum + parseFloat(o.customerRemaining), 0);
+
+    const supplierCost = activeFiltered.reduce((sum, o) => sum + parseFloat(o.supplierTotal), 0);
+    const supplierPaid = activeFiltered.reduce((sum, o) => sum + parseFloat(o.supplierPaid), 0);
+    const supplierRemaining = activeFiltered.reduce((sum, o) => sum + parseFloat(o.supplierRemaining), 0);
+
+    // CRITICAL: Profit is strictly Customer Total - Supplier Total (NOT payments)
+    const grossProfit = customerSales - supplierCost;
+
+    // 2. Breakdown by Sale Code
+    const allMenuItems = await db.select().from(menuItems).orderBy(menuItems.sortOrder);
+    const allOrderItems = await db.select().from(orderItems);
+
+    const bySaleCode = allMenuItems.map((m) => {
+      const matchedItems = allOrderItems.filter((it) => it.menuItemId === m.id && filteredOrderIds.has(it.orderId));
+      const activeMatched = matchedItems.filter((it) => {
+        const parentOrder = filteredOrders.find((o) => o.id === it.orderId);
+        return parentOrder && parentOrder.orderStatus !== 'CANCELLED';
+      });
+
+      const totalQuantity = matchedItems.reduce((sum, it) => sum + it.quantity, 0);
+      const itemCustomerSales = activeMatched.reduce((sum, it) => sum + parseFloat(it.customerTotal), 0);
+      const itemSupplierCost = activeMatched.reduce((sum, it) => sum + parseFloat(it.supplierTotalFinal), 0);
+      const itemProfit = itemCustomerSales - itemSupplierCost;
+
+      return {
+        code: m.code,
+        name: m.name,
+        ordersCount: matchedItems.length,
+        totalQuantity,
+        customerSales: itemCustomerSales,
+        supplierCost: itemSupplierCost,
+        grossProfit: itemProfit,
+      };
+    });
+
+    // 3. Breakdown by Customer
+    const customerMap = new Map<number, any>();
+    for (const o of filteredOrders) {
+      if (!o.customerId) continue;
+      if (!customerMap.has(o.customerId)) {
+        customerMap.set(o.customerId, {
+          customerId: o.customerId,
+          customerName: o.customerName || 'عميل',
+          customerPhone: o.customerPhone || '',
+          ordersCount: 0,
+          customerSales: 0,
+          customerPaid: 0,
+          customerRemaining: 0,
+        });
+      }
+      const entry = customerMap.get(o.customerId);
+      entry.ordersCount += 1;
+      if (o.orderStatus !== 'CANCELLED') {
+        entry.customerSales += parseFloat(o.totalAmount);
+        entry.customerPaid += parseFloat(o.customerPaid);
+        entry.customerRemaining += parseFloat(o.customerRemaining);
+      }
+    }
+    const byCustomer = Array.from(customerMap.values()).sort((a, b) => b.customerSales - a.customerSales);
+
+    // 4. Breakdown by Supplier
+    const allSuppliers = await db.select().from(suppliers);
+    const allSupplierOrders = await db.select().from(supplierOrders);
+
+    const bySupplier = allSuppliers.map((s) => {
+      const supOrdersInPeriod = allSupplierOrders.filter((so) => filteredOrderIds.has(so.orderId) && so.supplierId === s.id);
+      const activeSupOrders = supOrdersInPeriod.filter((so) => {
+        const parentOrder = filteredOrders.find((o) => o.id === so.orderId);
+        return parentOrder && parentOrder.orderStatus !== 'CANCELLED';
+      });
+
+      const supplierTotal = activeSupOrders.reduce((sum, so) => sum + parseFloat(so.supplierTotal), 0);
+      const supplierPaid = activeSupOrders.reduce((sum, so) => sum + parseFloat(so.supplierPaid), 0);
+      const supplierRemaining = activeSupOrders.reduce((sum, so) => sum + parseFloat(so.supplierRemaining), 0);
+
+      return {
+        supplierId: s.id,
+        supplierName: s.name,
+        phone: s.phone || '',
+        ordersCount: supOrdersInPeriod.length,
+        supplierTotal,
+        supplierPaid,
+        supplierRemaining,
+      };
+    });
+
+    // 5. Breakdown by Payment Method
+    const allCustomerPayments = await db.select().from(customerPayments);
+    const paymentsInPeriod = allCustomerPayments.filter((p) => {
+      if (!filteredOrderIds.has(p.orderId)) return false;
+      return p.paymentStatus === 'VERIFIED';
+    });
+
+    const paymentMethodsList = ['INSTAPAY', 'CASH', 'BANK_TRANSFER', 'OTHER'];
+    const byPaymentMethod = paymentMethodsList.map((m) => {
+      const matched = paymentsInPeriod.filter((p) => p.paymentMethod === m);
+      const totalAmount = matched.reduce((sum, p) => sum + parseFloat(p.amount), 0);
+      return {
+        method: m,
+        count: matched.length,
+        totalAmount,
+      };
+    });
+
+    // 6. Detailed Customer Payments for Sheet 'Customer Payments'
+    const detailedCustomerPayments = await db
+      .select({
+        id: customerPayments.id,
+        orderId: customerPayments.orderId,
+        orderNumber: orders.orderNumber,
+        customerName: customers.fullName,
+        customerPhone: customers.phone,
+        amount: customerPayments.amount,
+        paymentMethod: customerPayments.paymentMethod,
+        paymentStatus: customerPayments.paymentStatus,
+        paymentReference: customerPayments.paymentReference,
+        notes: customerPayments.notes,
+        receivedBy: customerPayments.receivedBy,
+        paidAt: customerPayments.paidAt,
+      })
+      .from(customerPayments)
+      .leftJoin(orders, eq(customerPayments.orderId, orders.id))
+      .leftJoin(customers, eq(customerPayments.customerId, customers.id))
+      .orderBy(desc(customerPayments.paidAt));
+
+    const reportCustomerPayments = detailedCustomerPayments
+      .filter((p) => p.orderId && filteredOrderIds.has(p.orderId))
+      .map((p) => ({
+        ...p,
+        amount: parseFloat(p.amount),
+      }));
+
+    // 7. Check User Permissions for Factory & Profit Visibility
+    const userRole = req.adminSession?.role || '';
+    const userPerms = req.adminSession?.permissions || [];
+    const canViewFactory =
+      userRole === 'SUPER_ADMIN' ||
+      userPerms.includes('prices.edit') ||
+      userPerms.includes('supplier_payments.view');
+
+    // 8. Detailed Supplier Payments for Sheet 'Supplier Payments' (STRICTLY IF AUTHORIZED)
+    let reportSupplierPayments: any[] = [];
+    if (canViewFactory) {
+      const detailedSupplierPayments = await db
+        .select({
+          id: supplierPayments.id,
+          orderId: supplierPayments.orderId,
+          orderNumber: orders.orderNumber,
+          supplierId: supplierPayments.supplierId,
+          supplierName: suppliers.name,
+          amount: supplierPayments.amount,
+          paymentMethod: supplierPayments.paymentMethod,
+          reference: supplierPayments.reference,
+          notes: supplierPayments.notes,
+          paidBy: supplierPayments.paidBy,
+          paidAt: supplierPayments.paidAt,
+        })
+        .from(supplierPayments)
+        .leftJoin(orders, eq(supplierPayments.orderId, orders.id))
+        .leftJoin(suppliers, eq(supplierPayments.supplierId, suppliers.id))
+        .orderBy(desc(supplierPayments.paidAt));
+
+      reportSupplierPayments = detailedSupplierPayments
+        .filter((sp) => sp.orderId && filteredOrderIds.has(sp.orderId))
+        .map((sp) => ({
+          ...sp,
+          amount: parseFloat(sp.amount),
+        }));
+    }
+
+    // Sanitize Financial Summary if unauthorized
+    const sanitizedFinancialSummary = {
+      customerSales,
+      customerPaid,
+      customerRemaining,
+      supplierCost: canViewFactory ? supplierCost : null,
+      supplierPaid: canViewFactory ? supplierPaid : null,
+      supplierRemaining: canViewFactory ? supplierRemaining : null,
+      grossProfit: canViewFactory ? grossProfit : null,
+    };
+
+    // Sanitize Breakdowns if unauthorized
+    const sanitizedBySaleCode = bySaleCode.map((b) => ({
+      code: b.code,
+      name: b.name,
+      ordersCount: b.ordersCount,
+      totalQuantity: b.totalQuantity,
+      customerSales: b.customerSales,
+      supplierCost: canViewFactory ? b.supplierCost : null,
+      grossProfit: canViewFactory ? b.grossProfit : null,
+    }));
+
+    const sanitizedBySupplier = canViewFactory ? bySupplier : [];
+
+    // Sanitize Orders list if unauthorized
+    const sanitizedOrders = filteredOrders.map((o) => ({
+      id: o.id,
+      orderNumber: o.orderNumber,
+      customerName: o.customerName,
+      customerPhone: o.customerPhone,
+      pickupDate: o.pickupDate,
+      pickupTime: o.pickupTime,
+      pickupLocation: o.pickupLocation,
+      orderStatus: o.orderStatus,
+      createdAt: o.createdAt,
+      totalAmount: parseFloat(o.totalAmount),
+      customerPaid: parseFloat(o.customerPaid),
+      customerRemaining: parseFloat(o.customerRemaining),
+      supplierTotal: canViewFactory ? parseFloat(o.supplierTotal) : null,
+      supplierPaid: canViewFactory ? parseFloat(o.supplierPaid) : null,
+      supplierRemaining: canViewFactory ? parseFloat(o.supplierRemaining) : null,
+      distributorProfit: canViewFactory ? parseFloat(o.distributorProfit) : null,
+    }));
+
+    res.json({
+      success: true,
+      period,
+      canViewFactory,
+      dateRange: {
+        startDate: startDateStr,
+        endDate: endDateStr,
+      },
+      counts: {
+        total: filteredOrders.length,
+        completed: completedCount,
+        cancelled: cancelledCount,
+        pending: pendingCount,
+        inProgress: inProgressCount,
+        ready: readyCount,
+        confirmed: confirmedCount,
+      },
+      financialSummary: sanitizedFinancialSummary,
+      breakdowns: {
+        bySaleCode: sanitizedBySaleCode,
+        byCustomer,
+        bySupplier: sanitizedBySupplier,
+        byPaymentMethod,
+      },
+      orders: sanitizedOrders,
+      customerPayments: reportCustomerPayments,
+      supplierPayments: reportSupplierPayments,
+    });
+  } catch (error: any) {
+    console.error('Error fetching comprehensive report:', error);
+    res.status(500).json({ success: false, message: 'فشل إنشاء التقرير التحليلي الشامل' });
+  }
+});
+
+// 8.3. Audit and Authorize Report Export (reports.export permission check)
+apiRouter.post('/admin/reports/export-audit', requireAdminAuth, requirePermission('reports.export'), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { format, period, dateRange, title } = req.body;
+    const adminUser = req.adminSession?.username || 'admin';
+    const ip = req.ip || req.socket.remoteAddress || 'unknown';
+
+    await db.insert(auditLogs).values({
+      userId: req.adminSession?.userId,
+      userName: adminUser,
+      action: `REPORT_EXPORTED_${String(format || 'UNKNOWN').toUpperCase()}`,
+      entity: 'reports',
+      entityId: String(period || 'custom'),
+      newData: {
+        format,
+        period,
+        dateRange,
+        title,
+        exportedAt: new Date().toISOString(),
+      },
+      ip,
+    });
+
+    res.json({ success: true, message: 'تم توثيق وتصريح تصدير التقرير بنجاح' });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: 'فشل توثيق عملية التصدير' });
   }
 });
 
@@ -786,3 +1643,265 @@ apiRouter.get('/admin/suppliers', requireAdminAuth, requirePermission('suppliers
     res.status(500).json({ success: false, message: 'فشل تحميل بيانات المصانع والموردين' });
   }
 });
+
+// 13. RBAC Users Management (users.view, users.create, users.edit, users.disable)
+apiRouter.get('/admin/users', requireAdminAuth, requirePermission('users.view'), async (_req: AuthenticatedRequest, res: Response) => {
+  try {
+    const list = await AuthService.listUsers();
+    res.json({ success: true, users: list });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message || 'فشل تحميل قائمة المستخدمين' });
+  }
+});
+
+apiRouter.post('/admin/users', requireAdminAuth, requirePermission('users.create'), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { username, email, password, fullName, phone, roleId } = req.body;
+    if (!username || !email || !password || !fullName || !roleId) {
+      return res.status(400).json({ success: false, message: 'جميع الحقول مطلوبة لإنشاء المستخدم' });
+    }
+
+    const newUser = await AuthService.createUser({
+      username,
+      email,
+      passwordRaw: password,
+      fullName,
+      phone: phone || '01284484868',
+      roleId: Number(roleId),
+      creatorUsername: req.adminSession?.username,
+    });
+
+    res.json({ success: true, message: 'تم إنشاء المستخدم بنجاح', user: newUser });
+  } catch (error: any) {
+    res.status(400).json({ success: false, message: error.message || 'فشل إنشاء المستخدم' });
+  }
+});
+
+apiRouter.put('/admin/users/:id', requireAdminAuth, requirePermission('users.edit'), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = Number(req.params.id);
+    const { fullName, email, phone, roleId, password, isActive, isLocked } = req.body;
+
+    await AuthService.updateUser(userId, {
+      fullName,
+      email,
+      phone,
+      roleId: roleId ? Number(roleId) : undefined,
+      passwordRaw: password,
+      isActive,
+      isLocked,
+      editorUsername: req.adminSession?.username,
+    });
+
+    res.json({ success: true, message: 'تم تحديث بيانات المستخدم بنجاح' });
+  } catch (error: any) {
+    res.status(400).json({ success: false, message: error.message || 'فشل تحديث المستخدم' });
+  }
+});
+
+apiRouter.put('/admin/users/:id/disable', requireAdminAuth, requirePermission('users.disable'), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = Number(req.params.id);
+    const { isActive } = req.body;
+
+    await AuthService.toggleUserStatus(userId, !!isActive, req.adminSession?.username);
+    res.json({ success: true, message: isActive ? 'تم تفعيل الحساب بنجاح' : 'تم تعطيل الحساب بنجاح' });
+  } catch (error: any) {
+    res.status(400).json({ success: false, message: error.message || 'فشل تغيير حالة الحساب' });
+  }
+});
+
+// 14. Roles & Permissions List
+apiRouter.get('/admin/roles', requireAdminAuth, requirePermission('users.view'), async (_req: AuthenticatedRequest, res: Response) => {
+  try {
+    const roleList = await db.select().from(roles).orderBy(roles.id);
+    const permList = await db.select().from(permissions).orderBy(permissions.code);
+    const rolePermList = await db.select().from(rolePermissions);
+
+    const rolesWithPerms = roleList.map((r) => {
+      const assignedPermIds = rolePermList.filter((rp) => rp.roleId === r.id).map((rp) => rp.permissionId);
+      const assignedPerms = permList.filter((p) => assignedPermIds.includes(p.id));
+      return {
+        ...r,
+        permissions: assignedPerms,
+      };
+    });
+
+    res.json({ success: true, roles: rolesWithPerms, allPermissions: permList });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: 'فشل تحميل بيانات الأدوار والصلاحيات' });
+  }
+});
+
+// 15. Customers List & Edit (customers.view, customers.edit)
+apiRouter.get('/admin/customers', requireAdminAuth, requirePermission('customers.view'), async (_req: AuthenticatedRequest, res: Response) => {
+  try {
+    const custList = await db.select().from(customers).orderBy(desc(customers.id));
+    res.json({ success: true, customers: custList });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: 'فشل تحميل بيانات العملاء' });
+  }
+});
+
+apiRouter.put('/admin/customers/:id', requireAdminAuth, requirePermission('customers.edit'), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const custId = Number(req.params.id);
+    const { fullName, phone, whatsapp, email, notes } = req.body;
+
+    await db
+      .update(customers)
+      .set({
+        fullName,
+        phone,
+        whatsapp,
+        email,
+        notes,
+        updatedAt: new Date(),
+      })
+      .where(eq(customers.id, custId));
+
+    res.json({ success: true, message: 'تم تحديث بيانات العميل بنجاح' });
+  } catch (error: any) {
+    res.status(400).json({ success: false, message: error.message || 'فشل تحديث بيانات العميل' });
+  }
+});
+
+// 16. Order Cancellation with Reason (orders.cancel)
+apiRouter.post('/admin/orders/:id/cancel', requireAdminAuth, requirePermission('orders.cancel'), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const orderId = Number(req.params.id);
+    const { cancelReason } = req.body;
+    if (!cancelReason) {
+      return res.status(400).json({ success: false, message: 'يرجى توضيح سبب إلغاء الطلب' });
+    }
+
+    const adminUser = req.adminSession?.username || 'admin';
+    const result = await OrderService.updateOrderStatus(orderId, 'CANCELLED', cancelReason, adminUser, req.ip);
+
+    res.json({ success: true, message: 'تم إلغاء الطلب وتوثيق السبب في السجل بنجاح', data: result });
+  } catch (error: any) {
+    res.status(400).json({ success: false, message: error.message || 'فشل إلغاء الطلب' });
+  }
+});
+
+// 17. System Settings (settings.edit)
+apiRouter.get('/admin/settings', requireAdminAuth, requirePermission('settings.edit'), async (_req: AuthenticatedRequest, res: Response) => {
+  try {
+    const allSettings = await db.select().from(appSettings).orderBy(appSettings.key);
+    res.json({ success: true, settings: allSettings });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: 'فشل تحميل الإعدادات' });
+  }
+});
+
+apiRouter.put('/admin/settings', requireAdminAuth, requirePermission('settings.edit'), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { key, value, description } = req.body;
+    if (!key || value === undefined) {
+      return res.status(400).json({ success: false, message: 'مفتاح وقيمة الإعداد مطلوبان' });
+    }
+
+    const existing = await db.select().from(appSettings).where(eq(appSettings.key, key)).limit(1);
+    if (existing.length > 0) {
+      await db.update(appSettings).set({ value: String(value), updatedAt: new Date() }).where(eq(appSettings.key, key));
+    } else {
+      await db.insert(appSettings).values({ key, value: String(value), description: description || '' });
+    }
+
+    res.json({ success: true, message: `تم تحديث الإعداد ${key} بنجاح` });
+  } catch (error: any) {
+    res.status(400).json({ success: false, message: error.message || 'فشل تحديث الإعدادات' });
+  }
+});
+
+// 18. Customer Payments & Supplier Payments Lists & Payment Audit Logs
+apiRouter.get('/admin/customer-payments', requireAdminAuth, requirePermission('customer_payments.view'), async (_req: AuthenticatedRequest, res: Response) => {
+  try {
+    const rawPayments = await db
+      .select({
+        id: customerPayments.id,
+        orderId: customerPayments.orderId,
+        customerId: customerPayments.customerId,
+        amount: customerPayments.amount,
+        paymentMethod: customerPayments.paymentMethod,
+        paymentStatus: customerPayments.paymentStatus,
+        paymentReference: customerPayments.paymentReference,
+        notes: customerPayments.notes,
+        receivedBy: customerPayments.receivedBy,
+        paidAt: customerPayments.paidAt,
+        createdAt: customerPayments.createdAt,
+        orderNumber: orders.orderNumber,
+        customerName: customers.fullName,
+        customerPhone: customers.phone,
+      })
+      .from(customerPayments)
+      .leftJoin(orders, eq(customerPayments.orderId, orders.id))
+      .leftJoin(customers, eq(customerPayments.customerId, customers.id))
+      .orderBy(desc(customerPayments.paidAt), desc(customerPayments.id));
+
+    const payments = rawPayments.map((p) => ({
+      ...p,
+      amount: parseFloat(p.amount),
+    }));
+
+    res.json({ success: true, payments });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: 'فشل تحميل مدفوعات العملاء' });
+  }
+});
+
+apiRouter.get('/admin/supplier-payments', requireAdminAuth, requirePermission('supplier_payments.view'), async (_req: AuthenticatedRequest, res: Response) => {
+  try {
+    const rawPayments = await db
+      .select({
+        id: supplierPayments.id,
+        supplierOrderId: supplierPayments.supplierOrderId,
+        supplierId: supplierPayments.supplierId,
+        orderId: supplierPayments.orderId,
+        amount: supplierPayments.amount,
+        paymentMethod: supplierPayments.paymentMethod,
+        reference: supplierPayments.reference,
+        notes: supplierPayments.notes,
+        paidBy: supplierPayments.paidBy,
+        paidAt: supplierPayments.paidAt,
+        createdAt: supplierPayments.createdAt,
+        orderNumber: orders.orderNumber,
+        supplierOrderNumber: supplierOrders.supplierOrderNumber,
+        supplierName: suppliers.name,
+      })
+      .from(supplierPayments)
+      .leftJoin(orders, eq(supplierPayments.orderId, orders.id))
+      .leftJoin(supplierOrders, eq(supplierPayments.supplierOrderId, supplierOrders.id))
+      .leftJoin(suppliers, eq(supplierPayments.supplierId, suppliers.id))
+      .orderBy(desc(supplierPayments.paidAt), desc(supplierPayments.id));
+
+    const payments = rawPayments.map((p) => ({
+      ...p,
+      amount: parseFloat(p.amount),
+    }));
+
+    res.json({ success: true, payments });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: 'فشل تحميل مدفوعات المصنع' });
+  }
+});
+
+apiRouter.get('/admin/payment-audit-logs', requireAdminAuth, requirePermission('audit_logs.view'), async (_req: AuthenticatedRequest, res: Response) => {
+  try {
+    const logs = await db
+      .select()
+      .from(auditLogs)
+      .where(or(
+        eq(auditLogs.entity, 'customer_payments'),
+        eq(auditLogs.entity, 'supplier_payments'),
+        like(auditLogs.action, '%PAYMENT%')
+      ))
+      .orderBy(desc(auditLogs.createdAt))
+      .limit(200);
+
+    res.json({ success: true, logs });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: 'فشل تحميل سجل رقابة المدفوعات' });
+  }
+});
+
