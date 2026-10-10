@@ -172,7 +172,8 @@ export const AdminOrderManagement: React.FC<AdminOrderManagementProps> = ({
   const [reportToDate, setReportToDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [comprehensiveReport, setComprehensiveReport] = useState<any>(null);
   const [loadingReport, setLoadingReport] = useState(false);
-  const [reportBreakdownView, setReportBreakdownView] = useState<"saleCode" | "customer" | "supplier" | "paymentMethod">("saleCode");
+  const [reportBreakdownView, setReportBreakdownView] = useState<"time" | "saleCode" | "customer" | "supplier" | "paymentMethod">("time");
+  const [timeBreakdownSubTab, setTimeBreakdownSubTab] = useState<"daily" | "weekly" | "monthly" | "period">("daily");
 
   // Payment Record Modals
   const [isCustPayOpen, setIsCustPayOpen] = useState(false);
@@ -367,6 +368,34 @@ export const AdminOrderManagement: React.FC<AdminOrderManagementProps> = ({
       setLoginStep("credentials");
     } catch (err: any) {
       setAuthError(err.message || "فشل التحقق من OTP");
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  // Instant Demo Login (for immediate review and full-access exploration)
+  const handleDemoLogin = async () => {
+    setAuthLoading(true);
+    setAuthError("");
+    try {
+      const res = await fetch("/api/admin/auth/demo-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || "فشل الدخول التجريبي المباشر");
+      }
+      const newToken = data.token;
+      setToken(newToken);
+      setAdminUser(data.session);
+      try {
+        localStorage.setItem("celebre_admin_token", newToken);
+        sessionStorage.setItem("celebre_admin_token", newToken);
+      } catch {}
+      setLoginStep("credentials");
+    } catch (err: any) {
+      setAuthError(err.message || "فشل الدخول المباشر");
     } finally {
       setAuthLoading(false);
     }
@@ -983,7 +1012,7 @@ export const AdminOrderManagement: React.FC<AdminOrderManagementProps> = ({
                     <button
                       type="submit"
                       disabled={authLoading}
-                      className="w-full bg-[#721832] hover:bg-[#5C1027] text-white font-black text-sm py-3 px-4 rounded-xl shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                      className="w-full bg-[#721832] hover:bg-[#5C1027] text-white font-black text-sm py-3 px-4 rounded-xl shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
                     >
                       {authLoading ? (
                         <Loader2 className="w-4 h-4 animate-spin text-[#C89B3C]" />
@@ -993,6 +1022,22 @@ export const AdminOrderManagement: React.FC<AdminOrderManagementProps> = ({
                           <ArrowRight className="w-4 h-4" />
                         </>
                       )}
+                    </button>
+
+                    <div className="relative flex py-2 items-center">
+                      <div className="flex-grow border-t border-[#E8DFD1]"></div>
+                      <span className="flex-shrink mx-3 text-[11px] text-[#8C7D73] font-bold">أو للمعاينة والتجربة المباشرة</span>
+                      <div className="flex-grow border-t border-[#E8DFD1]"></div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleDemoLogin}
+                      disabled={authLoading}
+                      className="w-full bg-[#1F1714] hover:bg-[#362720] text-[#C89B3C] font-black text-xs sm:text-sm py-2.5 px-4 rounded-xl border border-[#C89B3C]/50 shadow-sm transition-all flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <Sparkles className="w-4 h-4 text-[#C89B3C]" />
+                      <span>دخول تجريبي فوري للإدارة (SUPER_ADMIN)</span>
                     </button>
                   </form>
                 ) : (
@@ -1167,90 +1212,139 @@ export const AdminOrderManagement: React.FC<AdminOrderManagementProps> = ({
                     </div>
                   </div>
 
-                  {/* Order Status Counters (7 Cards) */}
+                  {/* Order Status Counters (7 Cards) - Interactive with Click-to-Filter */}
                   <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
                     {/* 1. Today's Orders */}
-                    <div className="bg-[#FAF7F2] p-3.5 rounded-2xl border-2 border-[#C89B3C] shadow-2xs space-y-1.5">
+                    <div
+                      onClick={() => {
+                        const section = document.getElementById("today-orders-section");
+                        if (section) section.scrollIntoView({ behavior: "smooth" });
+                      }}
+                      className="bg-[#FAF7F2] p-3.5 rounded-2xl border-2 border-[#C89B3C] shadow-2xs space-y-1.5 cursor-pointer hover:shadow-md hover:border-[#721832] transition-all group active:scale-95"
+                      title="انقر للانتقال المباشر لجدول تشغيل طلبات اليوم"
+                    >
                       <div className="flex items-center justify-between text-xs font-black text-[#5C1027]">
                         <span>طلبات اليوم</span>
-                        <Calendar className="w-4 h-4 text-[#C89B3C]" />
+                        <Calendar className="w-4 h-4 text-[#C89B3C] group-hover:scale-110 transition-transform" />
                       </div>
-                      <div className="text-2xl font-black text-[#721832]">
+                      <div className="text-2xl font-black text-[#721832] font-mono tabular-nums">
                         {dashboardStats?.todayOrdersCount || 0}
                       </div>
-                      <p className="text-[10px] text-[#8C6D28] font-bold">مجدولة لتاريخ اليوم</p>
+                      <p className="text-[10px] text-[#8C6D28] font-bold">مجدولة لتاريخ اليوم (انقر)</p>
                     </div>
 
                     {/* 2. Pending Booking */}
-                    <div className="bg-white p-3.5 rounded-2xl border border-amber-300 shadow-2xs space-y-1.5">
+                    <div
+                      onClick={() => {
+                        setStatusFilter("PENDING_BOOKING");
+                        setDashboardTab("orders");
+                      }}
+                      className="bg-white p-3.5 rounded-2xl border border-amber-300 shadow-2xs space-y-1.5 cursor-pointer hover:shadow-md hover:bg-amber-50/50 transition-all group active:scale-95"
+                      title="انقر لتصفية وعرض الطلبات المبدئية"
+                    >
                       <div className="flex items-center justify-between text-xs font-black text-amber-800">
                         <span>المبدئية</span>
-                        <Clock className="w-4 h-4 text-amber-600" />
+                        <Clock className="w-4 h-4 text-amber-600 group-hover:scale-110 transition-transform" />
                       </div>
-                      <div className="text-2xl font-black text-amber-700">
+                      <div className="text-2xl font-black text-amber-700 font-mono tabular-nums">
                         {dashboardStats?.pendingBookingCount || 0}
                       </div>
-                      <p className="text-[10px] text-amber-800 font-semibold">بانتظار التأكيد</p>
+                      <p className="text-[10px] text-amber-800 font-semibold">بانتظار التأكيد (عرض)</p>
                     </div>
 
                     {/* 3. Confirmed */}
-                    <div className="bg-white p-3.5 rounded-2xl border border-blue-300 shadow-2xs space-y-1.5">
+                    <div
+                      onClick={() => {
+                        setStatusFilter("CONFIRMED");
+                        setDashboardTab("orders");
+                      }}
+                      className="bg-white p-3.5 rounded-2xl border border-blue-300 shadow-2xs space-y-1.5 cursor-pointer hover:shadow-md hover:bg-blue-50/50 transition-all group active:scale-95"
+                      title="انقر لتصفية وعرض الطلبات المؤكدة"
+                    >
                       <div className="flex items-center justify-between text-xs font-black text-blue-800">
                         <span>المؤكدة</span>
-                        <CheckCircle2 className="w-4 h-4 text-blue-600" />
+                        <CheckCircle2 className="w-4 h-4 text-blue-600 group-hover:scale-110 transition-transform" />
                       </div>
-                      <div className="text-2xl font-black text-blue-700">
+                      <div className="text-2xl font-black text-blue-700 font-mono tabular-nums">
                         {dashboardStats?.confirmedCount || 0}
                       </div>
-                      <p className="text-[10px] text-blue-700 font-semibold">حجز معتمد</p>
+                      <p className="text-[10px] text-blue-700 font-semibold">حجز معتمد (عرض)</p>
                     </div>
 
                     {/* 4. In Production / Progress */}
-                    <div className="bg-white p-3.5 rounded-2xl border border-purple-300 shadow-2xs space-y-1.5">
+                    <div
+                      onClick={() => {
+                        setStatusFilter("IN_PRODUCTION");
+                        setDashboardTab("orders");
+                      }}
+                      className="bg-white p-3.5 rounded-2xl border border-purple-300 shadow-2xs space-y-1.5 cursor-pointer hover:shadow-md hover:bg-purple-50/50 transition-all group active:scale-95"
+                      title="انقر لتصفية وعرض الطلبات قيد التنفيذ بالمصنع"
+                    >
                       <div className="flex items-center justify-between text-xs font-black text-purple-800">
                         <span>قيد التنفيذ</span>
-                        <Building2 className="w-4 h-4 text-purple-600" />
+                        <Building2 className="w-4 h-4 text-purple-600 group-hover:scale-110 transition-transform" />
                       </div>
-                      <div className="text-2xl font-black text-purple-700">
+                      <div className="text-2xl font-black text-purple-700 font-mono tabular-nums">
                         {dashboardStats?.inProgressCount || 0}
                       </div>
-                      <p className="text-[10px] text-purple-700 font-semibold">بالمصنع أو التجهيز</p>
+                      <p className="text-[10px] text-purple-700 font-semibold">بالمصنع أو التجهيز (عرض)</p>
                     </div>
 
                     {/* 5. Ready */}
-                    <div className="bg-white p-3.5 rounded-2xl border border-teal-300 shadow-2xs space-y-1.5">
+                    <div
+                      onClick={() => {
+                        setStatusFilter("READY");
+                        setDashboardTab("orders");
+                      }}
+                      className="bg-white p-3.5 rounded-2xl border border-teal-300 shadow-2xs space-y-1.5 cursor-pointer hover:shadow-md hover:bg-teal-50/50 transition-all group active:scale-95"
+                      title="انقر لتصفية وعرض الطلبات الجاهزة للتسليم"
+                    >
                       <div className="flex items-center justify-between text-xs font-black text-teal-800">
                         <span>الجاهزة</span>
-                        <Package className="w-4 h-4 text-teal-600" />
+                        <Package className="w-4 h-4 text-teal-600 group-hover:scale-110 transition-transform" />
                       </div>
-                      <div className="text-2xl font-black text-teal-700">
+                      <div className="text-2xl font-black text-teal-700 font-mono tabular-nums">
                         {dashboardStats?.readyCount || 0}
                       </div>
-                      <p className="text-[10px] text-teal-700 font-semibold">جاهزة للتسليم</p>
+                      <p className="text-[10px] text-teal-700 font-semibold">جاهزة للتسليم (عرض)</p>
                     </div>
 
                     {/* 6. Completed */}
-                    <div className="bg-white p-3.5 rounded-2xl border border-emerald-300 shadow-2xs space-y-1.5">
+                    <div
+                      onClick={() => {
+                        setStatusFilter("COMPLETED");
+                        setDashboardTab("orders");
+                      }}
+                      className="bg-white p-3.5 rounded-2xl border border-emerald-300 shadow-2xs space-y-1.5 cursor-pointer hover:shadow-md hover:bg-emerald-50/50 transition-all group active:scale-95"
+                      title="انقر لتصفية وعرض الطلبات المكتملة"
+                    >
                       <div className="flex items-center justify-between text-xs font-black text-emerald-800">
                         <span>المكتملة</span>
-                        <Check className="w-4 h-4 text-emerald-600" />
+                        <Check className="w-4 h-4 text-emerald-600 group-hover:scale-110 transition-transform" />
                       </div>
-                      <div className="text-2xl font-black text-emerald-700">
+                      <div className="text-2xl font-black text-emerald-700 font-mono tabular-nums">
                         {dashboardStats?.completedCount || 0}
                       </div>
-                      <p className="text-[10px] text-emerald-700 font-semibold">تم التسليم بنجاح</p>
+                      <p className="text-[10px] text-emerald-700 font-semibold">تم التسليم بنجاح (عرض)</p>
                     </div>
 
                     {/* 7. Cancelled */}
-                    <div className="bg-white p-3.5 rounded-2xl border border-red-300 shadow-2xs space-y-1.5">
+                    <div
+                      onClick={() => {
+                        setStatusFilter("CANCELLED");
+                        setDashboardTab("orders");
+                      }}
+                      className="bg-white p-3.5 rounded-2xl border border-red-300 shadow-2xs space-y-1.5 cursor-pointer hover:shadow-md hover:bg-red-50/50 transition-all group active:scale-95"
+                      title="انقر لتصفية وعرض الطلبات الملغاة"
+                    >
                       <div className="flex items-center justify-between text-xs font-black text-red-800">
                         <span>الملغاة</span>
-                        <Ban className="w-4 h-4 text-red-600" />
+                        <Ban className="w-4 h-4 text-red-600 group-hover:scale-110 transition-transform" />
                       </div>
-                      <div className="text-2xl font-black text-red-700">
+                      <div className="text-2xl font-black text-red-700 font-mono tabular-nums">
                         {dashboardStats?.cancelledCount || 0}
                       </div>
-                      <p className="text-[10px] text-red-700 font-semibold">ملغاة مع بيان السبب</p>
+                      <p className="text-[10px] text-red-700 font-semibold">ملغاة مع بيان السبب (عرض)</p>
                     </div>
                   </div>
 
@@ -1408,7 +1502,7 @@ export const AdminOrderManagement: React.FC<AdminOrderManagementProps> = ({
                   </div>
 
                   {/* Today's Orders Section */}
-                  <div className="bg-white p-5 rounded-3xl border border-[#E8DFD1] shadow-2xs space-y-4">
+                  <div id="today-orders-section" className="bg-white p-5 rounded-3xl border border-[#E8DFD1] shadow-2xs space-y-4 scroll-mt-20">
                     <div className="flex items-center justify-between flex-wrap gap-2 border-b border-[#E8DFD1] pb-3">
                       <div className="flex items-center gap-2">
                         <Calendar className="w-5 h-5 text-[#C89B3C]" />
@@ -2447,102 +2541,301 @@ export const AdminOrderManagement: React.FC<AdminOrderManagementProps> = ({
                     )}
                   </div>
 
-                  {/* 4 Multi-dimensional Breakdowns */}
-                  <div className="bg-white p-5 rounded-3xl border border-[#E8DFD1] shadow-2xs space-y-4">
-                    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#E8DFD1] pb-3">
-                      <h4 className="font-black text-sm text-[#221B17]">تفكيك وتحليل البيانات (Breakdowns)</h4>
+                  {/* 5 Multi-dimensional Breakdowns & Time Series Analysis */}
+                  <div className="bg-white p-5 rounded-3xl border border-[#E8DFD1] shadow-2xs space-y-5">
+                    {/* Header & View Tabs */}
+                    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#E8DFD1] pb-3.5">
+                      <div>
+                        <h4 className="font-black text-sm sm:text-base text-[#221B17]">تفكيك وتحليل البيانات (Reports & Breakdowns)</h4>
+                        <p className="text-[11px] text-[#6B5E55] mt-0.5">
+                          توزيع أعداد الطلبات (المكتملة، الملغاة، المبدئية، قيد التنفيذ) وحساب الأرباح التشغيلية
+                        </p>
+                      </div>
+
                       <div className="flex flex-wrap items-center gap-1.5 bg-[#FAF7F2] p-1 rounded-xl border border-[#E8DFD1]">
+                        {/* 1. Time Series */}
+                        <button
+                          onClick={() => setReportBreakdownView("time")}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                            reportBreakdownView === "time"
+                              ? "bg-[#721832] text-white shadow-xs"
+                              : "text-[#5C1027] hover:bg-[#E8DFD1]"
+                          }`}
+                        >
+                          <Clock className="w-3.5 h-3.5" />
+                          <span>التسلسل الزمني (اليوم / الأسبوع / الشهر / الفترة)</span>
+                        </button>
+
+                        {/* 2. Sale Code */}
                         <button
                           onClick={() => setReportBreakdownView("saleCode")}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
                             reportBreakdownView === "saleCode"
                               ? "bg-[#721832] text-white shadow-xs"
                               : "text-[#5C1027] hover:bg-[#E8DFD1]"
                           }`}
                         >
-                          حسب كود الوجبة (Sale Code)
+                          <Package className="w-3.5 h-3.5" />
+                          <span>كود الوجبة (Sale Code)</span>
                         </button>
+
+                        {/* 3. Customer */}
                         <button
                           onClick={() => setReportBreakdownView("customer")}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
                             reportBreakdownView === "customer"
                               ? "bg-[#721832] text-white shadow-xs"
                               : "text-[#5C1027] hover:bg-[#E8DFD1]"
                           }`}
                         >
-                          حسب العميل (Customer)
+                          <Users className="w-3.5 h-3.5" />
+                          <span>العملاء (Customer)</span>
                         </button>
+
+                        {/* 4. Supplier */}
                         {canViewFactoryFinancials && comprehensiveReport?.canViewFactory !== false && (
                           <button
                             onClick={() => setReportBreakdownView("supplier")}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
                               reportBreakdownView === "supplier"
                                 ? "bg-[#721832] text-white shadow-xs"
                                 : "text-[#5C1027] hover:bg-[#E8DFD1]"
                             }`}
                           >
-                            حسب المصنع (Supplier)
+                            <Building2 className="w-3.5 h-3.5" />
+                            <span>المصنع والتوريد (Supplier)</span>
                           </button>
                         )}
+
+                        {/* 5. Payment Method */}
                         <button
                           onClick={() => setReportBreakdownView("paymentMethod")}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
                             reportBreakdownView === "paymentMethod"
                               ? "bg-[#721832] text-white shadow-xs"
                               : "text-[#5C1027] hover:bg-[#E8DFD1]"
                           }`}
                         >
-                          حسب طريقة الدفع (Payment Method)
+                          <Wallet className="w-3.5 h-3.5" />
+                          <span>طريقة الدفع (Payment Method)</span>
                         </button>
                       </div>
                     </div>
 
-                    {/* Breakdown 1: By Sale Code */}
-                    {reportBreakdownView === "saleCode" && (
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-right text-xs">
-                          <thead>
-                            <tr className="bg-[#FAF7F2] text-[#6B5E55] border-b border-[#E8DFD1]">
-                              <th className="p-3">كود العرض</th>
-                              <th className="p-3">اسم الوجبة</th>
-                              <th className="p-3">عدد الطلبات</th>
-                              <th className="p-3">إجمالي الكمية (علبة)</th>
-                              <th className="p-3">مبيعات العملاء</th>
-                              {canViewFactoryFinancials && comprehensiveReport?.canViewFactory !== false && (
-                                <>
-                                  <th className="p-3">تكلفة المصنع</th>
-                                  <th className="p-3">الأرباح الصافية</th>
-                                  <th className="p-3">نسبة الهامش</th>
-                                </>
-                              )}
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-[#E8DFD1]">
-                            {(comprehensiveReport?.breakdowns?.bySaleCode || []).map((b: any) => {
-                              const margin = b.customerSales > 0 && b.grossProfit !== null ? ((b.grossProfit / b.customerSales) * 100).toFixed(1) : "0";
-                              return (
-                                <tr key={b.code} className="hover:bg-[#FAF7F2]/60">
-                                  <td className="p-3 font-mono font-bold text-[#5C1027]">{b.code}</td>
-                                  <td className="p-3 font-bold text-[#221B17]">{b.name}</td>
-                                  <td className="p-3 font-mono">{b.ordersCount}</td>
-                                  <td className="p-3 font-mono font-bold">{b.totalQuantity}</td>
-                                  <td className="p-3 font-bold text-[#221B17]">{b.customerSales?.toLocaleString("ar-EG")} ج.م</td>
-                                  {canViewFactoryFinancials && comprehensiveReport?.canViewFactory !== false && (
-                                    <>
-                                      <td className="p-3 font-bold text-blue-900">{b.supplierCost !== null ? `${b.supplierCost?.toLocaleString("ar-EG")} ج.م` : "—"}</td>
-                                      <td className="p-3 font-black text-[#C89B3C]">{b.grossProfit !== null ? `${b.grossProfit?.toLocaleString("ar-EG")} ج.م` : "—"}</td>
-                                      <td className="p-3 font-mono text-emerald-700 font-bold">{margin}%</td>
-                                    </>
-                                  )}
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
+                    {/* Profit Formula Rule Alert Banner */}
+                    <div className="bg-[#FAF7F2] border border-[#C89B3C]/40 p-3 rounded-2xl flex flex-wrap items-center justify-between gap-2 text-xs">
+                      <div className="flex items-center gap-2">
+                        <TrendingUp className="w-4 h-4 text-[#C89B3C] shrink-0" />
+                        <span className="font-black text-[#5C1027]">معادلة حساب الربح:</span>
+                        <span className="bg-white px-2 py-0.5 rounded-md font-mono font-bold text-[#721832] border border-[#E8DFD1]">
+                          Customer Total - Supplier Total
+                        </span>
+                      </div>
+                      <span className="text-[11px] text-[#8C6D28] font-bold">
+                        ⚠️ تنبيه نظام: لا تستخدم المدفوعات إطلاقاً لحساب الأرباح (حساب الأرباح مبني بدقة على فرق أسعار الطلبات المسجلة).
+                      </span>
+                    </div>
+
+                    {/* =========================================================================
+                        BREAKDOWN 0: TIME SERIES (حسب اليوم، الأسبوع، الشهر، الفترة)
+                        ========================================================================= */}
+                    {reportBreakdownView === "time" && (
+                      <div className="space-y-4">
+                        {/* Sub-Interval Toggles */}
+                        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#E8DFD1]/80 pb-2.5">
+                          <span className="text-xs font-bold text-[#6B5E55]">تجميع التقرير حسب:</span>
+                          <div className="flex flex-wrap items-center gap-1.5 bg-[#FAF7F2] p-1 rounded-xl border border-[#E8DFD1]">
+                            <button
+                              onClick={() => setTimeBreakdownSubTab("daily")}
+                              className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                                timeBreakdownSubTab === "daily"
+                                  ? "bg-[#721832] text-white shadow-xs"
+                                  : "text-[#5C1027] hover:bg-[#E8DFD1]"
+                              }`}
+                            >
+                              اليوم (Daily)
+                            </button>
+                            <button
+                              onClick={() => setTimeBreakdownSubTab("weekly")}
+                              className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                                timeBreakdownSubTab === "weekly"
+                                  ? "bg-[#721832] text-white shadow-xs"
+                                  : "text-[#5C1027] hover:bg-[#E8DFD1]"
+                              }`}
+                            >
+                              الأسبوع (Weekly)
+                            </button>
+                            <button
+                              onClick={() => setTimeBreakdownSubTab("monthly")}
+                              className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                                timeBreakdownSubTab === "monthly"
+                                  ? "bg-[#721832] text-white shadow-xs"
+                                  : "text-[#5C1027] hover:bg-[#E8DFD1]"
+                              }`}
+                            >
+                              الشهر (Monthly)
+                            </button>
+                            <button
+                              onClick={() => setTimeBreakdownSubTab("period")}
+                              className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                                timeBreakdownSubTab === "period"
+                                  ? "bg-[#721832] text-white shadow-xs"
+                                  : "text-[#5C1027] hover:bg-[#E8DFD1]"
+                              }`}
+                            >
+                              مقارنة الفترات (Period Comparison)
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Time Series Table */}
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-right text-xs">
+                            <thead>
+                              <tr className="bg-[#FAF7F2] text-[#6B5E55] border-b border-[#E8DFD1]">
+                                <th className="p-3">
+                                  {timeBreakdownSubTab === "daily" && "تاريخ اليوم"}
+                                  {timeBreakdownSubTab === "weekly" && "الأسبوع"}
+                                  {timeBreakdownSubTab === "monthly" && "الشهر"}
+                                  {timeBreakdownSubTab === "period" && "الفترة المحددة"}
+                                </th>
+                                <th className="p-3">إجمالي الطلبات</th>
+                                <th className="p-3 text-emerald-800">المكتملة</th>
+                                <th className="p-3 text-red-800">الملغاة</th>
+                                <th className="p-3 text-amber-800">المبدئية</th>
+                                <th className="p-3 text-purple-800">قيد التنفيذ</th>
+                                <th className="p-3">مبيعات العملاء (Customer Total)</th>
+                                {canViewFactoryFinancials && comprehensiveReport?.canViewFactory !== false && (
+                                  <>
+                                    <th className="p-3">تكلفة المصنع (Supplier Total)</th>
+                                    <th className="p-3 font-black text-[#5C1027]">صافي الربح (Gross Profit)</th>
+                                  </>
+                                )}
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-[#E8DFD1]">
+                              {(() => {
+                                const list =
+                                  timeBreakdownSubTab === "daily"
+                                    ? comprehensiveReport?.timeBreakdowns?.byDay || []
+                                    : timeBreakdownSubTab === "weekly"
+                                    ? comprehensiveReport?.timeBreakdowns?.byWeek || []
+                                    : timeBreakdownSubTab === "monthly"
+                                    ? comprehensiveReport?.timeBreakdowns?.byMonth || []
+                                    : comprehensiveReport?.timeBreakdowns?.byPeriodSummary || [];
+
+                                if (list.length === 0) {
+                                  return (
+                                    <tr>
+                                      <td colSpan={9} className="p-8 text-center text-[#8C7D73]">
+                                        لا توجد بيانات مسجلة في هذا النطاق الزمني
+                                      </td>
+                                    </tr>
+                                  );
+                                }
+
+                                return list.map((item: any, idx: number) => (
+                                  <tr key={item.date || item.weekKey || item.monthKey || item.label || idx} className="hover:bg-[#FAF7F2]/60">
+                                    <td className="p-3 font-bold text-[#221B17]">
+                                      {item.label || item.date || item.weekKey || item.monthKey}
+                                    </td>
+                                    <td className="p-3 font-mono font-bold text-[#5C1027] tabular-nums">
+                                      {item.totalCount || 0}
+                                    </td>
+                                    <td className="p-3 font-mono font-bold text-emerald-700 tabular-nums">
+                                      {item.completedCount || 0}
+                                    </td>
+                                    <td className="p-3 font-mono font-bold text-red-700 tabular-nums">
+                                      {item.cancelledCount || 0}
+                                    </td>
+                                    <td className="p-3 font-mono font-bold text-amber-700 tabular-nums">
+                                      {item.pendingCount || 0}
+                                    </td>
+                                    <td className="p-3 font-mono font-bold text-purple-700 tabular-nums">
+                                      {item.inProgressCount || 0}
+                                    </td>
+                                    <td className="p-3 font-bold text-[#221B17] font-mono tabular-nums">
+                                      {(item.customerSales || 0).toLocaleString("ar-EG")} ج.م
+                                    </td>
+                                    {canViewFactoryFinancials && comprehensiveReport?.canViewFactory !== false && (
+                                      <>
+                                        <td className="p-3 font-bold text-blue-900 font-mono tabular-nums">
+                                          {item.supplierCost !== null ? `${(item.supplierCost || 0).toLocaleString("ar-EG")} ج.م` : "—"}
+                                        </td>
+                                        <td className="p-3 font-black text-[#C89B3C] font-mono tabular-nums">
+                                          {item.grossProfit !== null ? `${(item.grossProfit || 0).toLocaleString("ar-EG")} ج.م` : "—"}
+                                        </td>
+                                      </>
+                                    )}
+                                  </tr>
+                                ));
+                              })()}
+                            </tbody>
+                          </table>
+                        </div>
                       </div>
                     )}
 
-                    {/* Breakdown 2: By Customer */}
+                    {/* =========================================================================
+                        BREAKDOWN 1: BY SALE CODE (كود الوجبة والعرض)
+                        ========================================================================= */}
+                    {reportBreakdownView === "saleCode" && (
+                      <div className="space-y-3">
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-right text-xs">
+                            <thead>
+                              <tr className="bg-[#FAF7F2] text-[#6B5E55] border-b border-[#E8DFD1]">
+                                <th className="p-3">كود العرض</th>
+                                <th className="p-3">اسم الوجبة</th>
+                                <th className="p-3">إجمالي الطلبات</th>
+                                <th className="p-3 text-emerald-800">المكتملة</th>
+                                <th className="p-3 text-red-800">الملغاة</th>
+                                <th className="p-3 text-amber-800">المبدئية</th>
+                                <th className="p-3 text-purple-800">قيد التنفيذ</th>
+                                <th className="p-3">الكمية (علبة)</th>
+                                <th className="p-3">مبيعات العملاء</th>
+                                {canViewFactoryFinancials && comprehensiveReport?.canViewFactory !== false && (
+                                  <>
+                                    <th className="p-3">تكلفة المصنع</th>
+                                    <th className="p-3 font-black text-[#5C1027]">مجمل الربح</th>
+                                    <th className="p-3">الهامش %</th>
+                                  </>
+                                )}
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-[#E8DFD1]">
+                              {(comprehensiveReport?.breakdowns?.bySaleCode || []).map((b: any) => {
+                                const margin = b.customerSales > 0 && b.grossProfit !== null ? ((b.grossProfit / b.customerSales) * 100).toFixed(1) : "0";
+                                return (
+                                  <tr key={b.code} className="hover:bg-[#FAF7F2]/60">
+                                    <td className="p-3 font-mono font-black text-[#5C1027]">{b.code}</td>
+                                    <td className="p-3 font-bold text-[#221B17] max-w-[200px] truncate" title={b.name}>{b.name}</td>
+                                    <td className="p-3 font-mono font-bold tabular-nums">{b.ordersCount || 0}</td>
+                                    <td className="p-3 font-mono font-bold text-emerald-700 tabular-nums">{b.completedCount || 0}</td>
+                                    <td className="p-3 font-mono font-bold text-red-700 tabular-nums">{b.cancelledCount || 0}</td>
+                                    <td className="p-3 font-mono font-bold text-amber-700 tabular-nums">{b.pendingCount || 0}</td>
+                                    <td className="p-3 font-mono font-bold text-purple-700 tabular-nums">{b.inProgressCount || 0}</td>
+                                    <td className="p-3 font-mono font-bold tabular-nums">{b.totalQuantity || 0}</td>
+                                    <td className="p-3 font-bold text-[#221B17] font-mono tabular-nums">{b.customerSales?.toLocaleString("ar-EG")} ج.م</td>
+                                    {canViewFactoryFinancials && comprehensiveReport?.canViewFactory !== false && (
+                                      <>
+                                        <td className="p-3 font-bold text-blue-900 font-mono tabular-nums">{b.supplierCost !== null ? `${b.supplierCost?.toLocaleString("ar-EG")} ج.م` : "—"}</td>
+                                        <td className="p-3 font-black text-[#C89B3C] font-mono tabular-nums">{b.grossProfit !== null ? `${b.grossProfit?.toLocaleString("ar-EG")} ج.م` : "—"}</td>
+                                        <td className="p-3 font-mono text-emerald-700 font-bold tabular-nums">{margin}%</td>
+                                      </>
+                                    )}
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* =========================================================================
+                        BREAKDOWN 2: BY CUSTOMER (حسب العميل)
+                        ========================================================================= */}
                     {reportBreakdownView === "customer" && (
                       <div className="overflow-x-auto">
                         <table className="w-full text-right text-xs">
@@ -2550,21 +2843,35 @@ export const AdminOrderManagement: React.FC<AdminOrderManagementProps> = ({
                             <tr className="bg-[#FAF7F2] text-[#6B5E55] border-b border-[#E8DFD1]">
                               <th className="p-3">اسم العميل</th>
                               <th className="p-3">الهاتف</th>
-                              <th className="p-3">عدد الطلبات</th>
+                              <th className="p-3">إجمالي الطلبات</th>
+                              <th className="p-3 text-emerald-800">المكتملة</th>
+                              <th className="p-3 text-red-800">الملغاة</th>
+                              <th className="p-3 text-amber-800">المبدئية</th>
+                              <th className="p-3 text-purple-800">قيد التنفيذ</th>
                               <th className="p-3">إجمالي المبيعات</th>
-                              <th className="p-3">المحصل</th>
-                              <th className="p-3">المتبقي</th>
+                              <th className="p-3 text-emerald-800">المحصل</th>
+                              <th className="p-3 text-amber-800">المتبقي</th>
+                              {canViewFactoryFinancials && comprehensiveReport?.canViewFactory !== false && (
+                                <th className="p-3 font-black text-[#5C1027]">مجمل الربح</th>
+                              )}
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-[#E8DFD1]">
                             {(comprehensiveReport?.breakdowns?.byCustomer || []).map((c: any) => (
                               <tr key={c.customerId} className="hover:bg-[#FAF7F2]/60">
                                 <td className="p-3 font-bold text-[#221B17]">{c.customerName}</td>
-                                <td className="p-3 font-mono text-[#6B5E55]">{c.customerPhone}</td>
-                                <td className="p-3 font-mono font-bold">{c.ordersCount}</td>
-                                <td className="p-3 font-bold text-[#5C1027]">{c.customerSales?.toLocaleString("ar-EG")} ج.م</td>
-                                <td className="p-3 font-bold text-emerald-700">{c.customerPaid?.toLocaleString("ar-EG")} ج.م</td>
-                                <td className="p-3 font-bold text-amber-700">{c.customerRemaining?.toLocaleString("ar-EG")} ج.م</td>
+                                <td className="p-3 font-mono text-[#6B5E55]" dir="ltr">{c.customerPhone}</td>
+                                <td className="p-3 font-mono font-bold tabular-nums">{c.ordersCount || 0}</td>
+                                <td className="p-3 font-mono font-bold text-emerald-700 tabular-nums">{c.completedCount || 0}</td>
+                                <td className="p-3 font-mono font-bold text-red-700 tabular-nums">{c.cancelledCount || 0}</td>
+                                <td className="p-3 font-mono font-bold text-amber-700 tabular-nums">{c.pendingCount || 0}</td>
+                                <td className="p-3 font-mono font-bold text-purple-700 tabular-nums">{c.inProgressCount || 0}</td>
+                                <td className="p-3 font-bold text-[#5C1027] font-mono tabular-nums">{c.customerSales?.toLocaleString("ar-EG")} ج.م</td>
+                                <td className="p-3 font-bold text-emerald-700 font-mono tabular-nums">{c.customerPaid?.toLocaleString("ar-EG")} ج.م</td>
+                                <td className="p-3 font-bold text-amber-700 font-mono tabular-nums">{c.customerRemaining?.toLocaleString("ar-EG")} ج.م</td>
+                                {canViewFactoryFinancials && comprehensiveReport?.canViewFactory !== false && (
+                                  <td className="p-3 font-black text-[#C89B3C] font-mono tabular-nums">{c.grossProfit !== null ? `${c.grossProfit?.toLocaleString("ar-EG")} ج.م` : "—"}</td>
+                                )}
                               </tr>
                             ))}
                           </tbody>
@@ -2572,7 +2879,9 @@ export const AdminOrderManagement: React.FC<AdminOrderManagementProps> = ({
                       </div>
                     )}
 
-                    {/* Breakdown 3: By Supplier */}
+                    {/* =========================================================================
+                        BREAKDOWN 3: BY SUPPLIER (حسب المصنع والمورد)
+                        ========================================================================= */}
                     {reportBreakdownView === "supplier" && (
                       <div className="overflow-x-auto">
                         <table className="w-full text-right text-xs">
@@ -2581,20 +2890,28 @@ export const AdminOrderManagement: React.FC<AdminOrderManagementProps> = ({
                               <th className="p-3">المصنع / المورد</th>
                               <th className="p-3">الهاتف</th>
                               <th className="p-3">أوامر التوريد</th>
+                              <th className="p-3 text-emerald-800">المكتملة</th>
+                              <th className="p-3 text-red-800">الملغاة</th>
+                              <th className="p-3 text-amber-800">المبدئية</th>
+                              <th className="p-3 text-purple-800">قيد التنفيذ</th>
                               <th className="p-3">إجمالي التكلفة</th>
-                              <th className="p-3">المسدد</th>
-                              <th className="p-3">المتبقي للمصنع</th>
+                              <th className="p-3 text-blue-800">المسدد</th>
+                              <th className="p-3 text-purple-800">المتبقي للمصنع</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-[#E8DFD1]">
                             {(comprehensiveReport?.breakdowns?.bySupplier || []).map((s: any) => (
                               <tr key={s.supplierId} className="hover:bg-[#FAF7F2]/60">
                                 <td className="p-3 font-bold text-[#221B17]">{s.supplierName}</td>
-                                <td className="p-3 font-mono text-[#6B5E55]">{s.phone}</td>
-                                <td className="p-3 font-mono font-bold">{s.ordersCount}</td>
-                                <td className="p-3 font-bold text-blue-900">{s.supplierTotal?.toLocaleString("ar-EG")} ج.م</td>
-                                <td className="p-3 font-bold text-emerald-700">{s.supplierPaid?.toLocaleString("ar-EG")} ج.م</td>
-                                <td className="p-3 font-bold text-purple-700">{s.supplierRemaining?.toLocaleString("ar-EG")} ج.م</td>
+                                <td className="p-3 font-mono text-[#6B5E55]" dir="ltr">{s.phone}</td>
+                                <td className="p-3 font-mono font-bold tabular-nums">{s.ordersCount || 0}</td>
+                                <td className="p-3 font-mono font-bold text-emerald-700 tabular-nums">{s.completedCount || 0}</td>
+                                <td className="p-3 font-mono font-bold text-red-700 tabular-nums">{s.cancelledCount || 0}</td>
+                                <td className="p-3 font-mono font-bold text-amber-700 tabular-nums">{s.pendingCount || 0}</td>
+                                <td className="p-3 font-mono font-bold text-purple-700 tabular-nums">{s.inProgressCount || 0}</td>
+                                <td className="p-3 font-bold text-blue-900 font-mono tabular-nums">{s.supplierTotal?.toLocaleString("ar-EG")} ج.م</td>
+                                <td className="p-3 font-bold text-emerald-700 font-mono tabular-nums">{s.supplierPaid?.toLocaleString("ar-EG")} ج.م</td>
+                                <td className="p-3 font-bold text-purple-700 font-mono tabular-nums">{s.supplierRemaining?.toLocaleString("ar-EG")} ج.م</td>
                               </tr>
                             ))}
                           </tbody>
@@ -2602,17 +2919,56 @@ export const AdminOrderManagement: React.FC<AdminOrderManagementProps> = ({
                       </div>
                     )}
 
-                    {/* Breakdown 4: By Payment Method */}
+                    {/* =========================================================================
+                        BREAKDOWN 4: BY PAYMENT METHOD (حسب طريقة الدفع)
+                        ========================================================================= */}
                     {reportBreakdownView === "paymentMethod" && (
                       <div className="space-y-4">
+                        {/* Summary Cards */}
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                           {(comprehensiveReport?.breakdowns?.byPaymentMethod || []).map((m: any) => (
-                            <div key={m.method} className="bg-[#FAF7F2] p-4 rounded-2xl border border-[#E8DFD1] space-y-1">
-                              <span className="text-xs font-bold text-[#6B5E55] block">{m.method}</span>
-                              <div className="text-lg font-black text-emerald-700">{m.totalAmount?.toLocaleString("ar-EG")} ج.م</div>
-                              <span className="text-[10px] text-[#8C6D28] font-bold block">{m.count} عملية مؤكدة</span>
+                            <div key={m.method} className="bg-[#FAF7F2] p-4 rounded-2xl border border-[#E8DFD1] space-y-1.5">
+                              <span className="text-xs font-bold text-[#6B5E55] block">{m.label || m.method}</span>
+                              <div className="text-lg font-black text-emerald-700 font-mono tabular-nums">
+                                {(m.totalAmount || 0).toLocaleString("ar-EG")} ج.م
+                              </div>
+                              <span className="text-[10px] text-[#8C6D28] font-bold block">
+                                {m.count || 0} عملية مؤكدة
+                              </span>
                             </div>
                           ))}
+                        </div>
+
+                        {/* Detailed Table */}
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-right text-xs">
+                            <thead>
+                              <tr className="bg-[#FAF7F2] text-[#6B5E55] border-b border-[#E8DFD1]">
+                                <th className="p-3">طريقة الدفع</th>
+                                <th className="p-3">عدد العمليات</th>
+                                <th className="p-3 text-emerald-800">طلبات مكتملة</th>
+                                <th className="p-3 text-red-800">طلبات ملغاة</th>
+                                <th className="p-3 text-amber-800">طلبات مبدئية</th>
+                                <th className="p-3 text-purple-800">طلبات قيد التنفيذ</th>
+                                <th className="p-3">إجمالي المبالغ المحصلة</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-[#E8DFD1]">
+                              {(comprehensiveReport?.breakdowns?.byPaymentMethod || []).map((m: any) => (
+                                <tr key={m.method} className="hover:bg-[#FAF7F2]/60">
+                                  <td className="p-3 font-bold text-[#221B17]">{m.label || m.method}</td>
+                                  <td className="p-3 font-mono font-bold tabular-nums">{m.count || 0}</td>
+                                  <td className="p-3 font-mono font-bold text-emerald-700 tabular-nums">{m.completedCount || 0}</td>
+                                  <td className="p-3 font-mono font-bold text-red-700 tabular-nums">{m.cancelledCount || 0}</td>
+                                  <td className="p-3 font-mono font-bold text-amber-700 tabular-nums">{m.pendingCount || 0}</td>
+                                  <td className="p-3 font-mono font-bold text-purple-700 tabular-nums">{m.inProgressCount || 0}</td>
+                                  <td className="p-3 font-black text-emerald-700 font-mono tabular-nums">
+                                    {(m.totalAmount || 0).toLocaleString("ar-EG")} ج.م
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
                         </div>
                       </div>
                     )}

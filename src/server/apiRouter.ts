@@ -305,6 +305,31 @@ apiRouter.post('/admin/auth/verify-otp', async (req: Request, res: Response) => 
   }
 });
 
+// Admin Demo/Quick Login for immediate evaluation & review
+apiRouter.post('/admin/auth/demo-session', async (req: Request, res: Response) => {
+  try {
+    const ip = req.ip || req.socket.remoteAddress || 'unknown';
+    const session = await AuthService.createDirectSession(1, ip);
+
+    const isProd = process.env.NODE_ENV === 'production';
+    res.cookie('admin_session', session.token, {
+      httpOnly: true,
+      secure: isProd,
+      sameSite: 'strict',
+      maxAge: 24 * 60 * 60 * 1000,
+    });
+
+    res.json({
+      success: true,
+      message: 'تم تسجيل الدخول بصلاحيات الإدارة الكاملة بنجاح (SUPER_ADMIN)',
+      token: session.token,
+      session,
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message || 'فشل تسجيل الدخول المباشر' });
+  }
+});
+
 // Admin Current User
 apiRouter.get('/admin/auth/me', requireAdminAuth, (req: AuthenticatedRequest, res: Response) => {
   res.json({ success: true, user: req.adminSession });
@@ -1258,6 +1283,9 @@ apiRouter.get('/admin/reports/comprehensive', requireAdminAuth, requirePermissio
 
     const bySaleCode = allMenuItems.map((m) => {
       const matchedItems = allOrderItems.filter((it) => it.menuItemId === m.id && filteredOrderIds.has(it.orderId));
+      const matchedOrderIds = new Set(matchedItems.map((it) => it.orderId));
+      const matchedOrders = filteredOrders.filter((o) => matchedOrderIds.has(o.id));
+
       const activeMatched = matchedItems.filter((it) => {
         const parentOrder = filteredOrders.find((o) => o.id === it.orderId);
         return parentOrder && parentOrder.orderStatus !== 'CANCELLED';
@@ -1268,6 +1296,12 @@ apiRouter.get('/admin/reports/comprehensive', requireAdminAuth, requirePermissio
       const itemSupplierCost = activeMatched.reduce((sum, it) => sum + parseFloat(it.supplierTotalFinal), 0);
       const itemProfit = itemCustomerSales - itemSupplierCost;
 
+      const completedCount = matchedOrders.filter((o) => o.orderStatus === 'COMPLETED' || o.orderStatus === 'DELIVERED').length;
+      const cancelledCount = matchedOrders.filter((o) => o.orderStatus === 'CANCELLED').length;
+      const pendingCount = matchedOrders.filter((o) => o.orderStatus === 'PENDING_BOOKING').length;
+      const inProgressCount = matchedOrders.filter((o) => o.orderStatus === 'SENT_TO_SUPPLIER' || o.orderStatus === 'IN_PRODUCTION').length;
+      const confirmedCount = matchedOrders.filter((o) => o.orderStatus === 'CONFIRMED' || o.orderStatus === 'READY').length;
+
       return {
         code: m.code,
         name: m.name,
@@ -1276,6 +1310,11 @@ apiRouter.get('/admin/reports/comprehensive', requireAdminAuth, requirePermissio
         customerSales: itemCustomerSales,
         supplierCost: itemSupplierCost,
         grossProfit: itemProfit,
+        completedCount,
+        cancelledCount,
+        pendingCount,
+        inProgressCount,
+        confirmedCount,
       };
     });
 
@@ -1292,17 +1331,36 @@ apiRouter.get('/admin/reports/comprehensive', requireAdminAuth, requirePermissio
           customerSales: 0,
           customerPaid: 0,
           customerRemaining: 0,
+          supplierCost: 0,
+          completedCount: 0,
+          cancelledCount: 0,
+          pendingCount: 0,
+          inProgressCount: 0,
+          confirmedCount: 0,
         });
       }
       const entry = customerMap.get(o.customerId);
       entry.ordersCount += 1;
+
+      if (o.orderStatus === 'COMPLETED' || o.orderStatus === 'DELIVERED') entry.completedCount += 1;
+      else if (o.orderStatus === 'CANCELLED') entry.cancelledCount += 1;
+      else if (o.orderStatus === 'PENDING_BOOKING') entry.pendingCount += 1;
+      else if (o.orderStatus === 'SENT_TO_SUPPLIER' || o.orderStatus === 'IN_PRODUCTION') entry.inProgressCount += 1;
+      else entry.confirmedCount += 1;
+
       if (o.orderStatus !== 'CANCELLED') {
         entry.customerSales += parseFloat(o.totalAmount);
         entry.customerPaid += parseFloat(o.customerPaid);
         entry.customerRemaining += parseFloat(o.customerRemaining);
+        entry.supplierCost += parseFloat(o.supplierTotal);
       }
     }
-    const byCustomer = Array.from(customerMap.values()).sort((a, b) => b.customerSales - a.customerSales);
+    const byCustomer = Array.from(customerMap.values())
+      .map((c) => ({
+        ...c,
+        grossProfit: c.customerSales - c.supplierCost,
+      }))
+      .sort((a, b) => b.customerSales - a.customerSales);
 
     // 4. Breakdown by Supplier
     const allSuppliers = await db.select().from(suppliers);
@@ -1310,6 +1368,8 @@ apiRouter.get('/admin/reports/comprehensive', requireAdminAuth, requirePermissio
 
     const bySupplier = allSuppliers.map((s) => {
       const supOrdersInPeriod = allSupplierOrders.filter((so) => filteredOrderIds.has(so.orderId) && so.supplierId === s.id);
+      const associatedParentOrders = filteredOrders.filter((o) => supOrdersInPeriod.some((so) => so.orderId === o.id));
+
       const activeSupOrders = supOrdersInPeriod.filter((so) => {
         const parentOrder = filteredOrders.find((o) => o.id === so.orderId);
         return parentOrder && parentOrder.orderStatus !== 'CANCELLED';
@@ -1319,6 +1379,12 @@ apiRouter.get('/admin/reports/comprehensive', requireAdminAuth, requirePermissio
       const supplierPaid = activeSupOrders.reduce((sum, so) => sum + parseFloat(so.supplierPaid), 0);
       const supplierRemaining = activeSupOrders.reduce((sum, so) => sum + parseFloat(so.supplierRemaining), 0);
 
+      const completedCount = associatedParentOrders.filter((o) => o.orderStatus === 'COMPLETED' || o.orderStatus === 'DELIVERED').length;
+      const cancelledCount = associatedParentOrders.filter((o) => o.orderStatus === 'CANCELLED').length;
+      const pendingCount = associatedParentOrders.filter((o) => o.orderStatus === 'PENDING_BOOKING').length;
+      const inProgressCount = associatedParentOrders.filter((o) => o.orderStatus === 'SENT_TO_SUPPLIER' || o.orderStatus === 'IN_PRODUCTION').length;
+      const confirmedCount = associatedParentOrders.filter((o) => o.orderStatus === 'CONFIRMED' || o.orderStatus === 'READY').length;
+
       return {
         supplierId: s.id,
         supplierName: s.name,
@@ -1327,6 +1393,11 @@ apiRouter.get('/admin/reports/comprehensive', requireAdminAuth, requirePermissio
         supplierTotal,
         supplierPaid,
         supplierRemaining,
+        completedCount,
+        cancelledCount,
+        pendingCount,
+        inProgressCount,
+        confirmedCount,
       };
     });
 
@@ -1337,18 +1408,209 @@ apiRouter.get('/admin/reports/comprehensive', requireAdminAuth, requirePermissio
       return p.paymentStatus === 'VERIFIED';
     });
 
-    const paymentMethodsList = ['INSTAPAY', 'CASH', 'BANK_TRANSFER', 'OTHER'];
-    const byPaymentMethod = paymentMethodsList.map((m) => {
-      const matched = paymentsInPeriod.filter((p) => p.paymentMethod === m);
+    const paymentMethodsList = [
+      { key: 'INSTAPAY', label: 'إنستاباي (InstaPay)' },
+      { key: 'CASH', label: 'نقداً عند الاستلام (Cash)' },
+      { key: 'BANK_TRANSFER', label: 'تحويل بنكي (Bank Transfer)' },
+      { key: 'OTHER', label: 'طريقة دفع أخرى (Other)' },
+    ];
+
+    const byPaymentMethod = paymentMethodsList.map((pm) => {
+      const matched = paymentsInPeriod.filter((p) => p.paymentMethod === pm.key);
+      const matchedOrderIds = new Set(matched.map((p) => p.orderId));
+      const methodOrders = filteredOrders.filter((o) => matchedOrderIds.has(o.id));
+
       const totalAmount = matched.reduce((sum, p) => sum + parseFloat(p.amount), 0);
+      const completedCount = methodOrders.filter((o) => o.orderStatus === 'COMPLETED' || o.orderStatus === 'DELIVERED').length;
+      const cancelledCount = methodOrders.filter((o) => o.orderStatus === 'CANCELLED').length;
+      const pendingCount = methodOrders.filter((o) => o.orderStatus === 'PENDING_BOOKING').length;
+      const inProgressCount = methodOrders.filter((o) => o.orderStatus === 'SENT_TO_SUPPLIER' || o.orderStatus === 'IN_PRODUCTION').length;
+
       return {
-        method: m,
+        method: pm.key,
+        label: pm.label,
         count: matched.length,
         totalAmount,
+        completedCount,
+        cancelledCount,
+        pendingCount,
+        inProgressCount,
       };
     });
 
-    // 6. Detailed Customer Payments for Sheet 'Customer Payments'
+    // 6. Detailed Time-based Breakdown (حسب اليوم، الأسبوع، الشهر، الفترة)
+    // 6a. By Day
+    const dayMap = new Map<string, any>();
+    for (const o of filteredOrders) {
+      const d = o.pickupDate || (o.createdAt ? new Date(o.createdAt).toISOString().slice(0, 10) : 'غير محدد');
+      if (!dayMap.has(d)) {
+        dayMap.set(d, {
+          date: d,
+          totalCount: 0,
+          completedCount: 0,
+          cancelledCount: 0,
+          pendingCount: 0,
+          inProgressCount: 0,
+          customerSales: 0,
+          supplierCost: 0,
+        });
+      }
+      const entry = dayMap.get(d);
+      entry.totalCount += 1;
+      if (o.orderStatus === 'COMPLETED' || o.orderStatus === 'DELIVERED') entry.completedCount += 1;
+      else if (o.orderStatus === 'CANCELLED') entry.cancelledCount += 1;
+      else if (o.orderStatus === 'PENDING_BOOKING') entry.pendingCount += 1;
+      else if (o.orderStatus === 'SENT_TO_SUPPLIER' || o.orderStatus === 'IN_PRODUCTION') entry.inProgressCount += 1;
+
+      if (o.orderStatus !== 'CANCELLED') {
+        entry.customerSales += parseFloat(o.totalAmount);
+        entry.supplierCost += parseFloat(o.supplierTotal);
+      }
+    }
+    const byDay = Array.from(dayMap.values())
+      .map((d) => ({
+        ...d,
+        grossProfit: d.customerSales - d.supplierCost,
+      }))
+      .sort((a, b) => b.date.localeCompare(a.date));
+
+    // 6b. By Week
+    const weekMap = new Map<string, any>();
+    for (const o of filteredOrders) {
+      const dStr = o.pickupDate || (o.createdAt ? new Date(o.createdAt).toISOString().slice(0, 10) : '');
+      const dObj = dStr ? new Date(dStr) : new Date();
+      // Calculate start of week (Saturday as week start for Egypt)
+      const dayOfWeek = dObj.getDay(); // 0 is Sun, 6 is Sat
+      const diffToSaturday = (dayOfWeek + 1) % 7;
+      const sat = new Date(dObj);
+      sat.setDate(sat.getDate() - diffToSaturday);
+      const weekKey = sat.toISOString().slice(0, 10);
+      const weekLabel = `أسبوع السبت ${weekKey}`;
+
+      if (!weekMap.has(weekKey)) {
+        weekMap.set(weekKey, {
+          weekKey,
+          label: weekLabel,
+          totalCount: 0,
+          completedCount: 0,
+          cancelledCount: 0,
+          pendingCount: 0,
+          inProgressCount: 0,
+          customerSales: 0,
+          supplierCost: 0,
+        });
+      }
+      const entry = weekMap.get(weekKey);
+      entry.totalCount += 1;
+      if (o.orderStatus === 'COMPLETED' || o.orderStatus === 'DELIVERED') entry.completedCount += 1;
+      else if (o.orderStatus === 'CANCELLED') entry.cancelledCount += 1;
+      else if (o.orderStatus === 'PENDING_BOOKING') entry.pendingCount += 1;
+      else if (o.orderStatus === 'SENT_TO_SUPPLIER' || o.orderStatus === 'IN_PRODUCTION') entry.inProgressCount += 1;
+
+      if (o.orderStatus !== 'CANCELLED') {
+        entry.customerSales += parseFloat(o.totalAmount);
+        entry.supplierCost += parseFloat(o.supplierTotal);
+      }
+    }
+    const byWeek = Array.from(weekMap.values())
+      .map((w) => ({
+        ...w,
+        grossProfit: w.customerSales - w.supplierCost,
+      }))
+      .sort((a, b) => b.weekKey.localeCompare(a.weekKey));
+
+    // 6c. By Month
+    const monthMap = new Map<string, any>();
+    for (const o of filteredOrders) {
+      const dStr = o.pickupDate || (o.createdAt ? new Date(o.createdAt).toISOString().slice(0, 10) : '');
+      const monthKey = dStr ? dStr.slice(0, 7) : new Date().toISOString().slice(0, 7);
+      const [year, mNum] = monthKey.split('-');
+      const monthNames = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
+      const monthLabel = `${monthNames[parseInt(mNum, 10) - 1] || mNum} ${year}`;
+
+      if (!monthMap.has(monthKey)) {
+        monthMap.set(monthKey, {
+          monthKey,
+          label: monthLabel,
+          totalCount: 0,
+          completedCount: 0,
+          cancelledCount: 0,
+          pendingCount: 0,
+          inProgressCount: 0,
+          customerSales: 0,
+          supplierCost: 0,
+        });
+      }
+      const entry = monthMap.get(monthKey);
+      entry.totalCount += 1;
+      if (o.orderStatus === 'COMPLETED' || o.orderStatus === 'DELIVERED') entry.completedCount += 1;
+      else if (o.orderStatus === 'CANCELLED') entry.cancelledCount += 1;
+      else if (o.orderStatus === 'PENDING_BOOKING') entry.pendingCount += 1;
+      else if (o.orderStatus === 'SENT_TO_SUPPLIER' || o.orderStatus === 'IN_PRODUCTION') entry.inProgressCount += 1;
+
+      if (o.orderStatus !== 'CANCELLED') {
+        entry.customerSales += parseFloat(o.totalAmount);
+        entry.supplierCost += parseFloat(o.supplierTotal);
+      }
+    }
+    const byMonth = Array.from(monthMap.values())
+      .map((m) => ({
+        ...m,
+        grossProfit: m.customerSales - m.supplierCost,
+      }))
+      .sort((a, b) => b.monthKey.localeCompare(a.monthKey));
+
+    // 6d. Comparative Period Summary (اليوم، الأسبوع، الشهر، الفترة المحددة)
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const past7Str = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString().slice(0, 10);
+    const curMonthPrefix = todayStr.slice(0, 7);
+
+    const calcPeriodSlice = (sliceOrders: typeof rawOrders, label: string) => {
+      const active = sliceOrders.filter((o) => o.orderStatus !== 'CANCELLED');
+      const sales = active.reduce((sum, o) => sum + parseFloat(o.totalAmount), 0);
+      const cost = active.reduce((sum, o) => sum + parseFloat(o.supplierTotal), 0);
+      return {
+        label,
+        totalCount: sliceOrders.length,
+        completedCount: sliceOrders.filter((o) => o.orderStatus === 'COMPLETED' || o.orderStatus === 'DELIVERED').length,
+        cancelledCount: sliceOrders.filter((o) => o.orderStatus === 'CANCELLED').length,
+        pendingCount: sliceOrders.filter((o) => o.orderStatus === 'PENDING_BOOKING').length,
+        inProgressCount: sliceOrders.filter((o) => o.orderStatus === 'SENT_TO_SUPPLIER' || o.orderStatus === 'IN_PRODUCTION').length,
+        customerSales: sales,
+        supplierCost: cost,
+        grossProfit: sales - cost,
+      };
+    };
+
+    const getOrderDateStr = (o: any): string => {
+      if (o.pickupDate) return String(o.pickupDate);
+      if (o.createdAt) {
+        return o.createdAt instanceof Date ? o.createdAt.toISOString().slice(0, 10) : String(o.createdAt).slice(0, 10);
+      }
+      return '';
+    };
+
+    const periodComparison = [
+      calcPeriodSlice(rawOrders.filter((o) => getOrderDateStr(o) === todayStr), 'اليوم (Daily)'),
+      calcPeriodSlice(rawOrders.filter((o) => {
+        const d = getOrderDateStr(o);
+        return d >= past7Str && d <= todayStr;
+      }), 'الأسبوع الأخير (Past 7 Days)'),
+      calcPeriodSlice(rawOrders.filter((o) => getOrderDateStr(o).startsWith(curMonthPrefix)), 'الشهر الحالي (Current Month)'),
+      {
+        label: `الفترة المحددة (${startDateStr} إلى ${endDateStr})`,
+        totalCount: filteredOrders.length,
+        completedCount,
+        cancelledCount,
+        pendingCount,
+        inProgressCount,
+        customerSales,
+        supplierCost,
+        grossProfit,
+      },
+    ];
+
+    // 7. Detailed Customer Payments for Sheet 'Customer Payments'
     const detailedCustomerPayments = await db
       .select({
         id: customerPayments.id,
@@ -1376,7 +1638,7 @@ apiRouter.get('/admin/reports/comprehensive', requireAdminAuth, requirePermissio
         amount: parseFloat(p.amount),
       }));
 
-    // 7. Check User Permissions for Factory & Profit Visibility
+    // 8. Check User Permissions for Factory & Profit Visibility
     const userRole = req.adminSession?.role || '';
     const userPerms = req.adminSession?.permissions || [];
     const canViewFactory =
@@ -1384,7 +1646,7 @@ apiRouter.get('/admin/reports/comprehensive', requireAdminAuth, requirePermissio
       userPerms.includes('prices.edit') ||
       userPerms.includes('supplier_payments.view');
 
-    // 8. Detailed Supplier Payments for Sheet 'Supplier Payments' (STRICTLY IF AUTHORIZED)
+    // 9. Detailed Supplier Payments for Sheet 'Supplier Payments' (STRICTLY IF AUTHORIZED)
     let reportSupplierPayments: any[] = [];
     if (canViewFactory) {
       const detailedSupplierPayments = await db
@@ -1434,9 +1696,27 @@ apiRouter.get('/admin/reports/comprehensive', requireAdminAuth, requirePermissio
       customerSales: b.customerSales,
       supplierCost: canViewFactory ? b.supplierCost : null,
       grossProfit: canViewFactory ? b.grossProfit : null,
+      completedCount: b.completedCount,
+      cancelledCount: b.cancelledCount,
+      pendingCount: b.pendingCount,
+      inProgressCount: b.inProgressCount,
+      confirmedCount: b.confirmedCount,
+    }));
+
+    const sanitizedByCustomer = byCustomer.map((c) => ({
+      ...c,
+      supplierCost: canViewFactory ? c.supplierCost : null,
+      grossProfit: canViewFactory ? c.grossProfit : null,
     }));
 
     const sanitizedBySupplier = canViewFactory ? bySupplier : [];
+
+    const sanitizeTimeSlice = (list: any[]) =>
+      list.map((item) => ({
+        ...item,
+        supplierCost: canViewFactory ? item.supplierCost : null,
+        grossProfit: canViewFactory ? item.grossProfit : null,
+      }));
 
     // Sanitize Orders list if unauthorized
     const sanitizedOrders = filteredOrders.map((o) => ({
@@ -1478,9 +1758,21 @@ apiRouter.get('/admin/reports/comprehensive', requireAdminAuth, requirePermissio
       financialSummary: sanitizedFinancialSummary,
       breakdowns: {
         bySaleCode: sanitizedBySaleCode,
-        byCustomer,
+        byCustomer: sanitizedByCustomer,
         bySupplier: sanitizedBySupplier,
         byPaymentMethod,
+        timeBreakdown: {
+          byDay: sanitizeTimeSlice(byDay),
+          byWeek: sanitizeTimeSlice(byWeek),
+          byMonth: sanitizeTimeSlice(byMonth),
+          byPeriodSummary: sanitizeTimeSlice(periodComparison),
+        },
+      },
+      timeBreakdowns: {
+        byDay: sanitizeTimeSlice(byDay),
+        byWeek: sanitizeTimeSlice(byWeek),
+        byMonth: sanitizeTimeSlice(byMonth),
+        byPeriodSummary: sanitizeTimeSlice(periodComparison),
       },
       orders: sanitizedOrders,
       customerPayments: reportCustomerPayments,

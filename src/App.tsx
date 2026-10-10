@@ -211,6 +211,23 @@ export const App: React.FC = () => {
         }}
         menuItems={menuItems}
       />
+      {/* Floating Discreet Admin Dashboard Access Button */}
+      <aside aria-label="بوابة الإدارة" className="fixed bottom-4 left-4 z-30">
+        <button
+          onClick={() => {
+            setIsAdminOpen(true);
+            window.location.hash = "#admin";
+          }}
+          className="group flex items-center gap-2 bg-[#1F1714]/90 hover:bg-[#721832] text-white px-3.5 py-2 rounded-2xl shadow-lg border border-[#C89B3C]/40 backdrop-blur-md transition-all text-xs font-bold cursor-pointer hover:scale-105 active:scale-95"
+          title="دخول لوحة تحكم الإدارة (اختصار: Ctrl+Shift+A أو Alt+A)"
+        >
+          <span className="w-2 h-2 rounded-full bg-[#C89B3C] animate-pulse" />
+          <span className="text-[#F4EEDB]">لوحة الإدارة التنفيذية</span>
+          <span className="text-[10px] text-[#C89B3C] bg-white/10 px-1.5 py-0.5 rounded font-mono hidden sm:inline">
+            Admin RTL
+          </span>
+        </button>
+      </aside>
     </div>
   );
 };

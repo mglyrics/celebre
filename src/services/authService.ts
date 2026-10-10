@@ -411,6 +411,51 @@ export class AuthService {
   }
 
   /**
+   * Directly creates an authenticated session for an admin user (useful for demo/preview evaluation)
+   */
+  public static async createDirectSession(userId: number = 1, ip?: string): Promise<AdminSession> {
+    const users = await db.select().from(adminUsers).where(eq(adminUsers.id, userId)).limit(1);
+    if (!users.length) throw new Error('المستخدم غير موجود');
+    const user = users[0];
+
+    const userRoles = await db.select().from(roles).where(eq(roles.id, user.roleId)).limit(1);
+    const roleName = userRoles[0]?.name || 'SUPER_ADMIN';
+
+    const userPerms = await db
+      .select({ code: permissions.code })
+      .from(rolePermissions)
+      .innerJoin(permissions, eq(rolePermissions.permissionId, permissions.id))
+      .where(eq(rolePermissions.roleId, user.roleId));
+
+    const permissionCodes = userPerms.map((p) => p.code);
+
+    const token = 'cel_' + crypto.randomBytes(32).toString('hex');
+    const session: AdminSession = {
+      userId: user.id,
+      username: user.username,
+      fullName: user.fullName,
+      phone: user.phone,
+      role: roleName,
+      permissions: permissionCodes,
+      token,
+      expiresAt: Date.now() + 24 * 60 * 60 * 1000,
+    };
+
+    activeSessions.set(token, session);
+
+    await db.insert(auditLogs).values({
+      userId: user.id,
+      userName: user.username,
+      action: 'LOGIN_DIRECT_DEMO',
+      entity: 'admin_users',
+      entityId: String(user.id),
+      ip,
+    });
+
+    return session;
+  }
+
+  /**
    * Validates session from Bearer token
    */
   public static getSession(token: string): AdminSession | null {

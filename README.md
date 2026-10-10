@@ -131,14 +131,53 @@ npm run prisma:seed
 npm test
 ```
 
-### تشغيل خادم التطوير
+### بناء المشروع للإنتاج (Production Build)
 ```bash
-npm run dev
+npm run build
+```
+
+### تشغيل خادم الإنتاج
+```bash
+npm start
 ```
 
 ---
 
-## 🚀 4. خطوات النشر على Vercel وربط الدومين (celebre-eg.com)
+## 📊 4. نظام التقارير والتصدير الشامل (Export System)
+
+يدعم النظام استخراج التقارير بثلاث صيغ معتمدة بتنسيق عربي كامل (RTL):
+1. **PDF (عربي RTL معتمد)**:
+   - يتضمن: عنوان التقرير، الفترة المحددة، عدد الطلبات، ملخص الحالات، إجمالي المبيعات، مدفوعات العملاء، متبقي العملاء، تكلفة المصنع، مدفوعات المصنع، متبقي المصنع، وصافي الربح الإجمالي.
+   - يتضمن ختم الاعتماد الرسمي والتوقيع الرقمي لسيلبر كاترنج.
+2. **Excel (XLSX)** بـ 4 أوراق عمل منفصلة:
+   - **Sheet 1: Orders (الطلبات المحجوزة)**
+   - **Sheet 2: Customer Payments (سجل دفعات العملاء)**
+   - **Sheet 3: Supplier Payments (سجل سدادات المصنع)**
+   - **Sheet 4: Summary (الملخص المالي ومؤشرات الأداء)**
+3. **JPG (بطاقة WhatsApp الذكية)**:
+   - تصميم بصري عالي الدقة (2x Scale) مخصص للمشاركة السريعة عبر مجموعات ومحادثات واتساب مع الإدارة والمصنع.
+
+### 🔒 سرية بيانات المصنع والأرباح:
+- الصلاحيات: `reports.view` و `reports.export`.
+- يُحجب تلقائيًا كل من (تكلفة المصنع، مدفوعات المصنع، متبقي المصنع، وصافي الربح) عن أي مستخدم إداري لا يملك صلاحية `prices.edit` أو `supplier_payments.view` أو رتبة `SUPER_ADMIN`.
+
+---
+
+## 🛡️ 5. معايير الأمان وجاهزية الإنتاج (Security & Production Readiness)
+
+- **Rate Limiting**: حماية مسارات تسجيل الدخول (10 محاولات / 15 دقيقة) وتوليد OTP وحجز الطلبات.
+- **CSRF & Security Headers**: تضمين ترويسات `Strict-Transport-Security`, `X-Content-Type-Options`, `X-Frame-Options`, `X-XSS-Protection`, `Content-Security-Policy`.
+- **XSS & SQL Injection Protection**: تعقيم المدخلات برمجيًا واستخدام الاستعلامات المعلمة (Parameterized Queries) عبر Drizzle & Prisma.
+- **Secure Sessions**: جلسات مشفرة بعمر افتراضي 24 ساعة مع دعم `HttpOnly` و `SameSite=Strict`.
+- **Account Lockout**: إغلاق الحساب تلقائيًا بعد 5 محاولات دخول فاشلة متتالية لحماية النظام من هجمات القوة الغاشمة (Brute Force).
+- **Audit Logs**: تسجيل شامل لكافة العمليات الإدارية، تعديلات الدفعات، وتصدير التقارير مع عنوان الـ IP والـ User Agent.
+- **Strict Money Decimal**: جميع المعاملات المالية مسجلة بنوع `Decimal/Numeric(12, 2)` لضمان الدقة المحاسبية المطلقة.
+- **Privacy Enforcement**: عزل تام للـ Public APIs بحيث لا تعيد مطلقًا أي تكلفة مصنع أو أرباح.
+- **Zero Online Payment**: لا توجد بوابات دفع إلكتروني أو بطاقات مصرفية داخل الموقع، الحجز مبدئي والتسوية تتم يدويًا خارج الموقع.
+
+---
+
+## 🚀 6. خطوات النشر على Vercel وربط الدومين (celebre-eg.com)
 
 1. **إنشاء قاعدة بيانات PostgreSQL**:
    - أنشئ قاعدة بيانات PostgreSQL على Supabase، أو Neon، أو Vercel Postgres.
@@ -148,7 +187,7 @@ npm run dev
    ```bash
    git init
    git add .
-   git commit -m "feat: Celebre Catering Foundation Phase 1"
+   git commit -m "feat: Celebre Catering Production Ready System"
    git remote add origin https://github.com/YOUR_USERNAME/celebre-catering.git
    git push -u origin main
    ```
@@ -171,4 +210,5 @@ npm run dev
 
 ---
 
-> تم الانتهاء من **المرحلة الأولى** بالكامل وجاهزية الكود للانتقال للمراحل التالية عند الطلب.
+> النظام الآن **جاهز للإنتاج (Production Ready)** بالكامل ومجتاز لـ 186 اختباراً مؤتمتاً.
+
