@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import { PublicMenuItem } from "../../types/publicMenu";
 import { getSaleImage } from "../../data/saleImages";
+import { OFFICIAL_18_MENU_ITEMS } from "../../data/fallbackMenu";
 
 interface PublicMenuProps {
   menuItems: PublicMenuItem[];
@@ -26,8 +27,10 @@ export const PublicMenu: React.FC<PublicMenuProps> = ({
 
   const bestsellersCodes = ["Sale-04", "Sale-05", "Sale-10", "Sale-17", "Sale-18"];
 
+  const itemsToDisplay = (menuItems && menuItems.length > 0) ? menuItems : OFFICIAL_18_MENU_ITEMS;
+
   const filteredItems = useMemo(() => {
-    return menuItems.filter((item) => {
+    return itemsToDisplay.filter((item) => {
       // Category filter
       if (selectedCategory === "mix") {
         // Sale-01 to Sale-12 (Mix box with gateau & snacks)
@@ -149,8 +152,8 @@ export const PublicMenu: React.FC<PublicMenuProps> = ({
         </div>
       )}
 
-      {/* Error Notice */}
-      {error && (
+      {/* Error Notice (Only if no items are available at all) */}
+      {error && filteredItems.length === 0 && (
         <div className="text-center py-12 bg-white rounded-3xl border border-red-200 p-6 max-w-lg mx-auto">
           <p className="text-red-600 font-bold text-sm mb-3">{error}</p>
           <button
@@ -163,9 +166,9 @@ export const PublicMenu: React.FC<PublicMenuProps> = ({
       )}
 
       {/* 18 Menu Items Grid */}
-      {!loading && !error && (
+      {(!loading || filteredItems.length > 0) && (
         <>
-          {filteredItems.length === 0 ? (
+          {filteredItems.length === 0 && !error ? (
             <div className="text-center py-16 bg-white rounded-3xl border border-[#E8DFD1] p-8 max-w-md mx-auto space-y-3">
               <Package className="w-12 h-12 text-[#8C7D73] mx-auto" />
               <p className="text-sm font-bold text-[#221B17]">لم يتم العثور على وجبات مطابقة للبحث</p>
@@ -190,13 +193,16 @@ export const PublicMenu: React.FC<PublicMenuProps> = ({
                     key={item.id}
                     className="bg-white rounded-3xl border border-[#E8DFD1] shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col overflow-hidden group hover:-translate-y-1"
                   >
-                    {/* Top Image Container */}
-                    <div className="relative aspect-16/10 overflow-hidden bg-[#FAF7F2]">
+                    {/* Top Image Container with explicit height to prevent Chrome layout collapse */}
+                    <div className="relative h-48 sm:h-52 w-full overflow-hidden bg-[#FAF7F2]">
                       <img
                         src={imageSrc}
                         alt={item.name}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                         loading="lazy"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = getSaleImage("Sale-01");
+                        }}
                       />
 
                       {/* Code Badge */}

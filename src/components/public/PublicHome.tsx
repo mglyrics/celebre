@@ -1,11 +1,12 @@
-import React from "react";
+import React, { useState, useMemo } from "react";
 import { 
   Sparkles, CalendarCheck, UtensilsCrossed, ShieldCheck, Truck, Clock, 
   Award, Heart, Star, CheckCircle2, ChevronLeft, Phone, MessageCircle, 
-  Package, ThumbsUp
+  Package, ThumbsUp, Search, Eye, Flame
 } from "lucide-react";
 import { PublicMenuItem } from "../../types/publicMenu";
 import { getSaleImage } from "../../data/saleImages";
+import { OFFICIAL_18_MENU_ITEMS } from "../../data/fallbackMenu";
 import heroImg from "../../assets/images/celebre_event_setup_1788037572328.jpg";
 import closedBoxImg from "../../assets/images/celebre_real_closed_box_1790336502952.jpg";
 import mosqueImg from "../../assets/images/celebre_mosque_katb_ketab_1789223553405.jpg";
@@ -23,9 +24,40 @@ export const PublicHome: React.FC<PublicHomeProps> = ({
   onSelectForDetails,
   onSelectForBooking,
 }) => {
+  const all18Items = (menuItems && menuItems.length > 0) ? menuItems : OFFICIAL_18_MENU_ITEMS;
+
   // Best sellers for featured showcase
   const featuredCodes = ["Sale-04", "Sale-05", "Sale-17", "Sale-18"];
-  const featuredItems = menuItems.filter((it) => featuredCodes.includes(it.code));
+  const featuredItems = all18Items.filter((it) => featuredCodes.includes(it.code));
+
+  // Full 18 products interactive filter on Home page
+  const [selectedCategory, setSelectedCategory] = useState<"all" | "mix" | "sandwich" | "bestsellers">("all");
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const filtered18Items = useMemo(() => {
+    return all18Items.filter((item) => {
+      if (selectedCategory === "mix") {
+        const num = parseInt(item.code.replace(/\D/g, ""), 10);
+        if (num > 12) return false;
+      } else if (selectedCategory === "sandwich") {
+        const num = parseInt(item.code.replace(/\D/g, ""), 10);
+        if (num < 13) return false;
+      } else if (selectedCategory === "bestsellers") {
+        if (!["Sale-04", "Sale-05", "Sale-10", "Sale-17", "Sale-18"].includes(item.code)) return false;
+      }
+
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        const matchCode = item.code.toLowerCase().includes(q);
+        const matchName = item.name.toLowerCase().includes(q);
+        const matchDesc = item.description?.toLowerCase().includes(q) || false;
+        const matchComp = item.components?.some((c) => c.name.toLowerCase().includes(q)) || false;
+        return matchCode || matchName || matchDesc || matchComp;
+      }
+
+      return true;
+    });
+  }, [all18Items, selectedCategory, searchQuery]);
 
   return (
     <div className="space-y-16 sm:space-y-24" dir="rtl">
@@ -149,18 +181,21 @@ export const PublicHome: React.FC<PublicHomeProps> = ({
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {(featuredItems.length > 0 ? featuredItems : menuItems.slice(0, 4)).map((item) => (
+          {(featuredItems.length > 0 ? featuredItems : all18Items.slice(0, 4)).map((item) => (
             <div
               key={item.id}
               className="bg-white rounded-3xl border border-[#E8DFD1] shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden flex flex-col justify-between group"
             >
-              <div className="relative aspect-4/3 overflow-hidden bg-[#FAF7F2]">
+              <div className="relative h-44 w-full overflow-hidden bg-[#FAF7F2]">
                 <img
                   src={getSaleImage(item.code)}
                   alt={item.name}
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = getSaleImage("Sale-01");
+                  }}
                 />
-                <span className="absolute top-2.5 right-2.5 bg-[#5C1027] text-white text-[11px] font-black px-2.5 py-0.5 rounded-full">
+                <span className="absolute top-2.5 right-2.5 bg-[#5C1027] text-white text-[11px] font-black px-2.5 py-0.5 rounded-full shadow-xs">
                   {item.code}
                 </span>
               </div>
@@ -185,14 +220,16 @@ export const PublicHome: React.FC<PublicHomeProps> = ({
 
                   <div className="grid grid-cols-2 gap-1.5 pt-1">
                     <button
+                      type="button"
                       onClick={() => onSelectForDetails(item)}
-                      className="py-1.5 px-2 rounded-lg border border-[#D6C7B7] text-[11px] font-bold text-[#221B17] hover:bg-[#FAF7F2]"
+                      className="py-1.5 px-2 rounded-lg border border-[#D6C7B7] text-[11px] font-bold text-[#221B17] hover:bg-[#FAF7F2] cursor-pointer"
                     >
                       التفاصيل
                     </button>
                     <button
+                      type="button"
                       onClick={() => onSelectForBooking(item.code)}
-                      className="py-1.5 px-2 rounded-lg bg-[#721832] text-white text-[11px] font-black hover:bg-[#5C1027]"
+                      className="py-1.5 px-2 rounded-lg bg-[#721832] text-white text-[11px] font-black hover:bg-[#5C1027] cursor-pointer"
                     >
                       احجز الآن
                     </button>
@@ -201,6 +238,177 @@ export const PublicHome: React.FC<PublicHomeProps> = ({
               </div>
             </div>
           ))}
+        </div>
+      </section>
+
+      {/* 2.5 Full 18 Catering Box Showcase Directly on Home Page (Ensuring all 18 products are immediately visible in Google Chrome) */}
+      <section id="full-18-menu" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="text-center max-w-3xl mx-auto mb-8 space-y-3">
+          <div className="inline-flex items-center gap-2 bg-[#C89B3C]/15 border border-[#C89B3C]/30 text-[#8C6D28] px-4 py-1.5 rounded-full text-xs font-bold shadow-2xs">
+            <Package className="w-3.5 h-3.5 text-[#C89B3C]" />
+            <span>كتالوج الوجبات الكامل لعام 2026</span>
+          </div>
+
+          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black text-[#5C1027] tracking-tight">
+            استعراض كافة وجبات كاترنج سيليبر الـ 18 المعتمدة
+          </h2>
+
+          <p className="text-xs sm:text-sm text-[#6B5E55] leading-relaxed">
+            جميع الوجبات الـ 18 متاحة بالأسعار المحدثة والتفاصيل الكاملة. يمكنك التصفح، الفلترة، الحجز الفوري بدون أي بطاقة بنكية.
+          </p>
+        </div>
+
+        {/* Category Filter & Search Bar */}
+        <div className="mb-8 space-y-4">
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            <button
+              type="button"
+              onClick={() => setSelectedCategory("all")}
+              className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+                selectedCategory === "all"
+                  ? "bg-[#721832] text-white shadow-md"
+                  : "bg-white text-[#221B17] border border-[#E8DFD1] hover:bg-[#FAF7F2]"
+              }`}
+            >
+              جميع الوجبات (18 عرض)
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setSelectedCategory("mix")}
+              className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+                selectedCategory === "mix"
+                  ? "bg-[#721832] text-white shadow-md"
+                  : "bg-white text-[#221B17] border border-[#E8DFD1] hover:bg-[#FAF7F2]"
+              }`}
+            >
+              قائمة Box ميكس (12 عرض) 🍰🥪
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setSelectedCategory("sandwich")}
+              className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+                selectedCategory === "sandwich"
+                  ? "bg-[#721832] text-white shadow-md"
+                  : "bg-white text-[#221B17] border border-[#E8DFD1] hover:bg-[#FAF7F2]"
+              }`}
+            >
+              قائمة Box ساندوتش فرنساوي (6 عروض) 🥪
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setSelectedCategory("bestsellers")}
+              className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+                selectedCategory === "bestsellers"
+                  ? "bg-[#721832] text-white shadow-md"
+                  : "bg-white text-[#221B17] border border-[#E8DFD1] hover:bg-[#FAF7F2]"
+              }`}
+            >
+              الأكثر طلباً ومبيعاً ⭐
+            </button>
+          </div>
+
+          <div className="max-w-md mx-auto relative">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="ابحث بالاسم أو المكونات (كفتة، بانية، جاتوه، رومي...)"
+              className="w-full bg-white border border-[#D6C7B7] rounded-2xl py-2.5 pr-10 pl-4 text-xs sm:text-sm font-semibold text-[#221B17] placeholder:text-[#8C7D73] focus:outline-none focus:ring-2 focus:ring-[#721832] shadow-2xs"
+            />
+            <Search className="w-4 h-4 text-[#8C6D28] absolute right-3.5 top-3" />
+          </div>
+        </div>
+
+        {/* 18 Meals Cards Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filtered18Items.map((item) => {
+            const imageSrc = getSaleImage(item.code);
+            return (
+              <div
+                key={item.id}
+                className="bg-white rounded-3xl border border-[#E8DFD1] shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col overflow-hidden group hover:-translate-y-1"
+              >
+                <div className="relative h-48 sm:h-52 w-full overflow-hidden bg-[#FAF7F2]">
+                  <img
+                    src={imageSrc}
+                    alt={item.name}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    loading="lazy"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = getSaleImage("Sale-01");
+                    }}
+                  />
+                  <div className="absolute top-3 right-3 bg-[#5C1027] text-white text-xs font-black px-3 py-1 rounded-full shadow-md">
+                    {item.code}
+                  </div>
+                </div>
+
+                <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
+                  <div className="space-y-2">
+                    <h3 className="font-black text-base sm:text-lg text-[#5C1027] group-hover:text-[#721832] transition-colors">
+                      {item.name}
+                    </h3>
+                    <div className="space-y-1.5 pt-1">
+                      <div className="text-[11px] font-bold text-[#8C6D28] flex items-center gap-1">
+                        <Package className="w-3.5 h-3.5" />
+                        <span>المكونات بالعلبة:</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {item.components && item.components.length > 0 ? (
+                          item.components.map((c, i) => (
+                            <span
+                              key={i}
+                              className="inline-flex items-center gap-1 text-[11px] bg-[#FAF7F2] text-[#4A3E38] px-2 py-0.5 rounded-lg border border-[#E8DFD1]"
+                            >
+                              <CheckCircle2 className="w-2.5 h-2.5 text-[#C89B3C]" />
+                              <span>{c.name}</span>
+                            </span>
+                          ))
+                        ) : (
+                          <p className="text-xs text-[#6B5E55] line-clamp-2">{item.description}</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-3 border-t border-[#E8DFD1] space-y-3">
+                    <div className="flex items-baseline justify-between">
+                      <span className="text-xs font-bold text-[#8C6D28]">سعر الوجبة للعميل:</span>
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-2xl font-black text-[#721832]">
+                          {item.distributorPrice}
+                        </span>
+                        <span className="text-xs font-bold text-[#221B17]">جنيه</span>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => onSelectForDetails(item)}
+                        className="w-full py-2.5 px-3 rounded-xl border border-[#D6C7B7] hover:border-[#721832] bg-white text-[#221B17] hover:text-[#721832] text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                        <span>تفاصيل العرض</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => onSelectForBooking(item.code)}
+                        className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-[#721832] to-[#5C1027] hover:from-[#5C1027] hover:to-[#430B1C] text-white text-xs font-black shadow-xs hover:shadow-md transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
+                      >
+                        <CalendarCheck className="w-3.5 h-3.5 text-[#C89B3C]" />
+                        <span>احجز الآن</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </section>
 

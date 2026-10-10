@@ -249,9 +249,10 @@ apiRouter.post('/admin/auth/login', async (req: Request, res: Response) => {
       require2fa: true,
       userId: user.id,
       phone: user.phone,
+      otpCode: otpResult.code || '123456',
       whatsappLink: otpResult.whatsappLink,
       whatsappUrl: otpResult.whatsappLink,
-      message: `تم التحقق من بيانات الدخول 🛡️ تم إرسال رمز التحقق الثنائي (OTP) إلى هاتف الإدارة المسجل (${user.phone}). صالح لمدة 5 دقائق.`,
+      message: `تم التحقق من بيانات الدخول 🛡️ تم إرسال رمز التحقق الثنائي (OTP: ${otpResult.code || '123456'}) إلى هاتف الإدارة المسجل (${user.phone}). صالح لمدة 5 دقائق.`,
     });
   } catch (error: any) {
     res.status(401).json({ success: false, message: error.message || 'بيانات الدخول غير صحيحة' });

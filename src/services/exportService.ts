@@ -331,34 +331,34 @@ export class ExportService {
             <div style="font-size: 20px; font-weight: 900; margin-top: 2px;">${title}</div>
           </div>
           <div style="text-align: left; background: rgba(255,255,255,0.12); padding: 8px 16px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.2);">
-            <div style="font-size: 11px; color: #F4EEDB;">الفترة الزمنية:</div>
+            <div style="font-size: 11px; color: #F4EEDB;">الفترة:</div>
             <div style="font-size: 14px; font-weight: bold; color: #FFFFFF;">${period}</div>
             ${dateRangeStr ? `<div style="font-size: 10px; color: #C89B3C;">(${dateRangeStr})</div>` : ''}
           </div>
         </div>
 
-        <!-- Status & Orders Breakdown -->
+        <!-- Orders Count & Status Breakdown (عدد الطلبات والحالة) -->
         <div style="margin-bottom: 24px;">
-          <h3 style="font-size: 14px; font-weight: 800; color: #5C1027; margin: 0 0 12px 0;">عدد الطلبات والحالة التشغيلية:</h3>
+          <h3 style="font-size: 14px; font-weight: 800; color: #5C1027; margin: 0 0 12px 0;">عدد الطلبات والحالة:</h3>
           <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px;">
             <div style="background: #FAF7F2; border: 1.5px solid #C89B3C; border-radius: 14px; padding: 12px; text-align: center;">
-              <span style="font-size: 11px; font-weight: bold; color: #5C1027; display: block;">إجمالي الطلبات</span>
+              <span style="font-size: 11px; font-weight: bold; color: #5C1027; display: block;">عدد الطلبات</span>
               <strong style="font-size: 22px; color: #721832; display: block; margin-top: 4px;">${data.counts.total}</strong>
             </div>
             <div style="background: #ECFDF5; border: 1px solid #10B981; border-radius: 14px; padding: 12px; text-align: center;">
-              <span style="font-size: 11px; font-weight: bold; color: #065F46; display: block;">المكتملة</span>
+              <span style="font-size: 11px; font-weight: bold; color: #065F46; display: block;">الحالة: المكتملة</span>
               <strong style="font-size: 22px; color: #047857; display: block; margin-top: 4px;">${data.counts.completed}</strong>
             </div>
             <div style="background: #F3E8FF; border: 1px solid #A855F7; border-radius: 14px; padding: 12px; text-align: center;">
-              <span style="font-size: 11px; font-weight: bold; color: #6B21A8; display: block;">قيد التنفيذ</span>
+              <span style="font-size: 11px; font-weight: bold; color: #6B21A8; display: block;">الحالة: قيد التنفيذ</span>
               <strong style="font-size: 22px; color: #7E22CE; display: block; margin-top: 4px;">${data.counts.inProgress}</strong>
             </div>
             <div style="background: #FEF3C7; border: 1px solid #F59E0B; border-radius: 14px; padding: 12px; text-align: center;">
-              <span style="font-size: 11px; font-weight: bold; color: #92400E; display: block;">المبدئية</span>
+              <span style="font-size: 11px; font-weight: bold; color: #92400E; display: block;">الحالة: المبدئية</span>
               <strong style="font-size: 22px; color: #B45309; display: block; margin-top: 4px;">${data.counts.pending}</strong>
             </div>
             <div style="background: #FEE2E2; border: 1px solid #EF4444; border-radius: 14px; padding: 12px; text-align: center;">
-              <span style="font-size: 11px; font-weight: bold; color: #991B1B; display: block;">الملغاة</span>
+              <span style="font-size: 11px; font-weight: bold; color: #991B1B; display: block;">الحالة: الملغاة</span>
               <strong style="font-size: 22px; color: #B91C1C; display: block; margin-top: 4px;">${data.counts.cancelled}</strong>
             </div>
           </div>
@@ -367,11 +367,11 @@ export class ExportService {
         <!-- Financial Overview (Customer Side + Factory Side + Profit) -->
         <div style="margin-bottom: 24px;">
           <h3 style="font-size: 14px; font-weight: 800; color: #5C1027; margin: 0 0 12px 0;">المؤشرات المالية والحسابات:</h3>
-          <div style="display: grid; grid-template-columns: ${data.canViewFactory ? 'repeat(3, 1fr)' : '1fr'}; gap: 16px;">
+          <div style="display: grid; grid-template-columns: ${data.canViewFactory ? 'repeat(3, 1fr)' : '1fr 1fr'}; gap: 16px;">
             <!-- Customer Financials -->
             <div style="background: #FAF7F2; border: 1px solid #E8DFD1; border-radius: 16px; padding: 16px;">
               <div style="font-weight: 900; font-size: 13px; color: #221B17; border-bottom: 1px solid #E8DFD1; padding-bottom: 8px; margin-bottom: 12px;">
-                حسابات العملاء (CUSTOMER SIDE)
+                حسابات العملاء
               </div>
               <div style="margin-bottom: 8px;">
                 <span style="font-size: 11px; color: #6B5E55;">إجمالي المبيعات:</span>
@@ -395,7 +395,7 @@ export class ExportService {
             <!-- Factory Financials -->
             <div style="background: #FAF7F2; border: 1px solid #E8DFD1; border-radius: 16px; padding: 16px;">
               <div style="font-weight: 900; font-size: 13px; color: #1E3A8A; border-bottom: 1px solid #E8DFD1; padding-bottom: 8px; margin-bottom: 12px;">
-                تكاليف المصنع (SUPPLIER SIDE)
+                حسابات وتكاليف المصنع
               </div>
               <div style="margin-bottom: 8px;">
                 <span style="font-size: 11px; color: #6B5E55;">تكلفة المصنع:</span>
@@ -416,18 +416,28 @@ export class ExportService {
             <!-- Celebre Gross Profit -->
             <div style="background: linear-gradient(135deg, #1F1714, #2A1F1B); color: #FFFFFF; border: 1.5px solid #C89B3C; border-radius: 16px; padding: 16px;">
               <div style="font-weight: 900; font-size: 13px; color: #C89B3C; border-bottom: 1px solid rgba(255,255,255,0.15); padding-bottom: 8px; margin-bottom: 12px;">
-                أرباح سيليبر (CELEBRE PROFIT)
+                أرباح سيليبر كاترنج
               </div>
               <div style="margin-bottom: 8px;">
-                <span style="font-size: 11px; color: #E8DFD1;">الربح الصافي:</span>
+                <span style="font-size: 11px; color: #E8DFD1;">الربح:</span>
                 <div style="font-size: 22px; font-weight: 900; color: #C89B3C;">${this.formatCurrency(data.financialSummary.grossProfit)}</div>
               </div>
               <div style="font-size: 10px; color: #E8DFD1; opacity: 0.8; margin-top: 10px; padding-top: 6px; border-top: 1px dashed rgba(255,255,255,0.2);">
-                ✓ معادلة الربح: Customer Total - Supplier Total (ولا تستخدم المدفوعات لحساب الربح)
+                ✓ معادلة الربح: إجمالي المبيعات - تكلفة المصنع (ولا تستخدم المدفوعات لحساب الربح)
               </div>
             </div>
             `
-                : ''
+                : `
+            <!-- Redaction Notice -->
+            <div style="background: #FFFBEB; border: 1.5px dashed #F59E0B; border-radius: 16px; padding: 18px; display: flex; align-items: center; justify-content: center; text-align: center;">
+              <div>
+                <div style="color: #92400E; font-size: 13px; font-weight: 900;">🔒 بيانات المصنع والأرباح محجوبة</div>
+                <div style="color: #B45309; font-size: 11px; margin-top: 4px;">
+                  تكلفة المصنع، مدفوعات المصنع، متبقي المصنع، والربح محجوبة لعدم توفر الصلاحية الإدارية اللازمة.
+                </div>
+              </div>
+            </div>
+            `
             }
           </div>
         </div>
@@ -552,43 +562,47 @@ export class ExportService {
             <p style="font-size: 12px; color: #C89B3C; margin: 0; font-weight: 700;">سيلبر كاترنج | Celebre Catering</p>
           </div>
           <div style="text-align: left; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); border-radius: 14px; padding: 10px 16px;">
-            <div style="font-size: 11px; color: #E8DFD1;">الفترة الزمنية:</div>
+            <div style="font-size: 11px; color: #E8DFD1;">الفترة:</div>
             <div style="font-size: 15px; font-weight: 900; color: #C89B3C;">${period}</div>
             <div style="font-size: 10px; color: #FFFFFF; opacity: 0.8; margin-top: 2px;">${nowStr}</div>
           </div>
         </div>
 
         <!-- Orders Status Counters Grid -->
-        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px;">
+        <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 20px;">
           <div style="background: #FAF7F2; border: 1.5px solid #C89B3C; border-radius: 16px; padding: 12px; text-align: center;">
-            <span style="font-size: 11px; font-weight: 800; color: #5C1027; display: block;">إجمالي الطلبات</span>
-            <div style="font-size: 26px; font-weight: 900; color: #721832; margin-top: 2px;">${data.counts.total}</div>
+            <span style="font-size: 11px; font-weight: 800; color: #5C1027; display: block;">عدد الطلبات</span>
+            <div style="font-size: 24px; font-weight: 900; color: #721832; margin-top: 2px;">${data.counts.total}</div>
           </div>
           <div style="background: #ECFDF5; border: 1.5px solid #10B981; border-radius: 16px; padding: 12px; text-align: center;">
-            <span style="font-size: 11px; font-weight: 800; color: #065F46; display: block;">المكتملة بنجاح</span>
-            <div style="font-size: 26px; font-weight: 900; color: #047857; margin-top: 2px;">${data.counts.completed}</div>
+            <span style="font-size: 11px; font-weight: 800; color: #065F46; display: block;">الحالة: المكتملة</span>
+            <div style="font-size: 24px; font-weight: 900; color: #047857; margin-top: 2px;">${data.counts.completed}</div>
           </div>
           <div style="background: #F3E8FF; border: 1.5px solid #A855F7; border-radius: 16px; padding: 12px; text-align: center;">
-            <span style="font-size: 11px; font-weight: 800; color: #6B21A8; display: block;">قيد التجهيز بالمصنع</span>
-            <div style="font-size: 26px; font-weight: 900; color: #7E22CE; margin-top: 2px;">${data.counts.inProgress}</div>
+            <span style="font-size: 11px; font-weight: 800; color: #6B21A8; display: block;">الحالة: قيد التنفيذ</span>
+            <div style="font-size: 24px; font-weight: 900; color: #7E22CE; margin-top: 2px;">${data.counts.inProgress}</div>
           </div>
           <div style="background: #FEF3C7; border: 1.5px solid #F59E0B; border-radius: 16px; padding: 12px; text-align: center;">
-            <span style="font-size: 11px; font-weight: 800; color: #92400E; display: block;">حجوزات مبدئية</span>
-            <div style="font-size: 26px; font-weight: 900; color: #B45309; margin-top: 2px;">${data.counts.pending}</div>
+            <span style="font-size: 11px; font-weight: 800; color: #92400E; display: block;">الحالة: المبدئية</span>
+            <div style="font-size: 24px; font-weight: 900; color: #B45309; margin-top: 2px;">${data.counts.pending}</div>
+          </div>
+          <div style="background: #FEE2E2; border: 1.5px solid #EF4444; border-radius: 16px; padding: 12px; text-align: center;">
+            <span style="font-size: 11px; font-weight: 800; color: #991B1B; display: block;">الحالة: الملغاة</span>
+            <div style="font-size: 24px; font-weight: 900; color: #B91C1C; margin-top: 2px;">${data.counts.cancelled}</div>
           </div>
         </div>
 
         <!-- Financial KPI Cards -->
-        <div style="display: grid; grid-template-columns: ${data.canViewFactory ? 'repeat(3, 1fr)' : '1fr'}; gap: 14px; margin-bottom: 20px;">
+        <div style="display: grid; grid-template-columns: ${data.canViewFactory ? 'repeat(3, 1fr)' : '1fr 1fr'}; gap: 14px; margin-bottom: 20px;">
           <!-- Customer Sales -->
           <div style="background: #FAF7F2; border: 1px solid #E8DFD1; border-radius: 18px; padding: 14px;">
-            <div style="font-size: 11px; font-weight: 800; color: #6B5E55;">إجمالي مبيعات العملاء</div>
+            <div style="font-size: 11px; font-weight: 800; color: #6B5E55;">إجمالي المبيعات</div>
             <div style="font-size: 22px; font-weight: 900; color: #5C1027; margin: 4px 0 8px 0;">
               ${this.formatCurrency(data.financialSummary.customerSales)}
             </div>
             <div style="display: flex; justify-content: space-between; font-size: 11px; border-top: 1px dashed #D6C7B7; padding-top: 6px;">
-              <span style="color: #047857; font-weight: bold;">محصل: ${this.formatCurrency(data.financialSummary.customerPaid)}</span>
-              <span style="color: #B45309; font-weight: bold;">متبقي: ${this.formatCurrency(data.financialSummary.customerRemaining)}</span>
+              <span style="color: #047857; font-weight: bold;">مدفوعات العملاء: ${this.formatCurrency(data.financialSummary.customerPaid)}</span>
+              <span style="color: #B45309; font-weight: bold;">متبقي العملاء: ${this.formatCurrency(data.financialSummary.customerRemaining)}</span>
             </div>
           </div>
 
@@ -597,28 +611,36 @@ export class ExportService {
               ? `
           <!-- Supplier Cost -->
           <div style="background: #FAF7F2; border: 1px solid #E8DFD1; border-radius: 18px; padding: 14px;">
-            <div style="font-size: 11px; font-weight: 800; color: #1E3A8A;">تكلفة المصنع والتوريد</div>
+            <div style="font-size: 11px; font-weight: 800; color: #1E3A8A;">تكلفة المصنع</div>
             <div style="font-size: 22px; font-weight: 900; color: #1E3A8A; margin: 4px 0 8px 0;">
               ${this.formatCurrency(data.financialSummary.supplierCost)}
             </div>
             <div style="display: flex; justify-content: space-between; font-size: 11px; border-top: 1px dashed #D6C7B7; padding-top: 6px;">
-              <span style="color: #1D4ED8; font-weight: bold;">مسدد: ${this.formatCurrency(data.financialSummary.supplierPaid)}</span>
-              <span style="color: #7E22CE; font-weight: bold;">متبقي: ${this.formatCurrency(data.financialSummary.supplierRemaining)}</span>
+              <span style="color: #1D4ED8; font-weight: bold;">مدفوعات المصنع: ${this.formatCurrency(data.financialSummary.supplierPaid)}</span>
+              <span style="color: #7E22CE; font-weight: bold;">متبقي المصنع: ${this.formatCurrency(data.financialSummary.supplierRemaining)}</span>
             </div>
           </div>
 
           <!-- Gross Profit -->
           <div style="background: linear-gradient(135deg, #1F1714, #2A1F1B); color: #FFFFFF; border: 1.5px solid #C89B3C; border-radius: 18px; padding: 14px;">
-            <div style="font-size: 11px; font-weight: 800; color: #C89B3C;">أرباح سيليبر الصافية</div>
+            <div style="font-size: 11px; font-weight: 800; color: #C89B3C;">الربح (Celebre Gross Profit)</div>
             <div style="font-size: 24px; font-weight: 900; color: #C89B3C; margin: 4px 0 8px 0;">
               ${this.formatCurrency(data.financialSummary.grossProfit)}
             </div>
             <div style="font-size: 9px; color: #E8DFD1; opacity: 0.8; border-top: 1px dashed rgba(255,255,255,0.2); padding-top: 6px;">
-              ✓ معادلة: مبيعات العملاء - تكلفة المصنع (بدون تأثر بالمدفوعات)
+              ✓ معادلة الربح: إجمالي المبيعات - تكلفة المصنع (بدون تأثر بالمدفوعات)
             </div>
           </div>
           `
-              : ''
+              : `
+          <!-- Redaction Card for Factory & Profit in WhatsApp image -->
+          <div style="background: #FFFBEB; border: 1.5px dashed #F59E0B; border-radius: 18px; padding: 14px; text-align: center; display: flex; align-items: center; justify-content: center;">
+            <div>
+              <div style="color: #92400E; font-size: 12px; font-weight: 900;">🔒 بيانات المصنع والأرباح محجوبة</div>
+              <div style="color: #B45309; font-size: 10px; margin-top: 4px;">تكلفة المصنع، مدفوعات ومتبقي المصنع، والربح محجوبة لحماية السرية المالية</div>
+            </div>
+          </div>
+          `
           }
         </div>
 

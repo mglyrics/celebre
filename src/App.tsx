@@ -9,14 +9,15 @@ import { PublicBookingForm } from "./components/public/PublicBookingForm";
 import { BookingConfirmationModal } from "./components/public/BookingConfirmationModal";
 import { PublicFooter } from "./components/public/PublicFooter";
 import { AdminOrderManagement } from "./components/admin/AdminOrderManagement";
+import { OFFICIAL_18_MENU_ITEMS } from "./data/fallbackMenu";
 
 export const App: React.FC = () => {
   // Navigation: "home" | "menu" | "booking"
   const [activePage, setActivePage] = useState<"home" | "menu" | "booking">("home");
 
-  // Menu items from Database
-  const [menuItems, setMenuItems] = useState<PublicMenuItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Menu items initialized with official 18 products so they are always available
+  const [menuItems, setMenuItems] = useState<PublicMenuItem[]>(OFFICIAL_18_MENU_ITEMS);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Selected item for Offer Details Modal
@@ -34,28 +35,26 @@ export const App: React.FC = () => {
   // Admin Order Management state (No link shown on public site, accessed via #admin or key shortcut)
   const [isAdminOpen, setIsAdminOpen] = useState(false);
 
-  // Fetch the 18 Sales from Database via /api/public/menu
+  // Fetch the 18 Sales from Database via /api/public/menu with graceful fallback
   useEffect(() => {
     const fetchMenu = async () => {
-      setLoading(true);
-      setError(null);
       try {
-        const res = await fetch("/api/public/menu");
-        if (!res.ok) {
-          throw new Error("فشل تحميل قائمة الوجبات من قاعدة البيانات");
-        }
-        const data = await res.json();
-        if (data.success && Array.isArray(data.menu)) {
-          setMenuItems(data.menu);
-        } else {
-          throw new Error(data.message || "استجابة غير صحيحة من الخادم");
+        const res = await fetch("/api/public/menu", {
+          headers: { "x-requested-with": "XMLHttpRequest" }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && Array.isArray(data.menu) && data.menu.length > 0) {
+            setMenuItems(data.menu);
+            setError(null);
+            return;
+          }
         }
       } catch (err: any) {
-        console.error("Error loading public menu:", err);
-        setError("تعذر تحميل قائمة الوجبات حالياً. يرجى التحقق من الاتصال بالإنترنت.");
-      } finally {
-        setLoading(false);
+        console.warn("Background fetch of menu items encountered an issue, preserving official 18 items fallback:", err);
       }
+      // Ensure error is cleared so 18 items always render cleanly
+      setError(null);
     };
 
     fetchMenu();
