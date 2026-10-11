@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { PublicMenuItem } from "../../types/publicMenu";
 import { ExportService, ComprehensiveReportData } from "../../services/exportService.ts";
+import { safeFetchJson } from "../../utils/safeApi.ts";
 
 interface AdminOrderManagementProps {
   isOpen: boolean;
@@ -319,27 +320,26 @@ export const AdminOrderManagement: React.FC<AdminOrderManagementProps> = ({
     setAuthError("");
 
     try {
-      const res = await fetch("/api/admin/auth/login", {
+      const result = await safeFetchJson<any>("/api/admin/auth/login", {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
           "x-requested-with": "XMLHttpRequest",
         },
-        body: JSON.stringify({ username: username.trim() || "admin", password: password || "admin" }),
+        body: JSON.stringify({ username: username.trim(), password }),
       });
-      const data = await res.json();
 
-      if (!res.ok || !data.success) {
-        throw new Error(data.message || "بيانات الدخول غير صحيحة");
+      if (!result.ok || !result.data?.success) {
+        throw new Error(result.error || result.data?.message || "اسم المستخدم أو كلمة المرور غير صحيحة");
       }
 
+      const data = result.data;
       if (data.needOtp || data.require2fa) {
         setLoginUserId(data.userId);
         setLoginPhone(data.phone || "01284484868");
         setOtpWhatsappLink(data.whatsappLink || "");
-        const fastCode = data.otpCode || "123456";
-        setReceivedOtp(fastCode);
-        setOtp(fastCode);
+        setReceivedOtp("");
+        setOtp("");
         setLoginStep("otp");
       }
     } catch (err: any) {
@@ -356,20 +356,20 @@ export const AdminOrderManagement: React.FC<AdminOrderManagementProps> = ({
     setAuthError("");
 
     try {
-      const res = await fetch("/api/admin/auth/verify-otp", {
+      const result = await safeFetchJson<any>("/api/admin/auth/verify-otp", {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
           "x-requested-with": "XMLHttpRequest",
         },
-        body: JSON.stringify({ userId: loginUserId, otp: otp.trim() || receivedOtp || "123456" }),
+        body: JSON.stringify({ userId: loginUserId, otp: otp.trim() }),
       });
-      const data = await res.json();
 
-      if (!res.ok || !data.success) {
-        throw new Error(data.message || "رمز التحقق OTP غير صحيح");
+      if (!result.ok || !result.data?.success) {
+        throw new Error(result.error || result.data?.message || "رمز التحقق OTP غير صحيح أو منتهي الصلاحية");
       }
 
+      const data = result.data;
       const newToken = data.token;
       setToken(newToken);
       setAdminUser(data.session);
@@ -379,91 +379,7 @@ export const AdminOrderManagement: React.FC<AdminOrderManagementProps> = ({
       } catch {}
       setLoginStep("credentials");
     } catch (err: any) {
-      // If server returned error but entered OTP is master 123456, allow direct entry
-      if (otp.trim() === "123456" || otp.trim() === receivedOtp) {
-        const directToken = `cel_direct_${Date.now()}`;
-        setToken(directToken);
-        setAdminUser({
-          userId: 1,
-          username: "admin",
-          fullName: "إدارة كاترنج سيلبر المركزية",
-          phone: "01284484868",
-          role: "SUPER_ADMIN",
-          permissions: [
-            "orders.view", "orders.create", "orders.edit", "orders.cancel",
-            "customers.view", "customers.edit", "menu.view", "menu.create", "menu.edit", "menu.delete",
-            "prices.edit", "customer_payments.view", "customer_payments.create", "customer_payments.edit",
-            "supplier_payments.view", "supplier_payments.create", "supplier_payments.edit",
-            "suppliers.view", "suppliers.edit", "reports.view", "reports.export",
-            "users.view", "users.create", "users.edit", "users.disable", "audit_logs.view", "settings.edit"
-          ],
-          token: directToken,
-          expiresAt: Date.now() + 24 * 60 * 60 * 1000,
-        });
-        try {
-          localStorage.setItem("celebre_admin_token", directToken);
-          sessionStorage.setItem("celebre_admin_token", directToken);
-        } catch {}
-        setLoginStep("credentials");
-        return;
-      }
-      setAuthError(err.message || "فشل التحقق من OTP");
-    } finally {
-      setAuthLoading(false);
-    }
-  };
-
-  // Instant Demo Login (for immediate review and full-access exploration)
-  const handleDemoLogin = async () => {
-    setAuthLoading(true);
-    setAuthError("");
-    try {
-      const res = await fetch("/api/admin/auth/demo-session", {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          "x-requested-with": "XMLHttpRequest",
-        },
-      });
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.message || "فشل الدخول التجريبي المباشر");
-      }
-      const newToken = data.token;
-      setToken(newToken);
-      setAdminUser(data.session);
-      try {
-        localStorage.setItem("celebre_admin_token", newToken);
-        sessionStorage.setItem("celebre_admin_token", newToken);
-      } catch {}
-      setLoginStep("credentials");
-    } catch (err: any) {
-      // Bulletproof fallback: ensure Super Admin session is established immediately
-      console.warn("Direct demo API fallback triggered:", err);
-      const fallbackToken = `cel_super_${Date.now()}`;
-      setToken(fallbackToken);
-      setAdminUser({
-        userId: 1,
-        username: "admin",
-        fullName: "إدارة كاترنج سيلبر المركزية",
-        phone: "01284484868",
-        role: "SUPER_ADMIN",
-        permissions: [
-          "orders.view", "orders.create", "orders.edit", "orders.cancel",
-          "customers.view", "customers.edit", "menu.view", "menu.create", "menu.edit", "menu.delete",
-          "prices.edit", "customer_payments.view", "customer_payments.create", "customer_payments.edit",
-          "supplier_payments.view", "supplier_payments.create", "supplier_payments.edit",
-          "suppliers.view", "suppliers.edit", "reports.view", "reports.export",
-          "users.view", "users.create", "users.edit", "users.disable", "audit_logs.view", "settings.edit"
-        ],
-        token: fallbackToken,
-        expiresAt: Date.now() + 24 * 60 * 60 * 1000,
-      });
-      try {
-        localStorage.setItem("celebre_admin_token", fallbackToken);
-        sessionStorage.setItem("celebre_admin_token", fallbackToken);
-      } catch {}
-      setLoginStep("credentials");
+      setAuthError(err.message || "فشل التحقق من رمز OTP");
     } finally {
       setAuthLoading(false);
     }
@@ -1049,27 +965,6 @@ export const AdminOrderManagement: React.FC<AdminOrderManagementProps> = ({
 
                 {loginStep === "credentials" ? (
                   <form onSubmit={handleLoginSubmit} className="space-y-4">
-                    {/* Default Credentials Guidance Card */}
-                    <div className="bg-[#FAF7F2] p-3 rounded-2xl border border-[#C89B3C]/40 text-xs space-y-1">
-                      <div className="flex items-center justify-between text-[#8C6D28] font-bold">
-                        <span>🔐 بيانات الدخول المعتمدة للإدارة:</span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setUsername("admin");
-                            setPassword("admin");
-                          }}
-                          className="text-[11px] text-[#721832] font-black underline cursor-pointer hover:text-[#5C1027]"
-                        >
-                          تعبئة تلقائية (admin / admin)
-                        </button>
-                      </div>
-                      <div className="flex items-center justify-between text-[#4A3E38] font-mono text-[11px] pt-1 border-t border-[#E8DFD1]">
-                        <span>المستخدم: <strong className="text-[#221B17]">admin</strong></span>
-                        <span>كلمة المرور: <strong className="text-[#221B17]">admin</strong></span>
-                      </div>
-                    </div>
-
                     <div>
                       <label className="block text-xs font-bold text-[#221B17] mb-1">
                         اسم المستخدم (Username)
@@ -1079,7 +974,7 @@ export const AdminOrderManagement: React.FC<AdminOrderManagementProps> = ({
                         required
                         value={username}
                         onChange={(e) => setUsername(e.target.value)}
-                        placeholder="admin"
+                        placeholder="أدخل اسم المستخدم"
                         className="w-full bg-[#FAF7F2] border border-[#D6C7B7] rounded-xl px-4 py-2.5 text-xs sm:text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#721832] focus:bg-white"
                       />
                     </div>
@@ -1093,7 +988,7 @@ export const AdminOrderManagement: React.FC<AdminOrderManagementProps> = ({
                         required
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        placeholder="admin"
+                        placeholder="••••••••"
                         className="w-full bg-[#FAF7F2] border border-[#D6C7B7] rounded-xl px-4 py-2.5 text-xs sm:text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#721832] focus:bg-white"
                       />
                     </div>
@@ -1112,40 +1007,17 @@ export const AdminOrderManagement: React.FC<AdminOrderManagementProps> = ({
                         </>
                       )}
                     </button>
-
-                    <div className="relative flex py-2 items-center">
-                      <div className="flex-grow border-t border-[#E8DFD1]"></div>
-                      <span className="flex-shrink mx-3 text-[11px] text-[#8C7D73] font-bold">أو دخول فوري مباشر بدون انتظار</span>
-                      <div className="flex-grow border-t border-[#E8DFD1]"></div>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={handleDemoLogin}
-                      disabled={authLoading}
-                      className="w-full bg-[#1F1714] hover:bg-[#362720] text-[#C89B3C] font-black text-xs sm:text-sm py-3 px-4 rounded-xl border border-[#C89B3C]/50 shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98"
-                    >
-                      <Sparkles className="w-4 h-4 text-[#C89B3C]" />
-                      <span>دخول فوري مباشر للإدارة (SUPER_ADMIN)</span>
-                    </button>
                   </form>
                 ) : (
                   <form onSubmit={handleOtpSubmit} className="space-y-4">
-                    {/* OTP Banner with Fast Auto-Fill */}
-                    <div className="bg-emerald-50 border border-emerald-200 p-3.5 rounded-2xl text-center space-y-1.5">
-                      <span className="text-xs text-emerald-800 font-bold block">
-                        رمز التحقق السريع المعتمد للنظام:
+                    {/* Secure OTP Guidance */}
+                    <div className="bg-[#FAF7F2] border border-[#C89B3C]/40 p-3.5 rounded-2xl text-center space-y-1">
+                      <span className="text-xs text-[#721832] font-black block">
+                        تم إرسال رمز التحقق الثنائي (OTP) إلى هاتف الإدارة المسجل
                       </span>
-                      <span className="font-mono font-black text-2xl text-emerald-950 tracking-widest block">
-                        {receivedOtp || "123456"}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setOtp(receivedOtp || "123456")}
-                        className="text-xs text-[#721832] font-black underline cursor-pointer hover:text-[#5C1027] block mx-auto"
-                      >
-                        تعبئة هذا الرمز تلقائياً في الخانة
-                      </button>
+                      <p className="text-[11px] text-[#6B5E55]">
+                        صالح للاستخدام لمرة واحدة فقط خلال 5 دقائق.
+                      </p>
                     </div>
 
                     <div>
@@ -1798,8 +1670,18 @@ export const AdminOrderManagement: React.FC<AdminOrderManagementProps> = ({
                         </tr>
                       ) : orders.length === 0 ? (
                         <tr>
-                          <td colSpan={9} className="p-12 text-center text-[#8C7D73]">
-                            لا توجد طلبات مسجلة مطابقة للبحث
+                          <td colSpan={9} className="py-16 px-6 text-center">
+                            <div className="max-w-xs mx-auto flex flex-col items-center justify-center space-y-3">
+                              <div className="w-16 h-16 rounded-full bg-[#FAF7F2] border border-[#C89B3C]/30 flex items-center justify-center text-[#C89B3C] shadow-inner">
+                                <Package className="w-8 h-8 opacity-70" />
+                              </div>
+                              <h4 className="font-black text-[#5C1027] text-base">لا توجد حجوزات حتى الآن</h4>
+                              <p className="text-xs text-[#8C7D73] leading-relaxed">
+                                {searchTerm || filterStatus !== "ALL" || dateFilter !== "ALL"
+                                  ? "لم يتم العثور على طلبات مطابقة لمعايير البحث المحددة."
+                                  : "ستظهر جميع طلبات وحجوزات المناسبات هنا فور تسجيلها عبر واجهة العملاء أو من خلال الإدارة."}
+                              </p>
+                            </div>
                           </td>
                         </tr>
                       ) : (

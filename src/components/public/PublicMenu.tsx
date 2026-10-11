@@ -1,11 +1,12 @@
 import React, { useState, useMemo } from "react";
 import { 
   Search, UtensilsCrossed, Sparkles, Package, Eye, CalendarCheck, 
-  CheckCircle2, Flame, ShieldCheck, GlassWater, ArrowLeft
+  CheckCircle2, Flame, ShieldCheck, GlassWater, ArrowLeft, FileDown, Loader2
 } from "lucide-react";
 import { PublicMenuItem } from "../../types/publicMenu";
 import { getSaleImage } from "../../data/saleImages";
 import { OFFICIAL_18_MENU_ITEMS } from "../../data/fallbackMenu";
+import { downloadMenuPdf } from "../../services/menuPdfService";
 
 interface PublicMenuProps {
   menuItems: PublicMenuItem[];
@@ -24,6 +25,29 @@ export const PublicMenu: React.FC<PublicMenuProps> = ({
 }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<"all" | "mix" | "sandwich" | "bestsellers">("all");
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+  const [pdfStatus, setPdfStatus] = useState<{ type: "loading" | "success" | "error"; message: string } | null>(null);
+
+  const handleDownloadPdf = async () => {
+    try {
+      setIsDownloadingPdf(true);
+      setPdfStatus({ type: "loading", message: "جاري إعداد وتنسيق ملف المنيو بصيغة PDF..." });
+      const itemsToExport = menuItems && menuItems.length > 0 ? menuItems : OFFICIAL_18_MENU_ITEMS;
+      await downloadMenuPdf(itemsToExport, (isGen, msg) => {
+        if (msg) {
+          setPdfStatus({ type: isGen ? "loading" : "success", message: msg });
+        }
+      });
+      setPdfStatus({ type: "success", message: "تم تحميل ملف المنيو (Celebre-Menu.pdf) بنجاح! 📄✨" });
+      setTimeout(() => setPdfStatus(null), 5000);
+    } catch (err: any) {
+      console.error("PDF download failed:", err);
+      setPdfStatus({ type: "error", message: err.message || "حدث خطأ أثناء تحميل ملف المنيو. يرجى المحاولة مرة أخرى." });
+      setTimeout(() => setPdfStatus(null), 6000);
+    } finally {
+      setIsDownloadingPdf(false);
+    }
+  };
 
   const bestsellersCodes = ["Sale-04", "Sale-05", "Sale-10", "Sale-17", "Sale-18"];
 
@@ -135,6 +159,42 @@ export const PublicMenu: React.FC<PublicMenuProps> = ({
             className="w-full bg-white border border-[#D6C7B7] rounded-2xl py-2.5 pr-10 pl-4 text-xs sm:text-sm font-semibold text-[#221B17] placeholder:text-[#8C7D73] focus:outline-none focus:ring-2 focus:ring-[#721832] shadow-2xs"
           />
           <Search className="w-4 h-4 text-[#8C6D28] absolute right-3.5 top-3" />
+        </div>
+
+        {/* PDF Download Button & Status Banner */}
+        <div className="flex flex-col items-center justify-center gap-2 pt-2">
+          <button
+            type="button"
+            onClick={handleDownloadPdf}
+            disabled={isDownloadingPdf}
+            className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-gradient-to-r from-[#721832] via-[#5C1027] to-[#721832] hover:from-[#5C1027] hover:to-[#430B1C] text-white font-black text-xs sm:text-sm shadow-md hover:shadow-xl transition-all duration-300 disabled:opacity-60 cursor-pointer active:scale-95 border border-[#C89B3C]/40 group"
+            title="تحميل قائمة الوجبات كاملة بالأسعار والمكونات بصيغة PDF عالية الجودة للطباعة"
+          >
+            {isDownloadingPdf ? (
+              <Loader2 className="w-4 h-4 animate-spin text-[#C89B3C]" />
+            ) : (
+              <FileDown className="w-4 h-4 text-[#C89B3C] group-hover:-translate-y-0.5 transition-transform" />
+            )}
+            <span>تحميل المنيو PDF</span>
+            <span className="text-[10px] bg-[#C89B3C]/20 text-[#FAF7F2] px-2 py-0.5 rounded-full border border-[#C89B3C]/40">
+              A4 جاهز للطباعة
+            </span>
+          </button>
+
+          {pdfStatus && (
+            <div
+              className={`text-xs font-bold px-4 py-2 rounded-xl transition-all animate-fadeIn flex items-center gap-2 ${
+                pdfStatus.type === "error"
+                  ? "bg-red-50 text-red-700 border border-red-200"
+                  : pdfStatus.type === "success"
+                  ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                  : "bg-[#FAF7F2] text-[#721832] border border-[#C89B3C]/30"
+              }`}
+            >
+              {pdfStatus.type === "loading" && <Loader2 className="w-3.5 h-3.5 animate-spin text-[#C89B3C]" />}
+              <span>{pdfStatus.message}</span>
+            </div>
+          )}
         </div>
       </div>
 

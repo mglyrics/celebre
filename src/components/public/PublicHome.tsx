@@ -2,11 +2,12 @@ import React, { useState, useMemo } from "react";
 import { 
   Sparkles, CalendarCheck, UtensilsCrossed, ShieldCheck, Truck, Clock, 
   Award, Heart, Star, CheckCircle2, ChevronLeft, Phone, MessageCircle, 
-  Package, ThumbsUp, Search, Eye, Flame
+  Package, ThumbsUp, Search, Eye, Flame, FileDown, Loader2
 } from "lucide-react";
 import { PublicMenuItem } from "../../types/publicMenu";
 import { getSaleImage } from "../../data/saleImages";
 import { OFFICIAL_18_MENU_ITEMS } from "../../data/fallbackMenu";
+import { downloadMenuPdf } from "../../services/menuPdfService";
 import heroImg from "../../assets/images/celebre_event_setup_1788037572328.jpg";
 import closedBoxImg from "../../assets/images/celebre_real_closed_box_1790336502952.jpg";
 import mosqueImg from "../../assets/images/celebre_mosque_katb_ketab_1789223553405.jpg";
@@ -33,6 +34,28 @@ export const PublicHome: React.FC<PublicHomeProps> = ({
   // Full 18 products interactive filter on Home page
   const [selectedCategory, setSelectedCategory] = useState<"all" | "mix" | "sandwich" | "bestsellers">("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+  const [pdfStatus, setPdfStatus] = useState<{ type: "loading" | "success" | "error"; message: string } | null>(null);
+
+  const handleDownloadPdf = async () => {
+    try {
+      setIsDownloadingPdf(true);
+      setPdfStatus({ type: "loading", message: "جاري إعداد وتنسيق ملف المنيو بصيغة PDF..." });
+      await downloadMenuPdf(all18Items, (isGen, msg) => {
+        if (msg) {
+          setPdfStatus({ type: isGen ? "loading" : "success", message: msg });
+        }
+      });
+      setPdfStatus({ type: "success", message: "تم تحميل ملف المنيو (Celebre-Menu.pdf) بنجاح! 📄✨" });
+      setTimeout(() => setPdfStatus(null), 5000);
+    } catch (err: any) {
+      console.error("PDF download failed:", err);
+      setPdfStatus({ type: "error", message: err.message || "حدث خطأ أثناء تحميل ملف المنيو." });
+      setTimeout(() => setPdfStatus(null), 6000);
+    } finally {
+      setIsDownloadingPdf(false);
+    }
+  };
 
   const filtered18Items = useMemo(() => {
     return all18Items.filter((item) => {
@@ -112,6 +135,21 @@ export const PublicHome: React.FC<PublicHomeProps> = ({
                 </button>
 
                 <button
+                  type="button"
+                  onClick={handleDownloadPdf}
+                  disabled={isDownloadingPdf}
+                  className="bg-[#C89B3C]/10 hover:bg-[#C89B3C]/20 border-2 border-[#C89B3C] text-[#8C6D28] font-black text-sm px-5 py-4 rounded-2xl shadow-xs hover:shadow-md transition-all flex items-center justify-center gap-2 group disabled:opacity-50 cursor-pointer"
+                  title="تحميل قائمة الوجبات كاملة بالأسعار والمكونات بصيغة PDF للطباعة والمشاركة"
+                >
+                  {isDownloadingPdf ? (
+                    <Loader2 className="w-4 h-4 animate-spin text-[#8C6D28]" />
+                  ) : (
+                    <FileDown className="w-4 h-4 text-[#8C6D28] group-hover:-translate-y-0.5 transition-transform" />
+                  )}
+                  <span>تحميل المنيو PDF</span>
+                </button>
+
+                <button
                   onClick={() => onNavigate("booking")}
                   className="bg-white hover:bg-[#FAF7F2] border-2 border-[#721832] text-[#721832] font-black text-sm px-6 py-4 rounded-2xl shadow-xs hover:shadow-md transition-all flex items-center justify-center gap-2"
                 >
@@ -119,6 +157,21 @@ export const PublicHome: React.FC<PublicHomeProps> = ({
                   <span>احجز مناسبتك الآن (بدون دفع)</span>
                 </button>
               </div>
+
+              {pdfStatus && (
+                <div
+                  className={`mt-2 text-xs font-bold px-4 py-2 rounded-xl transition-all inline-flex items-center gap-2 ${
+                    pdfStatus.type === "error"
+                      ? "bg-red-50 text-red-700 border border-red-200"
+                      : pdfStatus.type === "success"
+                      ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                      : "bg-white text-[#721832] border border-[#C89B3C]/30 shadow-xs"
+                  }`}
+                >
+                  {pdfStatus.type === "loading" && <Loader2 className="w-3.5 h-3.5 animate-spin text-[#C89B3C]" />}
+                  <span>{pdfStatus.message}</span>
+                </div>
+              )}
 
               {/* Reassurance text */}
               <p className="text-[11px] text-[#6B5E55] pt-1">

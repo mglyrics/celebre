@@ -15,11 +15,34 @@ const PORT = 3000;
 
 app.use(express.json());
 
+// Rewritten path support (for Vercel or reverse proxy where /api/* was rewritten to /api/index)
+app.use((req, _res, next) => {
+  const xMatched = req.headers["x-matched-path"] as string;
+  const queryPath = (req.query?.path as string) || "";
+  if (req.url.startsWith("/api/index") || req.url.startsWith("/index")) {
+    if (xMatched && xMatched.startsWith("/api")) {
+      req.url = xMatched;
+    } else if (queryPath) {
+      req.url = "/api/" + queryPath.replace(/^\/+/, "");
+    }
+  }
+  next();
+});
+
 // Cross-Origin Resource Sharing (CORS) & Preflight Headers for external access
 app.use((req, res, next) => {
-  res.setHeader("Access-Control-Allow-Origin", "*");
+  const origin = req.headers.origin;
+  if (origin) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Access-Control-Allow-Credentials", "true");
+  } else {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+  }
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, x-admin-token, x-csrf-token, x-requested-with");
+  res.setHeader(
+    "Access-Control-Allow-Headers",
+    "Content-Type, Authorization, x-admin-token, x-csrf-token, x-requested-with, Accept"
+  );
   if (req.method === "OPTIONS") {
     return res.sendStatus(200);
   }
@@ -1939,8 +1962,17 @@ app.post("/api/whatsapp/test-chat", async (req, res) => {
   }
 });
 
+// Explicit 404 JSON handler for unhandled /api/* routes
+// Prevents returning index.html or raw HTML when an API route is missing or mistyped
+app.use("/api", (_req, res) => {
+  res.status(404).json({
+    success: false,
+    message: "مسار واجهة البرمجة (API) المطلوب غير متوفر على الخادم (404)",
+  });
+});
+
 async function startServer() {
-  if (process.env.NODE_ENV !== "production") {
+  if (process.env.NODE_ENV !== "production" && !process.env.VERCEL) {
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
@@ -1954,9 +1986,16 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Celebre Catering Server running on http://0.0.0.0:${PORT}`);
-  });
+  // Only start listening if NOT running in Vercel serverless function environment
+  if (!process.env.VERCEL) {
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`Celebre Catering Server running on http://0.0.0.0:${PORT}`);
+    });
+  }
 }
 
+// Start the server if in standalone node environment
 startServer();
+
+export default app;
+export { app };

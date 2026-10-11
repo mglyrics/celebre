@@ -249,10 +249,9 @@ apiRouter.post('/admin/auth/login', async (req: Request, res: Response) => {
       require2fa: true,
       userId: user.id,
       phone: user.phone,
-      otpCode: otpResult.code || '123456',
       whatsappLink: otpResult.whatsappLink,
       whatsappUrl: otpResult.whatsappLink,
-      message: `تم التحقق من بيانات الدخول 🛡️ تم إرسال رمز التحقق الثنائي (OTP: ${otpResult.code || '123456'}) إلى هاتف الإدارة المسجل (${user.phone}). صالح لمدة 5 دقائق.`,
+      message: `تم التحقق من بيانات الدخول بنجاح. تم إصدار رمز التحقق الثنائي (OTP) إلى هاتف الإدارة المسجل (${user.phone}). الرمز صالح لمدة 5 دقائق للاستخدام لمرة واحدة.`,
     });
   } catch (error: any) {
     res.status(401).json({ success: false, message: error.message || 'بيانات الدخول غير صحيحة' });
@@ -291,7 +290,8 @@ apiRouter.post('/admin/auth/verify-otp', async (req: Request, res: Response) => 
     res.cookie('admin_session', session.token, {
       httpOnly: true,
       secure: isProd,
-      sameSite: 'strict',
+      sameSite: 'lax',
+      path: '/',
       maxAge: 24 * 60 * 60 * 1000,
     });
 
@@ -303,31 +303,6 @@ apiRouter.post('/admin/auth/verify-otp', async (req: Request, res: Response) => 
     });
   } catch (error: any) {
     res.status(401).json({ success: false, message: error.message || 'فشل التحقق من رمز OTP' });
-  }
-});
-
-// Admin Demo/Quick Login for immediate evaluation & review
-apiRouter.post('/admin/auth/demo-session', async (req: Request, res: Response) => {
-  try {
-    const ip = req.ip || req.socket.remoteAddress || 'unknown';
-    const session = await AuthService.createDirectSession(1, ip);
-
-    const isProd = process.env.NODE_ENV === 'production';
-    res.cookie('admin_session', session.token, {
-      httpOnly: true,
-      secure: isProd,
-      sameSite: 'strict',
-      maxAge: 24 * 60 * 60 * 1000,
-    });
-
-    res.json({
-      success: true,
-      message: 'تم تسجيل الدخول بصلاحيات الإدارة الكاملة بنجاح (SUPER_ADMIN)',
-      token: session.token,
-      session,
-    });
-  } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message || 'فشل تسجيل الدخول المباشر' });
   }
 });
 

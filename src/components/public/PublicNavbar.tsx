@@ -1,18 +1,37 @@
 import React, { useState } from "react";
-import { Phone, MessageCircle, UtensilsCrossed, CalendarCheck, Sparkles, Menu, X, ShieldCheck } from "lucide-react";
+import { Phone, MessageCircle, UtensilsCrossed, CalendarCheck, Sparkles, Menu, X, ShieldCheck, FileDown, Loader2 } from "lucide-react";
 import { CelebreLogo } from "../CelebreLogo";
+import { PublicMenuItem } from "../../types/publicMenu";
+import { downloadMenuPdf } from "../../services/menuPdfService";
+import { OFFICIAL_18_MENU_ITEMS } from "../../data/fallbackMenu";
 
 interface PublicNavbarProps {
   activePage: "home" | "menu" | "details" | "booking" | "confirmation";
   onNavigate: (page: "home" | "menu" | "booking") => void;
   selectedMenuCode?: string | null;
+  menuItems?: PublicMenuItem[];
 }
 
 export const PublicNavbar: React.FC<PublicNavbarProps> = ({
   activePage,
   onNavigate,
+  menuItems,
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+
+  const handleDownloadPdf = async () => {
+    try {
+      setIsDownloadingPdf(true);
+      const itemsToExport = menuItems && menuItems.length > 0 ? menuItems : OFFICIAL_18_MENU_ITEMS;
+      await downloadMenuPdf(itemsToExport);
+    } catch (err: any) {
+      console.error("PDF download failed from Navbar:", err);
+      alert(err.message || "حدث خطأ أثناء تحميل ملف المنيو PDF");
+    } finally {
+      setIsDownloadingPdf(false);
+    }
+  };
 
   const handleWhatsApp = () => {
     window.open(
@@ -133,6 +152,22 @@ export const PublicNavbar: React.FC<PublicNavbarProps> = ({
 
           {/* CTA Buttons */}
           <div className="flex items-center gap-2 sm:gap-3">
+            {/* Download Menu PDF Button */}
+            <button
+              type="button"
+              onClick={handleDownloadPdf}
+              disabled={isDownloadingPdf}
+              className="hidden sm:inline-flex items-center gap-1.5 bg-[#FAF7F2] hover:bg-white border border-[#C89B3C] text-[#8C6D28] font-bold text-xs px-3.5 py-2.5 rounded-xl shadow-2xs hover:shadow-sm transition-all disabled:opacity-50 cursor-pointer active:scale-95"
+              title="تحميل المنيو الرسمي بصيغة PDF للطباعة"
+            >
+              {isDownloadingPdf ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-[#8C6D28]" />
+              ) : (
+                <FileDown className="w-3.5 h-3.5 text-[#8C6D28]" />
+              )}
+              <span>تحميل المنيو PDF</span>
+            </button>
+
             <button
               onClick={() => onNavigate("booking")}
               className="bg-gradient-to-r from-[#721832] to-[#5C1027] hover:from-[#5C1027] hover:to-[#430B1C] text-white font-bold text-xs sm:text-sm px-4 sm:px-5 py-2.5 rounded-xl shadow-md hover:shadow-lg transition-all flex items-center gap-2 active:scale-95"
@@ -190,6 +225,18 @@ export const PublicNavbar: React.FC<PublicNavbarProps> = ({
           >
             <span>نموذج الحجز المبدئي (بدون دفع)</span>
             <CalendarCheck className="w-4 h-4 text-[#C89B3C]" />
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              handleDownloadPdf();
+              setMobileMenuOpen(false);
+            }}
+            disabled={isDownloadingPdf}
+            className="w-full text-right py-3 px-4 rounded-xl font-bold text-sm flex items-center justify-between bg-[#FAF7F2] text-[#8C6D28] border border-[#C89B3C]/40"
+          >
+            <span>تحميل المنيو PDF (جاهز للطباعة)</span>
+            <FileDown className="w-4 h-4 text-[#8C6D28]" />
           </button>
           <div className="pt-2 border-t border-[#E8DFD1] flex gap-2">
             <button

@@ -231,7 +231,7 @@ export async function seedDatabase() {
     },
     {
       code: 'Sale-04',
-      name: 'مكس مشويات وكفتة بتي بان (Sale-04)',
+      name: 'بانية وكفتة مشوية بتي بان (Sale-04)',
       description: 'قطعة جاتوة مغلفة + سندوتش بتي بان كفتة مشوية ع الفحم + سندوتش بتي بان فراخ بانية بلدي + عصير بخيرة + شوكة ومنديل',
       distributorPrice: '65.00',
       supplierPrice: '47.00',
@@ -503,95 +503,8 @@ export async function seedDatabase() {
   }
   console.log('✅ 18 Menu Items, components, and price history seeded successfully!');
 
-  // 7. Seed Official Confirmed Booking CEL-9386 as benchmark order
-  const existingOrder = await db.select().from(orders).where(eq(orders.orderNumber, 'CB-20261010-9386')).limit(1);
-  if (!existingOrder.length && defaultSupplierId) {
-    // 1. Customer
-    let customerId: number;
-    const existingCustomer = await db.select().from(customers).where(eq(customers.phone, '01284484868')).limit(1);
-    if (existingCustomer.length) {
-      customerId = existingCustomer[0].id;
-    } else {
-      const insertedCust = await db
-        .insert(customers)
-        .values({
-          fullName: 'عميل حجز معتمد (CEL-9386)',
-          phone: '01284484868',
-          whatsapp: '01284484868',
-          notes: 'حجز مؤكد مسبقاً بالتنسيق الهاتفي',
-        })
-        .returning();
-      customerId = insertedCust[0].id;
-    }
-
-    // Sale-01 details
-    const sale01 = await db.select().from(menuItems).where(eq(menuItems.code, 'Sale-01')).limit(1);
-    if (sale01.length) {
-      const item = sale01[0];
-      const quantity = 100;
-      const distUnitPrice = Number(item.distributorPrice); // 50
-      const suppUnitPrice = Number(item.supplierPrice); // 35
-      const distTotal = distUnitPrice * quantity; // 5000
-      const suppTotal = suppUnitPrice * quantity; // 3500
-      const customerPaid = 500;
-      const customerRemaining = distTotal - customerPaid;
-      const supplierPaid = 500;
-      const supplierRemaining = suppTotal - supplierPaid;
-      const grossProfit = distTotal - suppTotal; // 1500
-
-      const insertedOrder = await db
-        .insert(orders)
-        .values({
-          orderNumber: 'CB-20261010-9386',
-          customerId: customerId,
-          orderStatus: 'CONFIRMED',
-          pickupDate: '2026-10-10',
-          pickupTime: '7:00 مساءً',
-          pickupLocation: 'بني سويف - قاعة المناسبات الكبرى',
-          customerNotes: 'حجز معتمد مسجل برقم CEL-9386 - تم التنسيق مع إدارة سيلبر هاتفياً',
-          subtotal: distTotal.toFixed(2),
-          totalAmount: distTotal.toFixed(2),
-          customerPaid: customerPaid.toFixed(2),
-          customerRemaining: customerRemaining.toFixed(2),
-          supplierTotal: suppTotal.toFixed(2),
-          supplierPaid: supplierPaid.toFixed(2),
-          supplierRemaining: supplierRemaining.toFixed(2),
-          distributorProfit: grossProfit.toFixed(2),
-        })
-        .returning();
-
-      const orderId = insertedOrder[0].id;
-
-      await db.insert(orderItems).values({
-        orderId: orderId,
-        menuItemId: item.id,
-        menuCode: item.code,
-        menuName: item.name,
-        quantity: quantity,
-        distributorUnitPrice: distUnitPrice.toFixed(2),
-        supplierUnitPrice: suppUnitPrice.toFixed(2),
-        distributorTotal: distTotal.toFixed(2),
-        supplierTotal: suppTotal.toFixed(2),
-        customerAdjustment: '0.00',
-        supplierAdjustment: '0.00',
-        customerTotal: distTotal.toFixed(2),
-        supplierTotalFinal: suppTotal.toFixed(2),
-        profit: grossProfit.toFixed(2),
-      });
-
-      await db.insert(supplierOrders).values({
-        orderId: orderId,
-        supplierId: defaultSupplierId,
-        supplierOrderNumber: 'SUP-20261010-9386',
-        supplierTotal: suppTotal.toFixed(2),
-        supplierPaid: supplierPaid.toFixed(2),
-        supplierRemaining: supplierRemaining.toFixed(2),
-        status: 'PENDING_CONFIRMATION',
-      });
-
-      console.log('✅ Baseline confirmed order CB-20261010-9386 seeded');
-    }
-  }
+  // Clean production initialization: No fake or demo bookings are seeded automatically.
+  console.log('✅ Menu items, roles, permissions, settings, and suppliers initialized cleanly without demo bookings.');
 
   console.log('✨ All seed data successfully loaded into PostgreSQL database!');
 }

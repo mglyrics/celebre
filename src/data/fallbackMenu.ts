@@ -48,7 +48,7 @@ export const OFFICIAL_18_MENU_ITEMS: PublicMenuItem[] = [
   {
     id: 4,
     code: 'Sale-04',
-    name: 'مكس مشويات وكفتة بتي بان (Sale-04)',
+    name: 'بانية وكفتة مشوية بتي بان (Sale-04)',
     description: 'قطعة جاتوة مغلفة + سندوتش بتي بان كفتة مشوية ع الفحم + سندوتش بتي بان فراخ بانية بلدي + عصير بخيرة + شوكة ومنديل',
     distributorPrice: 65.0,
     sortOrder: 4,
