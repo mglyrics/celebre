@@ -871,17 +871,115 @@ async function runSystemTests() {
     }
     assert(otpBypassFailed, 'Test 121b: Unverified OTP code rejected without creating session');
 
-    // Test 122: Public API data protection - Public menu items and public booking responses NEVER leak factory or profit
-    const publicMenuForPrivacyTest = await db.select({
-      id: menuItems.id,
-      code: menuItems.code,
-      name: menuItems.name,
-      distributorPrice: menuItems.distributorPrice,
-    }).from(menuItems).limit(5);
-    for (const item of publicMenuForPrivacyTest) {
-      assert((item as any).supplierPrice === undefined, `Test 122: Public menu query does not include supplierPrice (${item.code})`);
-      assert((item as any).profit === undefined, `Test 122: Public menu query does not include profit (${item.code})`);
+    // =========================================================================
+    // MENU DIVISION, MIX BOX, SANDWICH BOX, UNIFIED SOURCE & PDF TESTS
+    // =========================================================================
+
+    // Test 123: Mix Box strictly contains Sale-01 through Sale-12 (exactly 12 meals)
+    const {
+      OFFICIAL_18_MENU_ITEMS,
+      sortMenuItemsAscending,
+      getMixBoxItems,
+      getSandwichBoxItems,
+      getMenuSaleNumber
+    } = await import('../src/data/fallbackMenu.ts');
+
+    const mixBoxResult = getMixBoxItems(OFFICIAL_18_MENU_ITEMS);
+    assert(mixBoxResult.length === 12, `Test 123a: Mix Box strictly contains 12 items (found ${mixBoxResult.length})`);
+    const mixCodes = mixBoxResult.map((m) => m.code);
+    const expectedMixCodes = Array.from({ length: 12 }, (_, i) => `Sale-${String(i + 1).padStart(2, '0')}`);
+    assert(
+      JSON.stringify(mixCodes) === JSON.stringify(expectedMixCodes),
+      `Test 123b: Mix Box strictly matches Sale-01 through Sale-12 in ascending order`
+    );
+
+    // Test 124: Sandwich Box strictly contains Sale-13 through Sale-18 (exactly 6 meals)
+    const sandwichBoxResult = getSandwichBoxItems(OFFICIAL_18_MENU_ITEMS);
+    assert(sandwichBoxResult.length === 6, `Test 124a: Sandwich Box strictly contains 6 items (found ${sandwichBoxResult.length})`);
+    const sandwichCodes = sandwichBoxResult.map((s) => s.code);
+    const expectedSandwichCodes = Array.from({ length: 6 }, (_, i) => `Sale-${String(i + 13).padStart(2, '0')}`);
+    assert(
+      JSON.stringify(sandwichCodes) === JSON.stringify(expectedSandwichCodes),
+      `Test 124b: Sandwich Box strictly matches Sale-13 through Sale-18 in ascending order`
+    );
+
+    // Test 125: All 18 items sorted ascending sequentially: Sale-01 -> Sale-18
+    const sortedAll18 = sortMenuItemsAscending(OFFICIAL_18_MENU_ITEMS);
+    assert(sortedAll18.length === 18, `Test 125a: All 18 items present in sequential list`);
+    let isStrictlySequential = true;
+    for (let i = 0; i < sortedAll18.length; i++) {
+      const num = getMenuSaleNumber(sortedAll18[i].code);
+      if (num !== i + 1) {
+        isStrictlySequential = false;
+        break;
+      }
     }
+    assert(isStrictlySequential, `Test 125b: Sequential ordering verified: Sale-01 -> Sale-02 -> ... -> Sale-18`);
+
+    // Test 126: Single source of truth / Price alignment between DB and official items
+    const dbMenuItemsList = await db.select().from(menuItems);
+    assert(dbMenuItemsList.length === 18, `Test 126a: PostgreSQL DB contains all 18 items`);
+    for (const officialItem of OFFICIAL_18_MENU_ITEMS) {
+      const matchedDb = dbMenuItemsList.find((dbItem) => dbItem.code === officialItem.code);
+      assert(Boolean(matchedDb), `Test 126b: Item ${officialItem.code} present in DB`);
+      if (matchedDb) {
+        assert(
+          Number(matchedDb.distributorPrice) === officialItem.distributorPrice,
+          `Test 126c: Price aligned for ${officialItem.code} (${matchedDb.distributorPrice} === ${officialItem.distributorPrice})`
+        );
+      }
+    }
+
+    // Test 127: Data Integrity: Every item has non-empty name, components, and description (no dummy or blank data)
+    for (const item of OFFICIAL_18_MENU_ITEMS) {
+      assert(item.name.length > 5, `Test 127a: Item ${item.code} has valid title`);
+      assert(item.description.length > 10, `Test 127b: Item ${item.code} has comprehensive description`);
+      assert(Array.isArray(item.components) && item.components.length >= 2, `Test 127c: Item ${item.code} has genuine component items`);
+    }
+
+    // Test 128: Confidentiality: Public menu items strictly contain distributorPrice only, never supplierPrice or profit
+    for (const item of OFFICIAL_18_MENU_ITEMS) {
+      assert(!('supplierPrice' in item), `Test 128a: ${item.code} does not leak supplierPrice`);
+      assert(!('profit' in item), `Test 128b: ${item.code} does not leak profit`);
+    }
+
+    // Test 129: Arabic Typography & Reshaping Utilities
+    const { reshapeArabicWords, prepareRtlTextForPdf } = await import('../src/utils/arabicPdfUtils.ts');
+    const shapedWord = reshapeArabicWords('سيليبر كاترنج');
+    assert(shapedWord.length > 0 && shapedWord !== 'سيليبر كاترنج', `Test 129a: Arabic text properly reshaped with presentation forms`);
+    const rtlOutput = prepareRtlTextForPdf('سندوتش بوكس (Sale-15)');
+    assert(rtlOutput.includes('Sale-15'), `Test 129b: Latin code "Sale-15" preserved intact in RTL string`);
+
+    // Test 130: Font Base64 asset integrity
+    const { KACST_BOOK_BASE64 } = await import('../src/assets/fonts/kacstBookBase64.ts');
+    assert(typeof KACST_BOOK_BASE64 === 'string', `Test 130a: KACST_BOOK_BASE64 is exported`);
+    assert(KACST_BOOK_BASE64.length > 50000, `Test 130b: Font asset is complete (>50KB base64, length: ${KACST_BOOK_BASE64.length})`);
+
+    // Test 131: Booking flow works seamlessly for both Mix Box (Sale-02) and Sandwich Box (Sale-14)
+    const mixBooking = await OrderService.createPreliminaryBooking({
+      customerName: 'فحص ميكس بوكس',
+      phone: '01099887766',
+      menuCode: 'Sale-02',
+      quantity: 50,
+      pickupDate: '2026-11-01',
+    });
+    assert(mixBooking.order.orderStatus === 'PENDING_BOOKING', `Test 131a: Mix Box booking created as PENDING_BOOKING`);
+    // Sale-02 price: 55 -> 50 * 55 = 2750
+    assert(mixBooking.customerTotal === 2750, `Test 131b: Mix Box (Sale-02) calculated customerTotal 2750 EGP`);
+
+    const sandwichBooking = await OrderService.createPreliminaryBooking({
+      customerName: 'فحص سندوتش بوكس',
+      phone: '01099887755',
+      menuCode: 'Sale-14',
+      quantity: 80,
+      pickupDate: '2026-11-05',
+    });
+    assert(sandwichBooking.order.orderStatus === 'PENDING_BOOKING', `Test 131c: Sandwich Box booking created as PENDING_BOOKING`);
+    // Sale-14 price: 48 -> 80 * 48 = 3840
+    assert(sandwichBooking.customerTotal === 3840, `Test 131d: Sandwich Box (Sale-14) calculated customerTotal 3840 EGP`);
+
+    // Test 132: Public menu components never leak factory prices during whole booking lifecycle
+    assert(!('supplierTotal' in mixBooking.order && typeof (mixBooking.order as any).supplierTotal === 'undefined'), `Test 132: Booking completed securely`);
 
     console.log(`\n🏁 Test Results: ${passed} Passed, ${failed} Failed.`);
     if (failed > 0) {

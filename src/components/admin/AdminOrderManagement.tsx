@@ -1677,7 +1677,7 @@ export const AdminOrderManagement: React.FC<AdminOrderManagementProps> = ({
                               </div>
                               <h4 className="font-black text-[#5C1027] text-base">لا توجد حجوزات حتى الآن</h4>
                               <p className="text-xs text-[#8C7D73] leading-relaxed">
-                                {searchTerm || filterStatus !== "ALL" || dateFilter !== "ALL"
+                                {searchQuery || statusFilter !== "ALL"
                                   ? "لم يتم العثور على طلبات مطابقة لمعايير البحث المحددة."
                                   : "ستظهر جميع طلبات وحجوزات المناسبات هنا فور تسجيلها عبر واجهة العملاء أو من خلال الإدارة."}
                               </p>

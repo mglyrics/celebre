@@ -264,3 +264,38 @@ export const OFFICIAL_18_MENU_ITEMS: PublicMenuItem[] = [
     ],
   },
 ];
+
+/**
+ * Extracts the numeric sale code (e.g. "Sale-04" -> 4)
+ */
+export function getMenuSaleNumber(code: string): number {
+  const match = code.match(/\d+/);
+  return match ? parseInt(match[0], 10) : 999;
+}
+
+/**
+ * Sorts items strictly in ascending order: Sale-01 -> Sale-02 -> ... -> Sale-18
+ */
+export function sortMenuItemsAscending(items: PublicMenuItem[]): PublicMenuItem[] {
+  return [...items].sort((a, b) => getMenuSaleNumber(a.code) - getMenuSaleNumber(b.code));
+}
+
+/**
+ * Mix Box (ميكس بوكس): Strictly Sale-01 to Sale-12 sorted ascending
+ */
+export function getMixBoxItems(items: PublicMenuItem[]): PublicMenuItem[] {
+  return sortMenuItemsAscending(items).filter((item) => {
+    const num = getMenuSaleNumber(item.code);
+    return num >= 1 && num <= 12;
+  });
+}
+
+/**
+ * Sandwich Box (سندوتش بوكس): Strictly Sale-13 to Sale-18 sorted ascending
+ */
+export function getSandwichBoxItems(items: PublicMenuItem[]): PublicMenuItem[] {
+  return sortMenuItemsAscending(items).filter((item) => {
+    const num = getMenuSaleNumber(item.code);
+    return num >= 13 && num <= 18;
+  });
+}

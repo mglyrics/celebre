@@ -7,7 +7,7 @@ import { OFFICIAL_18_MENU_ITEMS } from "../../data/fallbackMenu";
 
 interface PublicNavbarProps {
   activePage: "home" | "menu" | "details" | "booking" | "confirmation";
-  onNavigate: (page: "home" | "menu" | "booking") => void;
+  onNavigate: (page: "home" | "menu" | "booking", category?: "all" | "mix" | "sandwich") => void;
   selectedMenuCode?: string | null;
   menuItems?: PublicMenuItem[];
 }
@@ -113,7 +113,7 @@ export const PublicNavbar: React.FC<PublicNavbarProps> = ({
           </div>
 
           {/* Desktop Navigation Links */}
-          <nav className="hidden md:flex items-center gap-6 font-bold text-sm">
+          <nav className="hidden lg:flex items-center gap-2 font-bold text-xs sm:text-sm">
             <button
               onClick={() => onNavigate("home")}
               className={`transition-colors py-2 px-3 rounded-lg ${
@@ -125,21 +125,40 @@ export const PublicNavbar: React.FC<PublicNavbarProps> = ({
               الرئيسية
             </button>
 
+            {/* Link 1: ميكس بوكس (Sale-01 إلى Sale-12) */}
             <button
-              onClick={() => onNavigate("menu")}
-              className={`flex items-center gap-1.5 transition-colors py-2 px-3 rounded-lg ${
-                activePage === "menu" || activePage === "details"
+              onClick={() => onNavigate("menu", "mix")}
+              className="flex items-center gap-1.5 transition-colors py-2 px-3 rounded-lg text-[#221B17] hover:text-[#721832] hover:bg-[#721832]/10 cursor-pointer"
+            >
+              <span className="w-2 h-2 rounded-full bg-[#721832]" />
+              <span>ميكس بوكس (1–12)</span>
+            </button>
+
+            {/* Link 2: سندوتش بوكس (Sale-13 إلى Sale-18) */}
+            <button
+              onClick={() => onNavigate("menu", "sandwich")}
+              className="flex items-center gap-1.5 transition-colors py-2 px-3 rounded-lg text-[#221B17] hover:text-[#8C6D28] hover:bg-[#C89B3C]/15 cursor-pointer"
+            >
+              <span className="w-2 h-2 rounded-full bg-[#8C6D28]" />
+              <span>سندوتش بوكس (13–18)</span>
+            </button>
+
+            {/* All 18 Items */}
+            <button
+              onClick={() => onNavigate("menu", "all")}
+              className={`flex items-center gap-1.5 transition-colors py-2 px-3 rounded-lg cursor-pointer ${
+                activePage === "menu"
                   ? "text-[#5C1027] bg-[#721832]/10 font-black"
                   : "text-[#221B17] hover:text-[#5C1027] hover:bg-[#FAF7F2]"
               }`}
             >
               <UtensilsCrossed className="w-4 h-4 text-[#C89B3C]" />
-              <span>قائمة العروض (18 وجبة)</span>
+              <span>استعراض كل الوجبات الـ18</span>
             </button>
 
             <button
               onClick={() => onNavigate("booking")}
-              className={`flex items-center gap-1.5 transition-colors py-2 px-3 rounded-lg ${
+              className={`flex items-center gap-1.5 transition-colors py-2 px-3 rounded-lg cursor-pointer ${
                 activePage === "booking" || activePage === "confirmation"
                   ? "text-[#5C1027] bg-[#721832]/10 font-black"
                   : "text-[#221B17] hover:text-[#5C1027] hover:bg-[#FAF7F2]"
@@ -179,7 +198,7 @@ export const PublicNavbar: React.FC<PublicNavbarProps> = ({
             {/* Mobile Hamburger Toggle */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden p-2 rounded-xl text-[#221B17] hover:bg-[#F4EEDB] transition-colors"
+              className="lg:hidden p-2 rounded-xl text-[#221B17] hover:bg-[#F4EEDB] transition-colors"
               aria-label="القائمة"
             >
               {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
@@ -190,7 +209,7 @@ export const PublicNavbar: React.FC<PublicNavbarProps> = ({
 
       {/* Mobile Drawer Menu */}
       {mobileMenuOpen && (
-        <div className="md:hidden bg-[#FAF7F2] border-b border-[#E8DFD1] px-4 pt-2 pb-6 space-y-3 animate-fadeIn">
+        <div className="lg:hidden bg-[#FAF7F2] border-b border-[#E8DFD1] px-4 pt-2 pb-6 space-y-2.5 animate-fadeIn">
           <button
             onClick={() => {
               onNavigate("home");
@@ -202,26 +221,52 @@ export const PublicNavbar: React.FC<PublicNavbarProps> = ({
           >
             الرئيسية
           </button>
+
           <button
             onClick={() => {
-              onNavigate("menu");
+              onNavigate("menu", "mix");
               setMobileMenuOpen(false);
             }}
-            className={`w-full text-right py-3 px-4 rounded-xl font-bold text-sm flex items-center justify-between ${
-              activePage === "menu" ? "bg-[#721832] text-white" : "bg-white text-[#221B17]"
-            }`}
+            className="w-full text-right py-3 px-4 rounded-xl font-bold text-sm flex items-center justify-between bg-white text-[#5C1027] border border-[#E8DFD1]"
           >
-            <span>قائمة الوجبات الـ 18 كاملة</span>
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#721832]" />
+              <span>ميكس بوكس (Sale-01 إلى Sale-12)</span>
+            </div>
+            <span className="text-[11px] bg-[#721832]/10 text-[#721832] px-2 py-0.5 rounded-md font-bold">12 وجبة</span>
+          </button>
+
+          <button
+            onClick={() => {
+              onNavigate("menu", "sandwich");
+              setMobileMenuOpen(false);
+            }}
+            className="w-full text-right py-3 px-4 rounded-xl font-bold text-sm flex items-center justify-between bg-white text-[#8C6D28] border border-[#E8DFD1]"
+          >
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#8C6D28]" />
+              <span>سندوتش بوكس (Sale-13 إلى Sale-18)</span>
+            </div>
+            <span className="text-[11px] bg-[#C89B3C]/15 text-[#8C6D28] px-2 py-0.5 rounded-md font-bold">6 وجبات</span>
+          </button>
+
+          <button
+            onClick={() => {
+              onNavigate("menu", "all");
+              setMobileMenuOpen(false);
+            }}
+            className="w-full text-right py-3 px-4 rounded-xl font-bold text-sm flex items-center justify-between bg-[#721832] text-white shadow-xs"
+          >
+            <span>استعراض كل الوجبات الـ 18 كاملة</span>
             <UtensilsCrossed className="w-4 h-4 text-[#C89B3C]" />
           </button>
+
           <button
             onClick={() => {
               onNavigate("booking");
               setMobileMenuOpen(false);
             }}
-            className={`w-full text-right py-3 px-4 rounded-xl font-bold text-sm flex items-center justify-between ${
-              activePage === "booking" ? "bg-[#721832] text-white" : "bg-white text-[#221B17]"
-            }`}
+            className="w-full text-right py-3 px-4 rounded-xl font-bold text-sm flex items-center justify-between bg-white text-[#221B17]"
           >
             <span>نموذج الحجز المبدئي (بدون دفع)</span>
             <CalendarCheck className="w-4 h-4 text-[#C89B3C]" />

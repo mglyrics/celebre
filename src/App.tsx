@@ -14,6 +14,7 @@ import { OFFICIAL_18_MENU_ITEMS } from "./data/fallbackMenu";
 export const App: React.FC = () => {
   // Navigation: "home" | "menu" | "booking"
   const [activePage, setActivePage] = useState<"home" | "menu" | "booking">("home");
+  const [menuCategory, setMenuCategory] = useState<"all" | "mix" | "sandwich">("all");
 
   // Menu items initialized with official 18 products so they are always available
   const [menuItems, setMenuItems] = useState<PublicMenuItem[]>(OFFICIAL_18_MENU_ITEMS);
@@ -60,7 +61,7 @@ export const App: React.FC = () => {
     fetchMenu();
   }, []);
 
-  // Sync routing (/admin, #home, #menu, #booking)
+  // Sync routing (/admin, #home, #menu, #menu-mix, #menu-sandwich, #booking)
   useEffect(() => {
     const handleRouteChange = () => {
       const pathname = window.location.pathname.toLowerCase();
@@ -72,8 +73,17 @@ export const App: React.FC = () => {
         setIsAdminOpen(false);
       }
 
-      if (hash === "menu") {
+      if (hash === "menu-mix" || hash === "mix" || hash === "mix-box") {
         setActivePage("menu");
+        setMenuCategory("mix");
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      } else if (hash === "menu-sandwich" || hash === "sandwich" || hash === "sandwich-box") {
+        setActivePage("menu");
+        setMenuCategory("sandwich");
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      } else if (hash === "menu" || hash === "menu-all" || hash === "all-menu") {
+        setActivePage("menu");
+        setMenuCategory("all");
         window.scrollTo({ top: 0, behavior: "smooth" });
       } else if (hash === "booking" || hash === "book") {
         setActivePage("booking");
@@ -92,9 +102,20 @@ export const App: React.FC = () => {
     };
   }, []);
 
-  const navigateTo = (page: "home" | "menu" | "booking") => {
+  const navigateTo = (page: "home" | "menu" | "booking", category: "all" | "mix" | "sandwich" = "all") => {
     setActivePage(page);
-    window.location.hash = `#${page}`;
+    if (page === "menu") {
+      setMenuCategory(category);
+      if (category === "mix") {
+        window.location.hash = "#menu-mix";
+      } else if (category === "sandwich") {
+        window.location.hash = "#menu-sandwich";
+      } else {
+        window.location.hash = "#menu";
+      }
+    } else {
+      window.location.hash = `#${page}`;
+    }
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -150,6 +171,8 @@ export const App: React.FC = () => {
             menuItems={menuItems}
             loading={loading}
             error={error}
+            initialCategory={menuCategory}
+            onCategoryChange={setMenuCategory}
             onSelectForDetails={handleOpenDetails}
             onSelectForBooking={handleSelectForBooking}
           />

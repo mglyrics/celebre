@@ -3,7 +3,7 @@ import { Phone, MessageCircle, Mail, MapPin, ShieldCheck, Heart, Sparkles } from
 import { CelebreLogo } from "../CelebreLogo";
 
 interface PublicFooterProps {
-  onNavigate: (page: "home" | "menu" | "booking") => void;
+  onNavigate: (page: "home" | "menu" | "booking", category?: "all" | "mix" | "sandwich") => void;
 }
 
 export const PublicFooter: React.FC<PublicFooterProps> = ({ onNavigate }) => {
@@ -38,29 +38,45 @@ export const PublicFooter: React.FC<PublicFooterProps> = ({ onNavigate }) => {
           {/* Quick Links */}
           <div className="space-y-3">
             <h4 className="font-bold text-sm text-[#C89B3C] border-b border-[#362720] pb-2">
-              روابط سريعة
+              روابط منيو Celebre
             </h4>
             <ul className="space-y-2 text-xs text-[#D6C7B7]">
               <li>
                 <button
                   onClick={() => onNavigate("home")}
-                  className="hover:text-white transition-colors"
+                  className="hover:text-white transition-colors cursor-pointer"
                 >
                   الصفحة الرئيسية
                 </button>
               </li>
               <li>
                 <button
-                  onClick={() => onNavigate("menu")}
-                  className="hover:text-white transition-colors"
+                  onClick={() => onNavigate("menu", "mix")}
+                  className="hover:text-white transition-colors cursor-pointer text-[#C89B3C] font-semibold"
                 >
-                  قائمة الـ 18 عرض كاملة
+                  ميكس بوكس (Sale-01 إلى Sale-12)
+                </button>
+              </li>
+              <li>
+                <button
+                  onClick={() => onNavigate("menu", "sandwich")}
+                  className="hover:text-white transition-colors cursor-pointer text-[#C89B3C] font-semibold"
+                >
+                  سندوتش بوكس (Sale-13 إلى Sale-18)
+                </button>
+              </li>
+              <li>
+                <button
+                  onClick={() => onNavigate("menu", "all")}
+                  className="hover:text-white transition-colors cursor-pointer"
+                >
+                  استعراض كل الوجبات الـ18 بالتتابع
                 </button>
               </li>
               <li>
                 <button
                   onClick={() => onNavigate("booking")}
-                  className="hover:text-white transition-colors"
+                  className="hover:text-white transition-colors cursor-pointer"
                 >
                   نموذج الحجز المبدئي (بدون دفع)
                 </button>

@@ -2,11 +2,17 @@ import React, { useState, useMemo } from "react";
 import { 
   Sparkles, CalendarCheck, UtensilsCrossed, ShieldCheck, Truck, Clock, 
   Award, Heart, Star, CheckCircle2, ChevronLeft, Phone, MessageCircle, 
-  Package, ThumbsUp, Search, Eye, Flame, FileDown, Loader2
+  Package, ThumbsUp, Search, Eye, Flame, FileDown, Loader2,
+  Layers, Sandwich
 } from "lucide-react";
 import { PublicMenuItem } from "../../types/publicMenu";
 import { getSaleImage } from "../../data/saleImages";
-import { OFFICIAL_18_MENU_ITEMS } from "../../data/fallbackMenu";
+import { 
+  OFFICIAL_18_MENU_ITEMS, 
+  sortMenuItemsAscending, 
+  getMixBoxItems, 
+  getSandwichBoxItems 
+} from "../../data/fallbackMenu";
 import { downloadMenuPdf } from "../../services/menuPdfService";
 import heroImg from "../../assets/images/celebre_event_setup_1788037572328.jpg";
 import closedBoxImg from "../../assets/images/celebre_real_closed_box_1790336502952.jpg";
@@ -14,7 +20,7 @@ import mosqueImg from "../../assets/images/celebre_mosque_katb_ketab_17892235534
 
 interface PublicHomeProps {
   menuItems: PublicMenuItem[];
-  onNavigate: (page: "home" | "menu" | "booking") => void;
+  onNavigate: (page: "home" | "menu" | "booking", category?: "all" | "mix" | "sandwich") => void;
   onSelectForDetails: (item: PublicMenuItem) => void;
   onSelectForBooking: (menuCode: string) => void;
 }
@@ -25,14 +31,17 @@ export const PublicHome: React.FC<PublicHomeProps> = ({
   onSelectForDetails,
   onSelectForBooking,
 }) => {
-  const all18Items = (menuItems && menuItems.length > 0) ? menuItems : OFFICIAL_18_MENU_ITEMS;
+  const baseItems = (menuItems && menuItems.length > 0) ? menuItems : OFFICIAL_18_MENU_ITEMS;
+  const all18Items = useMemo(() => sortMenuItemsAscending(baseItems), [baseItems]);
+  const mixBoxList = useMemo(() => getMixBoxItems(all18Items), [all18Items]);
+  const sandwichBoxList = useMemo(() => getSandwichBoxItems(all18Items), [all18Items]);
 
   // Best sellers for featured showcase
   const featuredCodes = ["Sale-04", "Sale-05", "Sale-17", "Sale-18"];
   const featuredItems = all18Items.filter((it) => featuredCodes.includes(it.code));
 
   // Full 18 products interactive filter on Home page
-  const [selectedCategory, setSelectedCategory] = useState<"all" | "mix" | "sandwich" | "bestsellers">("all");
+  const [selectedCategory, setSelectedCategory] = useState<"all" | "mix" | "sandwich">("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
   const [pdfStatus, setPdfStatus] = useState<{ type: "loading" | "success" | "error"; message: string } | null>(null);
@@ -58,45 +67,45 @@ export const PublicHome: React.FC<PublicHomeProps> = ({
   };
 
   const filtered18Items = useMemo(() => {
-    return all18Items.filter((item) => {
-      if (selectedCategory === "mix") {
-        const num = parseInt(item.code.replace(/\D/g, ""), 10);
-        if (num > 12) return false;
-      } else if (selectedCategory === "sandwich") {
-        const num = parseInt(item.code.replace(/\D/g, ""), 10);
-        if (num < 13) return false;
-      } else if (selectedCategory === "bestsellers") {
-        if (!["Sale-04", "Sale-05", "Sale-10", "Sale-17", "Sale-18"].includes(item.code)) return false;
-      }
+    let list: PublicMenuItem[] = [];
+    if (selectedCategory === "mix") {
+      list = mixBoxList;
+    } else if (selectedCategory === "sandwich") {
+      list = sandwichBoxList;
+    } else {
+      list = all18Items;
+    }
 
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase().trim();
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      return list.filter((item) => {
         const matchCode = item.code.toLowerCase().includes(q);
         const matchName = item.name.toLowerCase().includes(q);
         const matchDesc = item.description?.toLowerCase().includes(q) || false;
         const matchComp = item.components?.some((c) => c.name.toLowerCase().includes(q)) || false;
         return matchCode || matchName || matchDesc || matchComp;
-      }
+      });
+    }
 
-      return true;
-    });
-  }, [all18Items, selectedCategory, searchQuery]);
+    return list;
+  }, [all18Items, mixBoxList, sandwichBoxList, selectedCategory, searchQuery]);
 
   return (
-    <div className="space-y-16 sm:space-y-24" dir="rtl">
+    <div className="space-y-16 sm:space-y-24 pb-16">
       {/* 1. Hero Section */}
-      <section className="relative overflow-hidden bg-gradient-to-b from-[#FAF7F2] via-white to-[#FAF7F2] pt-8 sm:pt-16 pb-12 sm:pb-20 border-b border-[#E8DFD1]">
+      <section className="relative overflow-hidden bg-gradient-to-b from-[#F4EEDB] via-[#FAF7F2] to-[#FAF7F2] pt-8 sm:pt-14 pb-12 sm:pb-20 border-b border-[#E8DFD1]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-8 items-center">
-            {/* Right text column */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
+            {/* Right Text Content */}
             <div className="lg:col-span-7 space-y-6 text-right">
-              {/* Official Brand Badge */}
-              <div className="inline-flex items-center gap-2 bg-[#C89B3C]/15 border border-[#C89B3C]/30 text-[#8C6D28] px-4 py-1.5 rounded-full text-xs font-bold shadow-2xs">
+              {/* Trust Badge */}
+              <div className="inline-flex items-center gap-2 bg-[#721832]/10 border border-[#721832]/20 text-[#5C1027] px-3.5 py-1.5 rounded-full text-xs font-bold shadow-2xs">
                 <Sparkles className="w-3.5 h-3.5 text-[#C89B3C]" />
-                <span>الموقع الرسمي لـ سيليبر كاترنج • مصر (celebre-eg.com)</span>
+                <span>البراند الأول المتخصص في بوكسات كاترنج المناسبات بمصر</span>
               </div>
 
-              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black text-[#5C1027] leading-tight tracking-tight">
+              {/* Main Headline */}
+              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black text-[#5C1027] leading-[1.2] tracking-tight">
                 عبوات كاترنج فندقية فاخرة
                 <span className="block text-[#C89B3C] font-['Cinzel',serif] mt-1 text-2xl sm:text-3xl lg:text-4xl">
                   تليق بضيوفك ومناسباتك السعيدة
@@ -126,8 +135,8 @@ export const PublicHome: React.FC<PublicHomeProps> = ({
               {/* Action Buttons */}
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-3">
                 <button
-                  onClick={() => onNavigate("menu")}
-                  className="bg-gradient-to-r from-[#721832] via-[#5C1027] to-[#721832] hover:from-[#5C1027] hover:to-[#430B1C] text-white font-black text-sm px-6 py-4 rounded-2xl shadow-md hover:shadow-xl transition-all flex items-center justify-center gap-2 group active:scale-98"
+                  onClick={() => onNavigate("menu", "all")}
+                  className="bg-gradient-to-r from-[#721832] via-[#5C1027] to-[#721832] hover:from-[#5C1027] hover:to-[#430B1C] text-white font-black text-sm px-6 py-4 rounded-2xl shadow-md hover:shadow-xl transition-all flex items-center justify-center gap-2 group active:scale-98 cursor-pointer"
                 >
                   <UtensilsCrossed className="w-4 h-4 text-[#C89B3C]" />
                   <span>استعراض الـ 18 وجبة بالأسعار</span>
@@ -151,7 +160,7 @@ export const PublicHome: React.FC<PublicHomeProps> = ({
 
                 <button
                   onClick={() => onNavigate("booking")}
-                  className="bg-white hover:bg-[#FAF7F2] border-2 border-[#721832] text-[#721832] font-black text-sm px-6 py-4 rounded-2xl shadow-xs hover:shadow-md transition-all flex items-center justify-center gap-2"
+                  className="bg-white hover:bg-[#FAF7F2] border-2 border-[#721832] text-[#721832] font-black text-sm px-6 py-4 rounded-2xl shadow-xs hover:shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <CalendarCheck className="w-4 h-4" />
                   <span>احجز مناسبتك الآن (بدون دفع)</span>
@@ -212,7 +221,113 @@ export const PublicHome: React.FC<PublicHomeProps> = ({
         </div>
       </section>
 
-      {/* 2. Featured Best Sellers (4 Top Picks from DB) */}
+      {/* 2. Primary Section: منيو Celebre (ميكس بوكس وسندوتش بوكس) */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="text-center max-w-3xl mx-auto mb-10 space-y-3">
+          <div className="inline-flex items-center gap-2 bg-[#C89B3C]/15 border border-[#C89B3C]/30 text-[#8C6D28] px-4 py-1.5 rounded-full text-xs font-bold shadow-2xs">
+            <Package className="w-3.5 h-3.5 text-[#C89B3C]" />
+            <span>تقسيم القائمة الرئيسي</span>
+          </div>
+
+          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black text-[#5C1027]">
+            منيو Celebre
+          </h2>
+
+          <p className="text-xs sm:text-sm text-[#6B5E55] leading-relaxed">
+            تم تقسيم منيو سيليبر إلى قسمين رئيسيين وفقاً لأرقام العروض المعتمدة لتسهيل الاختيار، مع إمكانية استعراض الـ 18 وجبة بالتتابع.
+          </p>
+        </div>
+
+        {/* 2 Main Cards: Mix Box vs Sandwich Box */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+          {/* Link 1: ميكس بوكس (Mix Box) - Sale-01 to Sale-12 */}
+          <div
+            onClick={() => onNavigate("menu", "mix")}
+            className="cursor-pointer bg-white rounded-3xl p-7 border-2 border-[#E8DFD1] hover:border-[#721832] shadow-sm hover:shadow-2xl transition-all duration-300 relative overflow-hidden group hover:-translate-y-1"
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div className="space-y-2.5">
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-black px-2.5 py-0.5 rounded-full bg-[#721832]/10 text-[#721832] border border-[#721832]/20">
+                    Sale-01 إلى Sale-12
+                  </span>
+                  <span className="text-[11px] font-bold text-[#8C6D28]">
+                    (12 عرض معتمد)
+                  </span>
+                </div>
+
+                <h3 className="text-2xl font-black text-[#5C1027] group-hover:text-[#721832] transition-colors">
+                  ميكس بوكس (Mix Box) 🍰🥪
+                </h3>
+
+                <p className="text-xs sm:text-sm text-[#6B5E55] leading-relaxed">
+                  باقات تجمع بين قطع الجاتوه المغلفة وسندوتشات البتيه بان والفرنساوي واللحوم والجبن الرومي مع عصير بخيرة الأصلي.
+                </p>
+              </div>
+
+              <div className="w-14 h-14 rounded-2xl bg-[#721832]/10 text-[#721832] border border-[#721832]/20 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+                <Layers className="w-7 h-7" />
+              </div>
+            </div>
+
+            <div className="mt-6 pt-4 border-t border-[#E8DFD1] flex items-center justify-between text-xs font-bold text-[#721832]">
+              <span>فتح عروض ميكس بوكس (1–12)</span>
+              <ChevronLeft className="w-4 h-4 group-hover:-translate-x-1.5 transition-transform" />
+            </div>
+          </div>
+
+          {/* Link 2: سندوتش بوكس (Sandwich Box) - Sale-13 to Sale-18 */}
+          <div
+            onClick={() => onNavigate("menu", "sandwich")}
+            className="cursor-pointer bg-white rounded-3xl p-7 border-2 border-[#E8DFD1] hover:border-[#8C6D28] shadow-sm hover:shadow-2xl transition-all duration-300 relative overflow-hidden group hover:-translate-y-1"
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div className="space-y-2.5">
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-black px-2.5 py-0.5 rounded-full bg-[#C89B3C]/15 text-[#8C6D28] border border-[#C89B3C]/30">
+                    Sale-13 إلى Sale-18
+                  </span>
+                  <span className="text-[11px] font-bold text-[#8C6D28]">
+                    (6 عروض معتمدة)
+                  </span>
+                </div>
+
+                <h3 className="text-2xl font-black text-[#5C1027] group-hover:text-[#8C6D28] transition-colors">
+                  سندوتش بوكس (Sandwich Box) 🥪
+                </h3>
+
+                <p className="text-xs sm:text-sm text-[#6B5E55] leading-relaxed">
+                  باقات السندوتشات الفرنساوي الوسط المشبعة (كفتة مشوية ع الفحم، فراخ بانية بلدي، تركي مدخن، رومي) للمناسبات وتوزيعات المساجد.
+                </p>
+              </div>
+
+              <div className="w-14 h-14 rounded-2xl bg-[#C89B3C]/15 text-[#8C6D28] border border-[#C89B3C]/30 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+                <Sandwich className="w-7 h-7" />
+              </div>
+            </div>
+
+            <div className="mt-6 pt-4 border-t border-[#E8DFD1] flex items-center justify-between text-xs font-bold text-[#8C6D28]">
+              <span>فتح عروض سندوتش بوكس (13–18)</span>
+              <ChevronLeft className="w-4 h-4 group-hover:-translate-x-1.5 transition-transform" />
+            </div>
+          </div>
+        </div>
+
+        {/* Clear Option: استعراض كل الوجبات الـ18 */}
+        <div className="text-center mt-6">
+          <button
+            type="button"
+            onClick={() => onNavigate("menu", "all")}
+            className="inline-flex items-center gap-2 text-xs sm:text-sm font-black text-[#721832] hover:text-[#5C1027] bg-[#FAF7F2] hover:bg-white border border-[#C89B3C] px-6 py-3 rounded-2xl transition-all shadow-xs hover:shadow-md cursor-pointer"
+          >
+            <UtensilsCrossed className="w-4 h-4 text-[#C89B3C]" />
+            <span>استعراض كل الوجبات الـ18 بالتتابع (Sale-01 → Sale-18)</span>
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+        </div>
+      </section>
+
+      {/* 3. Featured Best Sellers (4 Top Picks from DB) */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col sm:flex-row items-start sm:items-end justify-between gap-4 mb-8">
           <div>
@@ -225,10 +340,10 @@ export const PublicHome: React.FC<PublicHomeProps> = ({
             </h2>
           </div>
           <button
-            onClick={() => onNavigate("menu")}
-            className="text-xs sm:text-sm font-bold text-[#721832] hover:text-[#5C1027] flex items-center gap-1 group"
+            onClick={() => onNavigate("menu", "all")}
+            className="text-xs sm:text-sm font-bold text-[#721832] hover:text-[#5C1027] flex items-center gap-1 group cursor-pointer"
           >
-            <span>عرض جميع الـ 18 وجبة كاملة</span>
+            <span>استعراض كل الوجبات الـ18</span>
             <ChevronLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
           </button>
         </div>
@@ -248,7 +363,7 @@ export const PublicHome: React.FC<PublicHomeProps> = ({
                     (e.target as HTMLImageElement).src = getSaleImage("Sale-01");
                   }}
                 />
-                <span className="absolute top-2.5 right-2.5 bg-[#5C1027] text-white text-[11px] font-black px-2.5 py-0.5 rounded-full shadow-xs">
+                <span className="absolute top-2.5 right-2.5 bg-[#5C1027] text-white text-[11px] font-black px-2.5 py-0.5 rounded-full shadow-xs font-mono">
                   {item.code}
                 </span>
               </div>
@@ -294,7 +409,7 @@ export const PublicHome: React.FC<PublicHomeProps> = ({
         </div>
       </section>
 
-      {/* 2.5 Full 18 Catering Box Showcase Directly on Home Page (Ensuring all 18 products are immediately visible in Google Chrome) */}
+      {/* 4. Full 18 Catering Box Showcase Directly on Home Page */}
       <section id="full-18-menu" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center max-w-3xl mx-auto mb-8 space-y-3">
           <div className="inline-flex items-center gap-2 bg-[#C89B3C]/15 border border-[#C89B3C]/30 text-[#8C6D28] px-4 py-1.5 rounded-full text-xs font-bold shadow-2xs">
@@ -303,11 +418,11 @@ export const PublicHome: React.FC<PublicHomeProps> = ({
           </div>
 
           <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black text-[#5C1027] tracking-tight">
-            استعراض كافة وجبات كاترنج سيليبر الـ 18 المعتمدة
+            استعراض كافة وجبات كاترنج سيليبر الـ 18 بالتتابع
           </h2>
 
           <p className="text-xs sm:text-sm text-[#6B5E55] leading-relaxed">
-            جميع الوجبات الـ 18 متاحة بالأسعار المحدثة والتفاصيل الكاملة. يمكنك التصفح، الفلترة، الحجز الفوري بدون أي بطاقة بنكية.
+            مرتبة بالتسلسل المعتمد (Sale-01 → Sale-18)، مع إمكانية التصفية المباشرة بين ميكس بوكس وسندوتش بوكس.
           </p>
         </div>
 
@@ -317,49 +432,37 @@ export const PublicHome: React.FC<PublicHomeProps> = ({
             <button
               type="button"
               onClick={() => setSelectedCategory("all")}
-              className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+              className={`px-5 py-2.5 rounded-2xl text-xs sm:text-sm font-black transition-all cursor-pointer ${
                 selectedCategory === "all"
-                  ? "bg-[#721832] text-white shadow-md"
+                  ? "bg-[#721832] text-white shadow-md ring-2 ring-[#721832]/30"
                   : "bg-white text-[#221B17] border border-[#E8DFD1] hover:bg-[#FAF7F2]"
               }`}
             >
-              جميع الوجبات (18 عرض)
+              استعراض كل الوجبات الـ18 (1–18)
             </button>
 
             <button
               type="button"
               onClick={() => setSelectedCategory("mix")}
-              className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+              className={`px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
                 selectedCategory === "mix"
-                  ? "bg-[#721832] text-white shadow-md"
+                  ? "bg-[#721832] text-white shadow-md ring-2 ring-[#721832]/30"
                   : "bg-white text-[#221B17] border border-[#E8DFD1] hover:bg-[#FAF7F2]"
               }`}
             >
-              قائمة Box ميكس (12 عرض) 🍰🥪
+              ميكس بوكس (Sale-01 إلى Sale-12) 🍰
             </button>
 
             <button
               type="button"
               onClick={() => setSelectedCategory("sandwich")}
-              className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+              className={`px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
                 selectedCategory === "sandwich"
-                  ? "bg-[#721832] text-white shadow-md"
+                  ? "bg-[#8C6D28] text-white shadow-md ring-2 ring-[#8C6D28]/30"
                   : "bg-white text-[#221B17] border border-[#E8DFD1] hover:bg-[#FAF7F2]"
               }`}
             >
-              قائمة Box ساندوتش فرنساوي (6 عروض) 🥪
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setSelectedCategory("bestsellers")}
-              className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
-                selectedCategory === "bestsellers"
-                  ? "bg-[#721832] text-white shadow-md"
-                  : "bg-white text-[#221B17] border border-[#E8DFD1] hover:bg-[#FAF7F2]"
-              }`}
-            >
-              الأكثر طلباً ومبيعاً ⭐
+              سندوتش بوكس (Sale-13 إلى Sale-18) 🥪
             </button>
           </div>
 
@@ -379,6 +482,9 @@ export const PublicHome: React.FC<PublicHomeProps> = ({
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filtered18Items.map((item) => {
             const imageSrc = getSaleImage(item.code);
+            const itemNum = parseInt(item.code.replace(/\D/g, "") || "0", 10);
+            const isMix = itemNum <= 12;
+
             return (
               <div
                 key={item.id}
@@ -394,42 +500,42 @@ export const PublicHome: React.FC<PublicHomeProps> = ({
                       (e.target as HTMLImageElement).src = getSaleImage("Sale-01");
                     }}
                   />
-                  <div className="absolute top-3 right-3 bg-[#5C1027] text-white text-xs font-black px-3 py-1 rounded-full shadow-md">
+                  <div className="absolute top-3 right-3 bg-[#5C1027] text-white text-xs font-black px-3 py-1 rounded-full shadow-md font-mono">
                     {item.code}
+                  </div>
+
+                  <div className={`absolute bottom-3 right-3 text-[10.5px] font-black px-2.5 py-0.5 rounded-full shadow-xs ${
+                    isMix ? "bg-[#721832] text-white" : "bg-[#8C6D28] text-white"
+                  }`}>
+                    {isMix ? "ميكس بوكس" : "سندوتش بوكس"}
                   </div>
                 </div>
 
                 <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
                   <div className="space-y-2">
-                    <h3 className="font-black text-base sm:text-lg text-[#5C1027] group-hover:text-[#721832] transition-colors">
+                    <h3 className="font-black text-base text-[#5C1027] group-hover:text-[#721832] transition-colors">
                       {item.name}
                     </h3>
-                    <div className="space-y-1.5 pt-1">
-                      <div className="text-[11px] font-bold text-[#8C6D28] flex items-center gap-1">
-                        <Package className="w-3.5 h-3.5" />
-                        <span>المكونات بالعلبة:</span>
-                      </div>
-                      <div className="flex flex-wrap gap-1.5">
-                        {item.components && item.components.length > 0 ? (
-                          item.components.map((c, i) => (
-                            <span
-                              key={i}
-                              className="inline-flex items-center gap-1 text-[11px] bg-[#FAF7F2] text-[#4A3E38] px-2 py-0.5 rounded-lg border border-[#E8DFD1]"
-                            >
-                              <CheckCircle2 className="w-2.5 h-2.5 text-[#C89B3C]" />
-                              <span>{c.name}</span>
-                            </span>
-                          ))
-                        ) : (
-                          <p className="text-xs text-[#6B5E55] line-clamp-2">{item.description}</p>
-                        )}
-                      </div>
+                    <p className="text-xs text-[#6B5E55] line-clamp-2">
+                      {item.description}
+                    </p>
+
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      {item.components && item.components.slice(0, 3).map((c, i) => (
+                        <span
+                          key={i}
+                          className="inline-flex items-center gap-1 text-[10.5px] bg-[#FAF7F2] text-[#4A3E38] px-2 py-0.5 rounded-md border border-[#E8DFD1]"
+                        >
+                          <CheckCircle2 className="w-2.5 h-2.5 text-[#C89B3C]" />
+                          <span>{c.name}</span>
+                        </span>
+                      ))}
                     </div>
                   </div>
 
                   <div className="pt-3 border-t border-[#E8DFD1] space-y-3">
                     <div className="flex items-baseline justify-between">
-                      <span className="text-xs font-bold text-[#8C6D28]">سعر الوجبة للعميل:</span>
+                      <span className="text-xs font-bold text-[#8C6D28]">سعر الوجبة:</span>
                       <div className="flex items-baseline gap-1">
                         <span className="text-2xl font-black text-[#721832]">
                           {item.distributorPrice}
@@ -438,14 +544,14 @@ export const PublicHome: React.FC<PublicHomeProps> = ({
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2 pt-1">
+                    <div className="grid grid-cols-2 gap-2">
                       <button
                         type="button"
                         onClick={() => onSelectForDetails(item)}
                         className="w-full py-2.5 px-3 rounded-xl border border-[#D6C7B7] hover:border-[#721832] bg-white text-[#221B17] hover:text-[#721832] text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                       >
                         <Eye className="w-3.5 h-3.5" />
-                        <span>تفاصيل العرض</span>
+                        <span>التفاصيل</span>
                       </button>
 
                       <button
@@ -465,7 +571,7 @@ export const PublicHome: React.FC<PublicHomeProps> = ({
         </div>
       </section>
 
-      {/* 3. Why Celebre Pillars */}
+      {/* 5. Why Celebre Pillars */}
       <section className="bg-white py-12 sm:py-16 border-y border-[#E8DFD1]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-10">
           <div className="max-w-2xl mx-auto space-y-2">
@@ -511,7 +617,7 @@ export const PublicHome: React.FC<PublicHomeProps> = ({
         </div>
       </section>
 
-      {/* 4. Real Photos Showcase */}
+      {/* 6. Real Photos Showcase */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center max-w-2xl mx-auto mb-8 space-y-2">
           <span className="text-xs font-black text-[#8C6D28]">معرض الصور الميداني</span>
@@ -556,7 +662,7 @@ export const PublicHome: React.FC<PublicHomeProps> = ({
         </div>
       </section>
 
-      {/* 5. Direct Booking Banner */}
+      {/* 7. Direct Booking Banner */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="bg-gradient-to-r from-[#721832] via-[#5C1027] to-[#721832] rounded-3xl p-8 sm:p-12 text-white text-center sm:text-right flex flex-col sm:flex-row items-center justify-between gap-6 shadow-xl">
           <div className="space-y-2 max-w-xl">
@@ -571,7 +677,7 @@ export const PublicHome: React.FC<PublicHomeProps> = ({
 
           <button
             onClick={() => onNavigate("booking")}
-            className="shrink-0 bg-[#C89B3C] hover:bg-[#b58b34] text-[#221B17] font-black text-sm px-8 py-4 rounded-2xl shadow-lg hover:shadow-xl transition-all flex items-center gap-2 active:scale-95"
+            className="shrink-0 bg-[#C89B3C] hover:bg-[#b58b34] text-[#221B17] font-black text-sm px-8 py-4 rounded-2xl shadow-lg hover:shadow-xl transition-all flex items-center gap-2 active:scale-95 cursor-pointer"
           >
             <CalendarCheck className="w-5 h-5 text-[#5C1027]" />
             <span>املأ نموذج الحجز المبدئي</span>
