@@ -146,56 +146,15 @@ export const PublicBookingForm: React.FC<PublicBookingFormProps> = ({
 
       const data = await response.json();
 
-      if (!response.ok || !data.success) {
-        throw new Error(data.message || "فشل تسجيل طلب الحجز المبدئي");
+      if (!response.ok || !data.success || !data.order?.orderNumber) {
+        throw new Error(data.message || "فشل تسجيل طلب الحجز وحفظه في قاعدة البيانات");
       }
 
+      // Successfully saved on server & database!
       onBookingSuccess(data.order, data.whatsappLink);
     } catch (err: any) {
-      console.warn("Backend booking API encountered issue, creating resilient confirmed order:", err);
-      // Resilient local confirmation so customer booking is NEVER lost:
-      const todayStr = new Date().toISOString().slice(0, 10).replace(/-/g, "");
-      const randomOrderNum = `CB-${todayStr}-${Math.floor(1000 + Math.random() * 9000)}`;
-      const chosenItem = selectedItem || activeMenuItems[0];
-      
-      const resilientOrder: BookingOrderResult = {
-        orderNumber: randomOrderNum,
-        customerName: customerName.trim(),
-        phone: phone.trim(),
-        menuCode: chosenItem.code,
-        menuName: chosenItem.name,
-        quantity: Number(quantity),
-        pickupDate,
-        pickupTime: finalTime,
-        pickupLocation: pickupLocation.trim(),
-        customerTotal: totalAmount,
-        customerPaid: 0,
-        customerRemaining: totalAmount,
-        orderStatus: "PENDING_BOOKING",
-      };
-
-      const waText = `مرحبًا بك في سيلبر كاترنج (Celebre Catering) 🌸
-تم تسجيل وتأكيد بيانات حجزكم بنجاح:
-
-📋 رقم الطلب: ${resilientOrder.orderNumber}
-👤 اسم العميل: ${resilientOrder.customerName}
-📞 هاتف التواصل: ${resilientOrder.phone}
-🍱 الوجبة المختارة: ${resilientOrder.menuCode} (${resilientOrder.menuName})
-📦 الكمية: ${resilientOrder.quantity} وجبة
-📅 تاريخ الاستلام: ${resilientOrder.pickupDate}
-⏰ وقت الاستلام: ${resilientOrder.pickupTime}
-📍 مكان الاستلام: ${resilientOrder.pickupLocation}
-
-💰 إجمالي حساب العميل: ${resilientOrder.customerTotal} ج.م
-💵 المدفوع من العميل: 0 ج.م
-💳 المتبقي على العميل: ${resilientOrder.customerRemaining} ج.م
-📌 حالة الطلب: حجز مبدئي - بدون دفع
-📝 ملاحظات: ${notes.trim() || "لا توجد"}
-
-سعداء بخدمتكم وتجهيز مناسبتكم بأعلى معايير الجودة الفندقية ✨`;
-
-      const fallbackWhatsappLink = `https://wa.me/201284484868?text=${encodeURIComponent(waText)}`;
-      onBookingSuccess(resilientOrder, fallbackWhatsappLink);
+      console.error("Booking API error:", err);
+      setErrorMessage(err.message || "تعذر إتمام الحجز في الوقت الحالي. يرجى مراجعة البيانات والمحاولة مرة أخرى.");
     } finally {
       setLoading(false);
     }

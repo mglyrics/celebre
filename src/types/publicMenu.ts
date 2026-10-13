@@ -35,6 +35,7 @@ export interface BookingSubmissionData {
 }
 
 export interface BookingOrderResult {
+  id?: number;
   orderNumber: string;
   customerName: string;
   phone: string;

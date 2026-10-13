@@ -112,9 +112,6 @@ export const OrderModal: React.FC<OrderModalProps> = ({
       drinkOption = 'replace_pepsi';
     }
 
-    let createdOrderNumber = `CB-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.floor(1000 + Math.random() * 9000)}`;
-    let targetWhatsappUrl = `https://wa.me/201284484868`;
-
     try {
       const response = await fetch("/api/public/bookings", {
         method: "POST",
@@ -133,49 +130,38 @@ export const OrderModal: React.FC<OrderModalProps> = ({
         })
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        if (data.order && data.order.orderNumber) {
-          createdOrderNumber = data.order.orderNumber;
-        }
-        if (data.whatsappLink) {
-          targetWhatsappUrl = data.whatsappLink;
-        }
+      const data = await response.json();
+      if (!response.ok || !data.success || !data.order?.orderNumber) {
+        throw new Error(data.message || "فشل تسجيل طلب الحجز وحفظه في قاعدة البيانات");
       }
-    } catch (e) {
-      console.warn("Public booking API call fallback:", e);
+
+      const createdOrderNumber = data.order.orderNumber;
+      const targetWhatsappUrl = data.whatsappLink || `https://wa.me/201284484868`;
+
+      const newOrder: Order = {
+        id: createdOrderNumber,
+        customerInfo,
+        items,
+        totalBoxes,
+        totalPrice,
+        depositAmount: 0,
+        remainingAmount: totalPrice,
+        shippingFee: 0,
+        status: "pending",
+        createdAt: new Date().toISOString()
+      };
+
+      // Open WhatsApp to coordinate with administration
+      try {
+        window.open(targetWhatsappUrl, "_blank");
+      } catch {}
+
+      onCompleteOrder(newOrder);
+      onClose();
+    } catch (e: any) {
+      console.error("Order submission error:", e);
+      setFormErrors(prev => ({ ...prev, submit: e.message || "تعذر إتمام الحجز وحفظه في قاعدة البيانات. يرجى مراجعة البيانات والمحاولة مجددًا." }));
     }
-
-    const newOrder: Order = {
-      id: createdOrderNumber,
-      customerInfo,
-      items,
-      totalBoxes,
-      totalPrice,
-      depositAmount: 0,
-      remainingAmount: totalPrice,
-      shippingFee: 0,
-      status: "pending",
-      createdAt: new Date().toISOString()
-    };
-
-    // Save locally as resilient backup
-    try {
-      const existing = JSON.parse(localStorage.getItem("celebre_customer_orders") || "[]");
-      existing.unshift(newOrder);
-      localStorage.setItem("celebre_customer_orders", JSON.stringify(existing));
-      localStorage.setItem("celebre_last_order_id", newOrder.id);
-    } catch (err) {
-      console.warn("Local storage backup error:", err);
-    }
-
-    // Open WhatsApp to coordinate with administration
-    try {
-      window.open(targetWhatsappUrl, "_blank");
-    } catch {}
-
-    onCompleteOrder(newOrder);
-    onClose();
   };
 
   return (

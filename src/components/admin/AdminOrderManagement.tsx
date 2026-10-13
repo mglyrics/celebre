@@ -117,7 +117,7 @@ export const AdminOrderManagement: React.FC<AdminOrderManagementProps> = ({
   const [searchQuery, setSearchQuery] = useState("");
 
   // Detail Modal states
-  const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
+  const [selectedOrderId, setSelectedOrderId] = useState<number | string | null>(null);
   const [orderDetail, setOrderDetail] = useState<OrderDetailFull | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
 
@@ -297,17 +297,23 @@ export const AdminOrderManagement: React.FC<AdminOrderManagementProps> = ({
   }, [token, isOpen, statusFilter, searchQuery]);
 
   // Load order detail
-  const loadOrderDetail = async (id: number) => {
+  const loadOrderDetail = async (id: number | string) => {
     setSelectedOrderId(id);
     setLoadingDetail(true);
     try {
-      const res = await fetch(`/api/admin/orders/${id}`, { headers: getHeaders() });
+      const res = await fetch(`/api/admin/orders/${encodeURIComponent(String(id).trim())}`, { headers: getHeaders() });
       const data = await res.json();
-      if (data.success) {
+      if (data.success && data.order) {
         setOrderDetail(data);
+        if (data.order.id) {
+          setSelectedOrderId(data.order.id);
+        }
+      } else {
+        alert(data.message || "الطلب غير موجود");
       }
     } catch (err) {
       console.error("Error fetching order detail:", err);
+      alert("تعذر الاتصال بقاعدة البيانات أو تحميل تفاصيل الطلب");
     } finally {
       setLoadingDetail(false);
     }

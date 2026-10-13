@@ -12,7 +12,7 @@ import {
   auditLogs,
   appSettings,
 } from '../db/schema.ts';
-import { eq, desc, and, sql } from 'drizzle-orm';
+import { eq, desc, and, or, sql } from 'drizzle-orm';
 
 export interface CreateBookingInput {
   customerName: string;
@@ -41,19 +41,21 @@ export class OrderService {
 
   /**
    * Generates a unique, chronological order number: CB-YYYYMMDD-XXXX
+   * Orders by orderNumber desc so highest sequence for that date is always picked.
    */
-  public static async generateOrderNumber(): Promise<string> {
+  public static async generateOrderNumber(txClient?: any): Promise<string> {
     const today = new Date();
     const yyyy = today.getFullYear();
     const mm = String(today.getMonth() + 1).padStart(2, '0');
     const dd = String(today.getDate()).padStart(2, '0');
     const prefix = `CB-${yyyy}${mm}${dd}-`;
 
-    const latest = await db
+    const client = txClient || db;
+    const latest = await client
       .select({ orderNumber: orders.orderNumber })
       .from(orders)
       .where(sql`${orders.orderNumber} LIKE ${prefix + '%'}`)
-      .orderBy(desc(orders.id))
+      .orderBy(desc(orders.orderNumber))
       .limit(1);
 
     let nextSeq = 1;
@@ -66,6 +68,27 @@ export class OrderService {
     }
 
     return `${prefix}${String(nextSeq).padStart(4, '0')}`;
+  }
+
+  /**
+   * Resolves an order record by either its integer ID or readable orderNumber string
+   */
+  public static async getOrderByIdOrNumber(idOrNumber: string | number, txClient?: any) {
+    const str = String(idOrNumber || '').trim();
+    if (!str) return null;
+    const isPureInt = /^\d+$/.test(str);
+    const upperStr = str.toUpperCase();
+    const client = txClient || db;
+    const list = await client
+      .select()
+      .from(orders)
+      .where(
+        isPureInt
+          ? or(eq(orders.id, parseInt(str, 10)), eq(orders.orderNumber, str), eq(orders.orderNumber, upperStr))
+          : or(eq(orders.orderNumber, str), eq(orders.orderNumber, upperStr))
+      )
+      .limit(1);
+    return list.length ? list[0] : null;
   }
 
   /**
@@ -141,47 +164,52 @@ export class OrderService {
     const supplierTotal = effectiveSuppUnitPrice * input.quantity;
     const grossProfit = customerTotal - supplierTotal;
 
-    const orderNumber = await this.generateOrderNumber();
+    // 3. Database Transaction with concurrency collision protection
+    let lastError: any = null;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      try {
+        return await db.transaction(async (tx) => {
+          // Acquire transactional advisory lock to strictly serialize orderNumber generation & insertion across concurrent requests
+          await tx.execute(sql`SELECT pg_advisory_xact_lock(847291)`);
+          const orderNumber = await this.generateOrderNumber(tx);
 
-    // 3. Database Transaction
-    return await db.transaction(async (tx) => {
-      // Find or create customer
-      const existingCust = await tx.select().from(customers).where(eq(customers.phone, cleanPhone)).limit(1);
-      let customerId: number;
-      if (existingCust.length > 0) {
-        customerId = existingCust[0].id;
-        await tx
-          .update(customers)
-          .set({
-            fullName: input.customerName.trim(),
-            whatsapp: cleanWhatsapp,
-            updatedAt: new Date(),
-          })
-          .where(eq(customers.id, customerId));
-      } else {
-        const newCust = await tx
-          .insert(customers)
-          .values({
-            fullName: input.customerName.trim(),
-            phone: cleanPhone,
-            whatsapp: cleanWhatsapp,
-          })
-          .returning();
-        customerId = newCust[0].id;
-      }
+          // Find or create customer
+          const existingCust = await tx.select().from(customers).where(eq(customers.phone, cleanPhone)).limit(1);
+          let customerId: number;
+          if (existingCust.length > 0) {
+            customerId = existingCust[0].id;
+            await tx
+              .update(customers)
+              .set({
+                fullName: input.customerName.trim(),
+                whatsapp: cleanWhatsapp,
+                updatedAt: new Date(),
+              })
+              .where(eq(customers.id, customerId));
+          } else {
+            const newCust = await tx
+              .insert(customers)
+              .values({
+                fullName: input.customerName.trim(),
+                phone: cleanPhone,
+                whatsapp: cleanWhatsapp,
+              })
+              .returning();
+            customerId = newCust[0].id;
+          }
 
-      const orderStatus = input.initialStatus || 'PENDING_BOOKING';
-      const actorName = input.adminUsername || 'العميل (حجز مبدئي عبر الموقع)';
+          const orderStatus = input.initialStatus || 'PENDING_BOOKING';
+          const actorName = input.adminUsername || 'العميل (حجز مبدئي عبر الموقع)';
 
-      // Create Order
-      const newOrders = await tx
-        .insert(orders)
-        .values({
-          orderNumber,
-          customerId,
-          orderStatus,
-          pickupDate: input.pickupDate,
-          pickupTime: input.pickupTime || 'المغرب 06:30 م',
+          // Create Order
+          const newOrders = await tx
+            .insert(orders)
+            .values({
+              orderNumber,
+              customerId,
+              orderStatus,
+              pickupDate: input.pickupDate,
+              pickupTime: input.pickupTime || 'المغرب 06:30 م',
           pickupLocation: input.pickupLocation || 'القاهرة - سيتم التنسيق عبر واتساب',
           customerNotes: input.notes,
           subtotal: this.toDecimalStr(distUnitPrice * input.quantity),
@@ -275,7 +303,24 @@ export class OrderService {
         supplierTotal,
         optionName,
       };
-    });
+        });
+      } catch (err: any) {
+        lastError = err;
+        const errCode = String(err?.code || err?.cause?.code || '');
+        const msg = (String(err?.message || '') + ' ' + String(err?.cause?.message || '') + ' ' + String(err?.cause?.detail || '')).toLowerCase();
+        const isConflict =
+          errCode === '23505' ||
+          msg.includes('unique') ||
+          msg.includes('duplicate') ||
+          msg.includes('orders_order_number_unique');
+        if (isConflict && attempt < 4) {
+          await new Promise((r) => setTimeout(r, 40 * (attempt + 1) + Math.random() * 40));
+          continue;
+        }
+        throw err;
+      }
+    }
+    throw lastError;
   }
 
   /**
@@ -283,7 +328,7 @@ export class OrderService {
    * Payment Status: PENDING_REVIEW, VERIFIED, REJECTED
    */
   public static async recordCustomerPayment(
-    orderId: number,
+    orderId: number | string,
     amount: number,
     paymentMethod: 'INSTAPAY' | 'CASH' | 'BANK_TRANSFER' | 'OTHER',
     paymentReference: string,
@@ -305,15 +350,14 @@ export class OrderService {
     }
 
     return await db.transaction(async (tx) => {
-      const orderList = await tx.select().from(orders).where(eq(orders.id, orderId)).limit(1);
-      if (!orderList.length) throw new Error('الطلب غير موجود');
-      const order = orderList[0];
+      const order = await this.getOrderByIdOrNumber(orderId, tx);
+      if (!order) throw new Error('الطلب غير موجود');
 
       // Insert payment record
       const insertedPayments = await tx
         .insert(customerPayments)
         .values({
-          orderId,
+          orderId: order.id,
           customerId: order.customerId,
           amount: this.toDecimalStr(amount),
           paymentMethod,
@@ -330,7 +374,7 @@ export class OrderService {
       const allVerifiedPayments = await tx
         .select({ total: sql<string>`COALESCE(SUM(amount), 0)` })
         .from(customerPayments)
-        .where(and(eq(customerPayments.orderId, orderId), eq(customerPayments.paymentStatus, 'VERIFIED')));
+        .where(and(eq(customerPayments.orderId, order.id), eq(customerPayments.paymentStatus, 'VERIFIED')));
 
       const totalCustomerPaid = parseFloat(allVerifiedPayments[0]?.total || '0');
       const orderTotal = parseFloat(order.totalAmount);
@@ -351,7 +395,7 @@ export class OrderService {
           orderStatus: newOrderStatus,
           updatedAt: new Date(),
         })
-        .where(eq(orders.id, orderId));
+        .where(eq(orders.id, order.id));
 
       // Audit Log for Payment Creation
       await tx.insert(auditLogs).values({
@@ -360,7 +404,7 @@ export class OrderService {
         entity: 'customer_payments',
         entityId: String(newPayment.id),
         newData: {
-          orderId,
+          orderId: order.id,
           orderNumber: order.orderNumber,
           amount,
           paymentMethod,
@@ -642,7 +686,7 @@ export class OrderService {
    * Updates order status with full audit logging
    */
   public static async updateOrderStatus(
-    orderId: number,
+    orderId: number | string,
     newStatus: string,
     cancelReason: string | undefined,
     adminUsername: string,
@@ -664,9 +708,8 @@ export class OrderService {
     }
 
     return await db.transaction(async (tx) => {
-      const orderList = await tx.select().from(orders).where(eq(orders.id, orderId)).limit(1);
-      if (!orderList.length) throw new Error('الطلب غير موجود');
-      const order = orderList[0];
+      const order = await this.getOrderByIdOrNumber(orderId, tx);
+      if (!order) throw new Error('الطلب غير موجود');
 
       const updateData: any = {
         orderStatus: newStatus,
@@ -681,7 +724,7 @@ export class OrderService {
       }
 
       if (newStatus === 'CONFIRMED' || newStatus === 'SENT_TO_SUPPLIER') {
-        const existingSup = await tx.select().from(supplierOrders).where(eq(supplierOrders.orderId, orderId)).limit(1);
+        const existingSup = await tx.select().from(supplierOrders).where(eq(supplierOrders.orderId, order.id)).limit(1);
         if (existingSup.length === 0) {
           const primarySupplier = await tx.select().from(suppliers).limit(1);
           if (primarySupplier.length > 0) {
@@ -699,22 +742,22 @@ export class OrderService {
           await tx
             .update(supplierOrders)
             .set({ status: 'SENT', updatedAt: new Date() })
-            .where(eq(supplierOrders.orderId, orderId));
+            .where(eq(supplierOrders.orderId, order.id));
         } else if (newStatus === 'CONFIRMED' && existingSup[0].status === 'PENDING_CONFIRMATION') {
           await tx
             .update(supplierOrders)
             .set({ status: 'CONFIRMED', updatedAt: new Date() })
-            .where(eq(supplierOrders.orderId, orderId));
+            .where(eq(supplierOrders.orderId, order.id));
         }
       }
 
-      await tx.update(orders).set(updateData).where(eq(orders.id, orderId));
+      await tx.update(orders).set(updateData).where(eq(orders.id, order.id));
 
       await tx.insert(auditLogs).values({
         userName: adminUsername,
         action: 'ORDER_STATUS_CHANGED',
         entity: 'orders',
-        entityId: String(orderId),
+        entityId: String(order.id),
         oldData: { status: order.orderStatus },
         newData: { status: newStatus, cancelReason },
         ip,
@@ -728,7 +771,7 @@ export class OrderService {
    * Edit order operational details (quantity, date, time, location)
    */
   public static async updateOrderDetails(
-    orderId: number,
+    orderId: number | string,
     details: {
       pickupDate?: string;
       pickupTime?: string;
@@ -743,9 +786,8 @@ export class OrderService {
     ip?: string
   ) {
     return await db.transaction(async (tx) => {
-      const orderList = await tx.select().from(orders).where(eq(orders.id, orderId)).limit(1);
-      if (!orderList.length) throw new Error('الطلب غير موجود');
-      const order = orderList[0];
+      const order = await this.getOrderByIdOrNumber(orderId, tx);
+      if (!order) throw new Error('الطلب غير موجود');
 
       const oldData = { ...order };
       const updateData: any = { updatedAt: new Date() };
@@ -765,7 +807,7 @@ export class OrderService {
 
       // If quantity changed, recalculate items & totals based on price snapshots
       if (details.quantity && details.quantity !== 0) {
-        const items = await tx.select().from(orderItems).where(eq(orderItems.orderId, orderId));
+        const items = await tx.select().from(orderItems).where(eq(orderItems.orderId, order.id));
         if (items.length > 0) {
           const item = items[0];
           const newQty = details.quantity;
@@ -808,17 +850,17 @@ export class OrderService {
               supplierRemaining: this.toDecimalStr(Math.max(0, newSupplierTotal - supplierPaid)),
               updatedAt: new Date(),
             })
-            .where(eq(supplierOrders.orderId, orderId));
+            .where(eq(supplierOrders.orderId, order.id));
         }
       }
 
-      await tx.update(orders).set(updateData).where(eq(orders.id, orderId));
+      await tx.update(orders).set(updateData).where(eq(orders.id, order.id));
 
       await tx.insert(auditLogs).values({
         userName: adminUsername,
         action: 'ORDER_DETAILS_UPDATED',
         entity: 'orders',
-        entityId: String(orderId),
+        entityId: String(order.id),
         oldData,
         newData: details,
         ip,

@@ -981,6 +981,98 @@ async function runSystemTests() {
     // Test 132: Public menu components never leak factory prices during whole booking lifecycle
     assert(!('supplierTotal' in mixBooking.order && typeof (mixBooking.order as any).supplierTotal === 'undefined'), `Test 132: Booking completed securely`);
 
+    // =========================================================================
+    // ORDER NUMBER LIFECYCLE, DATABASE IDENTITY & RESOLUTION TESTS
+    // =========================================================================
+
+    // Test 133: Order creation generates genuine record with integer id & unique orderNumber
+    const testBooking = await OrderService.createPreliminaryBooking({
+      customerName: 'محمود عبد الفتاح (اختبار دورة الطلب)',
+      phone: '01055443322',
+      menuCode: 'Sale-01',
+      quantity: 60,
+      pickupDate: '2026-11-20',
+      pickupTime: '06:00 م',
+      pickupLocation: 'بني سويف - قاعة الزهور',
+      notes: 'اختبار دورة حياة رقم الطلب',
+    });
+    assert(typeof testBooking.order.id === 'number' && testBooking.order.id > 0, 'Test 133a: Order primary key id is a positive integer in DB');
+    assert(typeof testBooking.order.orderNumber === 'string' && testBooking.order.orderNumber.startsWith('CB-'), 'Test 133b: orderNumber is formatted correctly (CB-YYYYMMDD-XXXX)');
+
+    // Test 134: Resolving order by integer ID vs string orderNumber returns exact same record
+    const byId = await OrderService.getOrderByIdOrNumber(testBooking.order.id);
+    const byNumber = await OrderService.getOrderByIdOrNumber(testBooking.order.orderNumber);
+    assert(Boolean(byId) && Boolean(byNumber), 'Test 134a: Order found by both integer ID and orderNumber string');
+    assert(byId!.id === byNumber!.id, 'Test 134b: Both lookups resolve to the exact same record primary key id');
+    assert(byId!.orderNumber === byNumber!.orderNumber, 'Test 134c: Both lookups resolve to the exact same orderNumber');
+
+    // Test 135: Case insensitivity and whitespace tolerance in orderNumber resolution
+    const byLowerNumber = await OrderService.getOrderByIdOrNumber(testBooking.order.orderNumber.toLowerCase());
+    assert(Boolean(byLowerNumber) && byLowerNumber!.id === testBooking.order.id, 'Test 135: Case-insensitive orderNumber resolution matches correct record');
+
+    // Test 136: Non-existent order number returns null, strictly never returning another order
+    const fakeOrder = await OrderService.getOrderByIdOrNumber('CB-19990101-9999');
+    assert(fakeOrder === null, 'Test 136a: Non-existent orderNumber returns null');
+    const fakeNumId = await OrderService.getOrderByIdOrNumber(99999999);
+    assert(fakeNumId === null, 'Test 136b: Non-existent integer id returns null');
+
+    // Test 137: Concurrency test: Simultaneous bookings create distinct records with unique numbers
+    const concurrentPromises = [1, 2, 3, 4, 5].map((i) =>
+      OrderService.createPreliminaryBooking({
+        customerName: `عميل متزامن ${i}`,
+        phone: `0108877660${i}`,
+        menuCode: 'Sale-03',
+        quantity: 50,
+        pickupDate: '2026-11-25',
+      })
+    );
+    const concurrentResults = await Promise.all(concurrentPromises);
+    const orderNumbers = concurrentResults.map((r) => r.order.orderNumber);
+    const uniqueOrderNumbers = new Set(orderNumbers);
+    assert(uniqueOrderNumbers.size === 5, 'Test 137a: Concurrent bookings all generated distinct, unique orderNumbers (no collisions)');
+    const recordIds = concurrentResults.map((r) => r.order.id);
+    const uniqueRecordIds = new Set(recordIds);
+    assert(uniqueRecordIds.size === 5, 'Test 137b: Concurrent bookings all created distinct database rows with separate IDs');
+
+    // Test 138: Order status update maintains the exact same orderNumber
+    const originalNum = testBooking.order.orderNumber;
+    await OrderService.updateOrderStatus(testBooking.order.id, 'CONFIRMED', undefined, 'admin_tester');
+    const refreshedAfterStatus = await OrderService.getOrderByIdOrNumber(testBooking.order.id);
+    assert(refreshedAfterStatus!.orderStatus === 'CONFIRMED', 'Test 138a: Order status successfully updated to CONFIRMED');
+    assert(refreshedAfterStatus!.orderNumber === originalNum, 'Test 138b: orderNumber is immutable and preserved after status update');
+
+    // Test 139: Order details update using orderNumber string succeeds and preserves orderNumber
+    await OrderService.updateOrderDetails(
+      originalNum,
+      { pickupLocation: 'بني سويف - تم تحديث المكان', customerNotes: 'ملاحظة محدثة' },
+      'admin_tester'
+    );
+    const refreshedAfterDetails = await OrderService.getOrderByIdOrNumber(originalNum);
+    assert(refreshedAfterDetails!.pickupLocation === 'بني سويف - تم تحديث المكان', 'Test 139a: Details updated using orderNumber string identifier');
+    assert(refreshedAfterDetails!.orderNumber === originalNum, 'Test 139b: orderNumber unchanged after operational details update');
+    assert(refreshedAfterDetails!.id === testBooking.order.id, 'Test 139c: Same database record maintained without creating duplicates');
+
+    // Test 140: Customer payment recorded using orderNumber string identifier correctly updates finances
+    const paymentResult = await OrderService.recordCustomerPayment(
+      originalNum,
+      1000,
+      'INSTAPAY',
+      'REF-TEST-123',
+      'دفعة تأكيد',
+      'admin_tester'
+    );
+    assert(paymentResult.totalCustomerPaid === 1000, 'Test 140a: Customer payment recorded correctly');
+    const refreshedAfterPayment = await OrderService.getOrderByIdOrNumber(testBooking.order.id);
+    assert(Number(refreshedAfterPayment!.customerPaid) === 1000, 'Test 140b: Order customerPaid in DB updated to 1000');
+    assert(Number(refreshedAfterPayment!.customerRemaining) === Number(refreshedAfterPayment!.totalAmount) - 1000, 'Test 140c: Order customerRemaining accurately updated');
+
+    // Test 141: Database historical integrity: All existing orders in DB have unique, valid orderNumbers
+    const allDbOrders = await db.select({ id: orders.id, orderNumber: orders.orderNumber }).from(orders);
+    const allNumbersSet = new Set(allDbOrders.map((o) => o.orderNumber));
+    assert(allNumbersSet.size === allDbOrders.length, `Test 141a: All ${allDbOrders.length} orders in database have strictly unique orderNumbers`);
+    const allHaveValidFormat = allDbOrders.every((o) => typeof o.orderNumber === 'string' && o.orderNumber.length >= 6);
+    assert(allHaveValidFormat, 'Test 141b: All orders have non-empty, valid orderNumber strings');
+
     console.log(`\n🏁 Test Results: ${passed} Passed, ${failed} Failed.`);
     if (failed > 0) {
       process.exit(1);

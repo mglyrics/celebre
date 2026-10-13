@@ -6,7 +6,11 @@ import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
 import { generateWhatsAppAiReply, sendMetaWhatsAppMessage } from "./server/whatsappService";
-import { apiRouter } from "./src/server/apiRouter.ts";
+import { apiRouter, resolveOrderRecord } from "./src/server/apiRouter.ts";
+import { db } from "./src/db/index.ts";
+import { orders as ordersTable, customers as customersTable, orderItems as orderItemsTable } from "./src/db/schema.ts";
+import { eq, desc } from "drizzle-orm";
+import { OrderService } from "./src/services/orderService.ts";
 
 dotenv.config();
 
@@ -533,12 +537,41 @@ function broadcastAdminBookingsUpdate(
 }
 
 // API: List Orders (Strictly Protected - Authorized Admin Only)
-app.get("/api/orders", requireAdminAuth, (_req, res) => {
-  res.json({ success: true, orders });
+app.get("/api/orders", requireAdminAuth, async (_req, res) => {
+  try {
+    const rawOrders = await db
+      .select({
+        id: ordersTable.id,
+        orderNumber: ordersTable.orderNumber,
+        customerId: ordersTable.customerId,
+        customerName: customersTable.fullName,
+        customerPhone: customersTable.phone,
+        orderStatus: ordersTable.orderStatus,
+        pickupDate: ordersTable.pickupDate,
+        pickupTime: ordersTable.pickupTime,
+        pickupLocation: ordersTable.pickupLocation,
+        totalAmount: ordersTable.totalAmount,
+        customerPaid: ordersTable.customerPaid,
+        customerRemaining: ordersTable.customerRemaining,
+        supplierTotal: ordersTable.supplierTotal,
+        supplierPaid: ordersTable.supplierPaid,
+        supplierRemaining: ordersTable.supplierRemaining,
+        distributorProfit: ordersTable.distributorProfit,
+        createdAt: ordersTable.createdAt,
+      })
+      .from(ordersTable)
+      .innerJoin(customersTable, eq(ordersTable.customerId, customersTable.id))
+      .orderBy(desc(ordersTable.id));
+
+    res.json({ success: true, orders: rawOrders });
+  } catch (err: any) {
+    console.error("Error listing orders from DB:", err);
+    res.status(500).json({ success: false, message: "تعذر الاتصال بقاعدة البيانات" });
+  }
 });
 
 // API: Order Tracking (Disabled for public to maintain absolute customer privacy & security)
-app.get("/api/orders/track/:query", (req, res) => {
+app.get("/api/orders/track/:query", async (req, res) => {
   const token = (req.headers.authorization || "").replace("Bearer ", "").trim() || (req.headers["x-admin-token"] as string);
   if (!isValidAdminSession(token)) {
     return res.status(403).json({
@@ -546,24 +579,78 @@ app.get("/api/orders/track/:query", (req, res) => {
       message: "تم إيقاف الاستعلام العام عن الطلبات لدواعي الأمان والخصوصية. يتم مراجعة الحجوزات حصرياً عبر إدارة سيلبر."
     });
   }
-  // Admin query fallback
-  const raw = (req.params.query || "").trim().toLowerCase();
-  const foundOrder = orders.find(o => o.id.toLowerCase().includes(raw) || o.phone.includes(raw));
-  const foundBooking = adminBookings.find(b => b.id.toLowerCase().includes(raw) || b.phone.includes(raw));
-  return res.json({ success: true, order: foundOrder || null, booking: foundBooking || null });
+  try {
+    const raw = (req.params.query || "").trim();
+    const foundOrder = await resolveOrderRecord(raw);
+    return res.json({ success: true, order: foundOrder || null });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, message: "تعذر الاتصال بقاعدة البيانات" });
+  }
 });
 
-app.get("/api/orders/:id", (req, res) => {
-  const id = req.params.id.trim().toLowerCase();
-  const order = orders.find(o => o.id.toLowerCase() === id);
-  if (!order) {
-    const booking = adminBookings.find(b => b.id.toLowerCase() === id);
-    if (!booking) {
+// API: Get Order by ID or Order Number
+app.get("/api/orders/:id", async (req, res) => {
+  try {
+    const param = (req.params.id || "").trim();
+    if (!param) return res.status(400).json({ success: false, message: "رقم الطلب مطلوب" });
+
+    const order = await resolveOrderRecord(param);
+    if (!order) {
       return res.status(404).json({ success: false, message: "الطلب غير موجود" });
     }
-    return res.json({ success: true, booking });
+
+    const token = (req.headers.authorization || "").replace("Bearer ", "").trim() || (req.headers["x-admin-token"] as string);
+    const isAdmin = isValidAdminSession(token);
+
+    const items = await db.select().from(orderItemsTable).where(eq(orderItemsTable.orderId, order.id));
+    const customer = (await db.select().from(customersTable).where(eq(customersTable.id, order.customerId)).limit(1))[0];
+
+    if (isAdmin) {
+      return res.json({
+        success: true,
+        order: {
+          ...order,
+          totalAmount: parseFloat(order.totalAmount),
+          customerPaid: parseFloat(order.customerPaid),
+          customerRemaining: parseFloat(order.customerRemaining),
+          supplierTotal: parseFloat(order.supplierTotal),
+          supplierPaid: parseFloat(order.supplierPaid),
+          supplierRemaining: parseFloat(order.supplierRemaining),
+          distributorProfit: parseFloat(order.distributorProfit),
+        },
+        customer,
+        items,
+      });
+    }
+
+    // Public / Customer Safe View (Supplier financials redacted for privacy)
+    return res.json({
+      success: true,
+      order: {
+        id: order.id,
+        orderNumber: order.orderNumber,
+        customerName: customer?.fullName || "عميل سيلبر",
+        phone: customer?.phone || "",
+        pickupDate: order.pickupDate,
+        pickupTime: order.pickupTime,
+        pickupLocation: order.pickupLocation,
+        customerNotes: order.customerNotes,
+        totalAmount: parseFloat(order.totalAmount),
+        customerPaid: parseFloat(order.customerPaid),
+        customerRemaining: parseFloat(order.customerRemaining),
+        orderStatus: order.orderStatus,
+        createdAt: order.createdAt,
+      },
+      items: items.map((it) => ({
+        menuCode: it.menuCode,
+        menuName: it.menuName,
+        quantity: it.quantity,
+      })),
+    });
+  } catch (err: any) {
+    console.error("Error fetching order by id:", err);
+    return res.status(500).json({ success: false, message: "تعذر الاتصال بقاعدة البيانات" });
   }
-  return res.json({ success: true, order });
 });
 
 // API: Reset Orders to Clean State (Protected)
@@ -662,102 +749,55 @@ app.get("/api/admin/audit-logs", requireAdminAuth, (_req, res) => {
   res.json({ success: true, logs });
 });
 
-app.post("/api/orders", (req, res) => {
+app.post("/api/orders", async (req, res) => {
   try {
     const data = req.body || {};
     const ip = req.ip || req.socket.remoteAddress || "client_ip";
+    const userAgent = (req.headers["user-agent"] as string) || "unknown";
 
-    // Strict input sanitization & validation
     const customerName = sanitizeInput(data.customerName || "عميل سيلبر", 100);
     const phone = normalizeDigits(sanitizeInput(data.phone || "01284484868", 20));
-    const occasion = sanitizeInput(data.occasion || "حفل زفاف ومناسبة عائلية", 100);
     const location = sanitizeInput(data.location || "بني سويف", 150);
     const governorate = sanitizeInput(data.governorate || "بني سويف - مدينة بني سويف", 100);
     const notes = sanitizeInput(data.notes || "", 500);
 
-    const orderId = (data.id && typeof data.id === "string" && data.id.trim()) 
-      ? sanitizeInput(data.id.trim(), 30)
-      : `CEL-${Math.floor(1000 + Math.random() * 9000)}`;
-
-    const totalBoxes = Math.max(1, Number(data.totalBoxes) || 50);
-    const totalPrice = Math.max(0, Number(data.totalPrice) || 0);
-
-    const newOrder: CateringOrder = {
-      id: orderId,
-      customerName,
-      phone,
-      occasion,
-      eventDate: sanitizeInput(data.eventDate || new Date().toISOString().split("T")[0], 20),
-      eventTime: sanitizeInput(data.eventTime || "7:00 مساءً", 30),
-      location,
-      governorate,
-      packages: Array.isArray(data.packages) ? data.packages : [],
-      totalPrice,
-      totalBoxes,
-      depositAmount: 0,
-      remainingAmount: totalPrice,
-      shippingFee: 0,
-      notes,
-      paymentMethod: sanitizeInput(data.paymentMethod || "instapay", 30),
-      status: "pending",
-      createdAt: new Date().toISOString()
-    };
-
-    orders.unshift(newOrder);
-    saveOrders(orders);
-
-    // Mirror into adminBookings
     const pkg = (data.packages && data.packages[0]) || null;
-    const pkgCode = sanitizeInput(pkg?.packageCode || "Sale - 01", 30);
-    const pkgName = sanitizeInput(pkg?.name || pkg?.packageName || "طلب وجبات من الموقع الرسمي", 150);
-    const unitPrice = totalBoxes > 0 ? Math.round(totalPrice / totalBoxes) : 50;
+    const menuCode = data.menuCode || pkg?.packageCode?.replace(/\s+/g, '') || "Sale-01";
+    const quantity = Math.max(50, Number(data.totalBoxes) || Number(data.quantity) || 50);
 
-    const newAdminBooking: AdminBookingRecord = {
-      id: orderId,
+    const bookingResult = await OrderService.createPreliminaryBooking({
       customerName,
       phone,
-      occasion,
-      eventDate: newOrder.eventDate,
-      eventTime: newOrder.eventTime || "7:00 مساءً",
-      packageCode: pkgCode,
-      packageName: pkgName,
-      basePrice: unitPrice,
-      drinkOption: 'juice_included',
-      drinkOptionLabel: 'عصير بخيرة مشمول',
-      drinkPriceDelta: 0,
-      unitDiscount: 0,
-      totalDiscount: 0,
-      unitPrice,
-      quantity: totalBoxes,
-      totalPrice,
-      depositPaid: 0,
-      shippingFee: 0,
-      remainingAmount: totalPrice,
-      paymentStatus: 'pending_payment',
-      orderStatus: 'confirmed',
-      deliveryAddress: `${governorate} - ${location}`,
-      phoneAgreementNotes: notes ? `نموذج حجز مبدئي: ${notes}` : "نموذج حجز مبدئي لبدء عملية حجز العميل - تم تسجيله بنجاح",
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
+      whatsapp: data.whatsapp ? normalizeDigits(sanitizeInput(data.whatsapp, 20)) : phone,
+      menuCode,
+      quantity,
+      pickupDate: sanitizeInput(data.eventDate || data.pickupDate || new Date().toISOString().split("T")[0], 20),
+      pickupTime: sanitizeInput(data.eventTime || data.pickupTime || "7:00 مساءً", 30),
+      pickupLocation: `${governorate} - ${location}`,
+      notes,
+      drinkOption: data.drinkOption || "included",
+      ip,
+      userAgent,
+    });
 
-    adminBookings.unshift(newAdminBooking);
-    saveAdminBookings(adminBookings);
-    broadcastAdminBookingsUpdate('created', newAdminBooking);
-
-    // Record audit event
-    addAuditLog(
-      "BOOKING_CREATED", 
-      ip, 
-      `تسجيل حجز عميل جديد برقم ${orderId} باسم "${customerName}" (${totalBoxes} وجبة) بقيمة ${totalPrice.toLocaleString()} ج`, 
-      "info",
-      req.headers["user-agent"]
-    );
-
-    res.json({ success: true, order: newOrder, adminBooking: newAdminBooking });
-  } catch (error) {
-    console.error("Error creating order:", error);
-    res.status(500).json({ success: false, message: "تعذر حفظ الطلب" });
+    res.json({
+      success: true,
+      message: "تم إنشاء الطلب وحفظه في قاعدة البيانات بنجاح",
+      id: bookingResult.order.id,
+      orderNumber: bookingResult.order.orderNumber,
+      order: {
+        id: bookingResult.order.id,
+        orderNumber: bookingResult.order.orderNumber,
+        customerName: bookingResult.customerName,
+        phone: bookingResult.phone,
+        totalAmount: bookingResult.customerTotal,
+        orderStatus: bookingResult.order.orderStatus,
+        createdAt: bookingResult.order.createdAt,
+      },
+    });
+  } catch (error: any) {
+    console.error("Error creating order in DB:", error);
+    res.status(400).json({ success: false, message: error.message || "تعذر حفظ الطلب في قاعدة البيانات" });
   }
 });
 

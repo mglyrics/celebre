@@ -201,6 +201,7 @@ apiRouter.post('/public/bookings', async (req: Request, res: Response) => {
       success: true,
       message: 'تم استلام طلب الحجز المبدئي وسيتم التواصل معك عبر واتساب لتأكيد الحجز وتفاصيل الدفع.',
       order: {
+        id: result.order.id,
         orderNumber: result.order.orderNumber,
         customerName: result.customerName,
         phone: result.phone,
@@ -396,9 +397,12 @@ apiRouter.get('/admin/orders', requireAdminAuth, requirePermission('orders.view'
 
     if (search && typeof search === 'string' && search.trim()) {
       const q = search.trim().toLowerCase();
+      const qNumeric = q.replace(/^#/, '');
       filtered = filtered.filter(
         (o) =>
           o.orderNumber.toLowerCase().includes(q) ||
+          String(o.id) === q ||
+          String(o.id) === qNumeric ||
           o.customerName.toLowerCase().includes(q) ||
           o.customerPhone.includes(q) ||
           o.menuCode.toLowerCase().includes(q) ||
@@ -417,14 +421,36 @@ apiRouter.get('/admin/orders', requireAdminAuth, requirePermission('orders.view'
   }
 });
 
+/**
+ * Safely resolves an order by either numeric record ID or string orderNumber
+ */
+export async function resolveOrderRecord(idOrNumber: string | number) {
+  const str = String(idOrNumber || '').trim();
+  if (!str) return null;
+  const isPureInt = /^\d+$/.test(str);
+  const upperStr = str.toUpperCase();
+  const list = await db
+    .select()
+    .from(orders)
+    .where(
+      isPureInt
+        ? or(eq(orders.id, parseInt(str, 10)), eq(orders.orderNumber, str), eq(orders.orderNumber, upperStr))
+        : or(eq(orders.orderNumber, str), eq(orders.orderNumber, upperStr))
+    )
+    .limit(1);
+  return list.length ? list[0] : null;
+}
+
 // 3. Single Order Details (Divided visually into Customer, Celebre, Factory, Payments, Audit)
 apiRouter.get('/admin/orders/:id', requireAdminAuth, requirePermission('orders.view'), async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const orderId = Number(req.params.id);
-    const orderList = await db.select().from(orders).where(eq(orders.id, orderId)).limit(1);
-    if (!orderList.length) return res.status(404).json({ success: false, message: 'الطلب غير موجود' });
+    const param = (req.params.id || '').trim();
+    if (!param) return res.status(400).json({ success: false, message: 'معرّف أو رقم الطلب مطلوب' });
 
-    const order = orderList[0];
+    const order = await resolveOrderRecord(param);
+    if (!order) return res.status(404).json({ success: false, message: 'الطلب غير موجود' });
+
+    const orderId = order.id;
     const customer = (await db.select().from(customers).where(eq(customers.id, order.customerId)).limit(1))[0];
     const items = await db.select().from(orderItems).where(eq(orderItems.orderId, orderId));
     const options = items.length
@@ -557,7 +583,9 @@ apiRouter.get('/admin/orders/:id', requireAdminAuth, requirePermission('orders.v
 // 1. Send Customer Message (تأكيد الطلب والحجز للعميل)
 apiRouter.post('/admin/orders/:id/whatsapp/customer-message', requireAdminAuth, requirePermission('orders.view'), async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const orderId = Number(req.params.id);
+    const order = await resolveOrderRecord(req.params.id);
+    if (!order) return res.status(404).json({ success: false, message: 'الطلب غير موجود' });
+    const orderId = order.id;
     const adminUser = req.adminSession?.username || 'admin';
     const result = await WhatsAppService.sendCustomerMessage(orderId, adminUser);
     res.json({ success: true, message: result.statusDescription, result });
@@ -569,7 +597,9 @@ apiRouter.post('/admin/orders/:id/whatsapp/customer-message', requireAdminAuth, 
 // 2. Send Supplier Message (أمر التوريد والتشغيل للمصنع)
 apiRouter.post('/admin/orders/:id/whatsapp/supplier-message', requireAdminAuth, requirePermission('orders.view'), async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const orderId = Number(req.params.id);
+    const order = await resolveOrderRecord(req.params.id);
+    if (!order) return res.status(404).json({ success: false, message: 'الطلب غير موجود' });
+    const orderId = order.id;
     const adminUser = req.adminSession?.username || 'admin';
     const result = await WhatsAppService.sendSupplierMessage(orderId, adminUser);
     res.json({ success: true, message: result.statusDescription, result });
@@ -581,7 +611,9 @@ apiRouter.post('/admin/orders/:id/whatsapp/supplier-message', requireAdminAuth, 
 // 3. Send Customer Update (تحديث العميل - تعديل حالة أو سداد دفعة)
 apiRouter.post('/admin/orders/:id/whatsapp/customer-update', requireAdminAuth, requirePermission('orders.view'), async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const orderId = Number(req.params.id);
+    const order = await resolveOrderRecord(req.params.id);
+    if (!order) return res.status(404).json({ success: false, message: 'الطلب غير موجود' });
+    const orderId = order.id;
     const adminUser = req.adminSession?.username || 'admin';
     const { updateReason } = req.body;
     const result = await WhatsAppService.sendCustomerUpdate(orderId, adminUser, updateReason);
@@ -594,7 +626,9 @@ apiRouter.post('/admin/orders/:id/whatsapp/customer-update', requireAdminAuth, r
 // 4. Send Supplier Update (تحديث المصنع - تعديل حالة أو تحويل مالي)
 apiRouter.post('/admin/orders/:id/whatsapp/supplier-update', requireAdminAuth, requirePermission('orders.view'), async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const orderId = Number(req.params.id);
+    const order = await resolveOrderRecord(req.params.id);
+    if (!order) return res.status(404).json({ success: false, message: 'الطلب غير موجود' });
+    const orderId = order.id;
     const adminUser = req.adminSession?.username || 'admin';
     const { updateReason } = req.body;
     const result = await WhatsAppService.sendSupplierUpdate(orderId, adminUser, updateReason);
@@ -607,7 +641,9 @@ apiRouter.post('/admin/orders/:id/whatsapp/supplier-update', requireAdminAuth, r
 // 5. Unified WhatsApp Dispatch Dispatcher
 apiRouter.post('/admin/orders/:id/whatsapp/dispatch', requireAdminAuth, requirePermission('orders.view'), async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const orderId = Number(req.params.id);
+    const order = await resolveOrderRecord(req.params.id);
+    if (!order) return res.status(404).json({ success: false, message: 'الطلب غير موجود' });
+    const orderId = order.id;
     const adminUser = req.adminSession?.username || 'admin';
     const { messageType, action, updateReason } = req.body;
     const type = (messageType || action || 'CUSTOMER_MESSAGE').toUpperCase();
@@ -634,7 +670,9 @@ apiRouter.post('/admin/orders/:id/whatsapp/dispatch', requireAdminAuth, requireP
 // 4. Update Order Status
 apiRouter.put('/admin/orders/:id/status', requireAdminAuth, requirePermission('orders.edit'), async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const orderId = Number(req.params.id);
+    const order = await resolveOrderRecord(req.params.id);
+    if (!order) return res.status(404).json({ success: false, message: 'الطلب غير موجود' });
+    const orderId = order.id;
     const { status, cancelReason } = req.body;
     const adminUser = req.adminSession?.username || 'admin';
     const ip = req.ip || req.socket.remoteAddress || 'unknown';
@@ -653,7 +691,9 @@ apiRouter.put('/admin/orders/:id/status', requireAdminAuth, requirePermission('o
 // 5. Update Order Operational Details
 apiRouter.put('/admin/orders/:id/details', requireAdminAuth, requirePermission('orders.edit'), async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const orderId = Number(req.params.id);
+    const order = await resolveOrderRecord(req.params.id);
+    if (!order) return res.status(404).json({ success: false, message: 'الطلب غير موجود' });
+    const orderId = order.id;
     const adminUser = req.adminSession?.username || 'admin';
     const ip = req.ip || req.socket.remoteAddress || 'unknown';
 
@@ -667,7 +707,9 @@ apiRouter.put('/admin/orders/:id/details', requireAdminAuth, requirePermission('
 // Alias: PUT /admin/orders/:id
 apiRouter.put('/admin/orders/:id', requireAdminAuth, requirePermission('orders.edit'), async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const orderId = Number(req.params.id);
+    const order = await resolveOrderRecord(req.params.id);
+    if (!order) return res.status(404).json({ success: false, message: 'الطلب غير موجود' });
+    const orderId = order.id;
     const adminUser = req.adminSession?.username || 'admin';
     const ip = req.ip || req.socket.remoteAddress || 'unknown';
 
@@ -743,7 +785,9 @@ apiRouter.post(
   requirePermission('customer_payments.create'),
   async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const orderId = Number(req.params.id);
+      const order = await resolveOrderRecord(req.params.id);
+      if (!order) return res.status(404).json({ success: false, message: 'الطلب غير موجود' });
+      const orderId = order.id;
       const { amount, paymentMethod, paymentStatus, paymentReference, notes } = req.body;
       const adminUser = req.adminSession?.username || 'admin';
       const ip = req.ip || req.socket.remoteAddress || 'unknown';
@@ -813,7 +857,9 @@ apiRouter.get(
   requirePermission('customer_payments.view'),
   async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const orderId = Number(req.params.id);
+      const order = await resolveOrderRecord(req.params.id);
+      if (!order) return res.status(404).json({ success: false, message: 'الطلب غير موجود' });
+      const orderId = order.id;
       const history = await db
         .select()
         .from(customerPayments)
@@ -834,7 +880,9 @@ apiRouter.post(
   requirePermission('supplier_payments.create'),
   async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const orderId = Number(req.params.id);
+      const order = await resolveOrderRecord(req.params.id);
+      if (!order) return res.status(404).json({ success: false, message: 'الطلب غير موجود' });
+      const orderId = order.id;
       const { amount, paymentMethod, reference, notes } = req.body;
       const adminUser = req.adminSession?.username || 'admin';
       const ip = req.ip || req.socket.remoteAddress || 'unknown';
@@ -907,7 +955,9 @@ apiRouter.get(
   requirePermission('supplier_payments.view'),
   async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const orderId = Number(req.params.id);
+      const order = await resolveOrderRecord(req.params.id);
+      if (!order) return res.status(404).json({ success: false, message: 'الطلب غير موجود' });
+      const orderId = order.id;
       const history = await db
         .select()
         .from(supplierPayments)
@@ -1095,7 +1145,7 @@ apiRouter.get('/admin/dashboard/stats', requireAdminAuth, requirePermission('ord
       stats: {
         todayDate: todayStr,
         todayOrdersCount,
-        todayOrders: todayOrdersCount,
+        todayOrders: sanitizedTodayOrders,
         pendingBookingCount,
         pendingBooking: pendingBookingCount,
         confirmedCount,
@@ -2037,7 +2087,9 @@ apiRouter.put('/admin/customers/:id', requireAdminAuth, requirePermission('custo
 // 16. Order Cancellation with Reason (orders.cancel)
 apiRouter.post('/admin/orders/:id/cancel', requireAdminAuth, requirePermission('orders.cancel'), async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const orderId = Number(req.params.id);
+    const order = await resolveOrderRecord(req.params.id);
+    if (!order) return res.status(404).json({ success: false, message: 'الطلب غير موجود' });
+    const orderId = order.id;
     const { cancelReason } = req.body;
     if (!cancelReason) {
       return res.status(400).json({ success: false, message: 'يرجى توضيح سبب إلغاء الطلب' });
