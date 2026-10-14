@@ -2000,7 +2000,12 @@ app.use("/api", (_req, res) => {
 });
 
 async function startServer() {
-  if (process.env.NODE_ENV !== "production" && !process.env.VERCEL) {
+  // Do not run background server or static serving in Vercel Serverless Function environment
+  if (process.env.VERCEL) {
+    return;
+  }
+
+  if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
@@ -2014,12 +2019,9 @@ async function startServer() {
     });
   }
 
-  // Only start listening if NOT running in Vercel serverless function environment
-  if (!process.env.VERCEL) {
-    app.listen(PORT, "0.0.0.0", () => {
-      console.log(`Celebre Catering Server running on http://0.0.0.0:${PORT}`);
-    });
-  }
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(`Celebre Catering Server running on http://0.0.0.0:${PORT}`);
+  });
 }
 
 // Start the server if in standalone node environment
