@@ -5,7 +5,7 @@ import crypto from "crypto";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
-import { generateWhatsAppAiReply, sendMetaWhatsAppMessage } from "./server/whatsappService";
+import { generateWhatsAppAiReply, sendMetaWhatsAppMessage } from "./server/whatsappService.ts";
 import { apiRouter, resolveOrderRecord } from "./src/server/apiRouter.ts";
 import { db } from "./src/db/index.ts";
 import { orders as ordersTable, customers as customersTable, orderItems as orderItemsTable } from "./src/db/schema.ts";
@@ -23,11 +23,12 @@ app.use(express.json());
 app.use((req, _res, next) => {
   const xMatched = req.headers["x-matched-path"] as string;
   const queryPath = (req.query?.path as string) || "";
-  if (req.url.startsWith("/api/index") || req.url.startsWith("/index")) {
-    if (xMatched && xMatched.startsWith("/api")) {
+  
+  if (queryPath) {
+    req.url = "/api/" + queryPath.replace(/^\/+/, "");
+  } else if (req.url.startsWith("/api/index") || req.url.startsWith("/index") || req.url.startsWith("/?path=")) {
+    if (xMatched && xMatched.startsWith("/api") && !xMatched.includes("/api/index")) {
       req.url = xMatched;
-    } else if (queryPath) {
-      req.url = "/api/" + queryPath.replace(/^\/+/, "");
     }
   }
   next();
@@ -1477,42 +1478,29 @@ app.post("/api/admin/auth/update-credentials", requireAdminAuth, (req, res) => {
 });
 
 // 5b. Dedicated Change Password Endpoint (Protected)
-app.post("/api/admin/auth/change-password", requireAdminAuth, (req, res) => {
+app.post("/api/admin/auth/change-password", requireAdminAuth, async (req, res) => {
   try {
-    const { currentPassword, newPassword } = req.body || {};
-    const cleanCurrent = (currentPassword || "").trim();
-    const cleanNew = (newPassword || "").trim();
+    const { currentPassword, newPassword, confirmPassword } = req.body || {};
     const ip = req.ip || req.socket.remoteAddress || "admin_ip";
+    const userAgent = (req.headers["user-agent"] as string) || "unknown";
 
-    if (!cleanNew || cleanNew.length < 3) {
-      return res.status(400).json({
-        success: false,
-        message: "كلمة السر الجديدة يجب ألا تقل عن 3 خانات."
-      });
-    }
+    const { AuthService } = await import("./src/services/authService.ts");
+    const result = await AuthService.changePassword(
+      1,
+      currentPassword || "",
+      newPassword || "",
+      confirmPassword || newPassword || "",
+      ip,
+      userAgent
+    );
 
-    const creds = loadAdminCredentials();
-    if (cleanCurrent && !isValidAdminPassword(cleanCurrent)) {
-      addAuditLog("SECURITY_ALERT", ip, "محاولة فاشلة لتغيير كلمة السر بكلمة حالية غير مطابقة", "warning", req.headers["user-agent"]);
-      return res.status(401).json({
-        success: false,
-        message: "كلمة السر الحالية غير مطابقة."
-      });
-    }
-
-    const salt = crypto.randomBytes(16).toString("hex");
-    creds.salt = salt;
-    creds.passwordHash = hashAdminPassword(cleanNew, salt);
-    saveAdminCredentials(creds);
-    addAuditLog("PASSWORD_CHANGED", ip, "تم تغيير كلمة سر الأدمن بنجاح وتشفيرها", "success", req.headers["user-agent"]);
-    console.log(`[AUTH] Admin password changed successfully via change-password.`);
     return res.json({
       success: true,
-      message: "تم تغيير وحفظ كلمة السر الجديدة بنجاح! تم اعتمادها وتشفيرها لجميع تسجيلات الدخول 🔒"
+      message: result.message,
+      token: result.newToken,
     });
-  } catch (e) {
-    console.error("Error in change-password:", e);
-    return res.status(500).json({ success: false, message: "فشل تغيير كلمة السر" });
+  } catch (e: any) {
+    return res.status(400).json({ success: false, message: e?.message || "فشل تغيير كلمة المرور" });
   }
 });
 

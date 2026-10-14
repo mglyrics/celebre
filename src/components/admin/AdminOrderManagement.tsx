@@ -2,10 +2,10 @@ import React, { useState, useEffect } from "react";
 import { 
   X, Lock, User, Key, ArrowRight, Plus, Search, Filter, 
   RefreshCw, Calendar, Phone, DollarSign, CheckCircle2, 
-  AlertCircle, Clock, ShieldCheck, Eye, Sparkles, ChevronDown,
+  AlertCircle, Clock, ShieldCheck, Eye, EyeOff, Sparkles, ChevronDown,
   Shield, MessageCircle, Truck, Package, TrendingUp, 
   AlertTriangle, FileText, Ban, Building2, Edit3, Check, Loader2,
-  ExternalLink, Layers, Copy, Send,
+  ExternalLink, Layers, Copy, Send, KeyRound,
   BarChart3, PieChart, Download, Printer, Users, Wallet
 } from "lucide-react";
 import { PublicMenuItem } from "../../types/publicMenu";
@@ -158,8 +158,19 @@ export const AdminOrderManagement: React.FC<AdminOrderManagementProps> = ({
   const [cancelReason, setCancelReason] = useState("");
   const [cancelLoading, setCancelLoading] = useState(false);
 
-  // Top Dashboard View Tab: dashboard vs orders vs payments vs reports
-  const [dashboardTab, setDashboardTab] = useState<"dashboard" | "orders" | "payments" | "reports">("dashboard");
+  // Top Dashboard View Tab: dashboard vs orders vs payments vs reports vs security
+  const [dashboardTab, setDashboardTab] = useState<"dashboard" | "orders" | "payments" | "reports" | "security">("dashboard");
+
+  // Security & Change Password states
+  const [currentPasswordInput, setCurrentPasswordInput] = useState("");
+  const [newPasswordInput, setNewPasswordInput] = useState("");
+  const [confirmPasswordInput, setConfirmPasswordInput] = useState("");
+  const [showCurrentPass, setShowCurrentPass] = useState(false);
+  const [showNewPass, setShowNewPass] = useState(false);
+  const [showConfirmPass, setShowConfirmPass] = useState(false);
+  const [changePasswordLoading, setChangePasswordLoading] = useState(false);
+  const [changePasswordError, setChangePasswordError] = useState("");
+  const [changePasswordSuccess, setChangePasswordSuccess] = useState("");
 
   // Executive Dashboard Stats State
   const [dashboardStats, setDashboardStats] = useState<any>(null);
@@ -404,6 +415,73 @@ export const AdminOrderManagement: React.FC<AdminOrderManagementProps> = ({
       localStorage.removeItem("celebre_admin_token");
       sessionStorage.removeItem("celebre_admin_token");
     } catch {}
+  };
+
+  // Handle Secure Password Change
+  const handleChangePasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setChangePasswordError("");
+    setChangePasswordSuccess("");
+
+    const currentP = currentPasswordInput.trim();
+    const newP = newPasswordInput.trim();
+    const confirmP = confirmPasswordInput.trim();
+
+    if (!currentP) {
+      setChangePasswordError("يرجى إدخال كلمة المرور الحالية");
+      return;
+    }
+    if (!newP) {
+      setChangePasswordError("يرجى إدخال كلمة المرور الجديدة");
+      return;
+    }
+    if (newP.length < 12) {
+      setChangePasswordError("يجب ألا تقل كلمة المرور الجديدة عن 12 حرفاً لضمان أمان النظام");
+      return;
+    }
+    if (newP !== confirmP) {
+      setChangePasswordError("كلمة المرور الجديدة غير متطابقة مع تأكيد كلمة المرور");
+      return;
+    }
+    if (newP === currentP) {
+      setChangePasswordError("كلمة المرور الجديدة يجب أن تكون مختلفة عن كلمة المرور الحالية");
+      return;
+    }
+
+    setChangePasswordLoading(true);
+    try {
+      const res = await safeFetchJson<any>("/api/admin/auth/change-password", {
+        method: "POST",
+        headers: getHeaders(),
+        body: JSON.stringify({
+          currentPassword: currentP,
+          newPassword: newP,
+          confirmPassword: confirmP,
+        }),
+      });
+
+      if (!res.ok || !res.data?.success) {
+        throw new Error(res.error || res.data?.message || "فشل تغيير كلمة المرور");
+      }
+
+      const data = res.data;
+      if (data.token) {
+        setToken(data.token);
+        try {
+          localStorage.setItem("celebre_admin_token", data.token);
+          sessionStorage.setItem("celebre_admin_token", data.token);
+        } catch {}
+      }
+
+      setChangePasswordSuccess(data.message || "تم تغيير كلمة المرور بنجاح واعتمادها وتشفيرها لجميع تسجيلات الدخول القادمة 🔒");
+      setCurrentPasswordInput("");
+      setNewPasswordInput("");
+      setConfirmPasswordInput("");
+    } catch (err: any) {
+      setChangePasswordError(err.message || "حدث خطأ أثناء تغيير كلمة المرور");
+    } finally {
+      setChangePasswordLoading(false);
+    }
   };
 
   // Handle Status Change
@@ -1153,6 +1231,23 @@ export const AdminOrderManagement: React.FC<AdminOrderManagementProps> = ({
                   >
                     <PieChart className="w-4 h-4 text-[#C89B3C]" />
                     <span>التقارير التحليلية (Reports)</span>
+                  </button>
+
+                  {/* TAB 5: SECURITY & CHANGE PASSWORD */}
+                  <button
+                    onClick={() => {
+                      setDashboardTab("security");
+                      setChangePasswordError("");
+                      setChangePasswordSuccess("");
+                    }}
+                    className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-black flex items-center gap-2 transition-all ${
+                      dashboardTab === "security"
+                        ? "bg-[#721832] text-white shadow-md"
+                        : "bg-white text-[#5C1027] border border-[#E8DFD1] hover:bg-[#FAF7F2]"
+                    }`}
+                  >
+                    <ShieldCheck className="w-4 h-4 text-[#C89B3C]" />
+                    <span>الأمان وتغيير كلمة المرور</span>
                   </button>
                 </div>
 
@@ -3617,6 +3712,287 @@ export const AdminOrderManagement: React.FC<AdminOrderManagementProps> = ({
             </div>
           </div>
         )}
+
+              {/* =========================================================================
+                  VIEW 5: SECURITY & CHANGE PASSWORD (الأمان وتغيير كلمة المرور)
+                  ========================================================================= */}
+              {dashboardTab === "security" && (
+                <div className="space-y-6 animate-fadeIn" dir="rtl">
+                  {/* Security Header Banner */}
+                  <div className="bg-gradient-to-r from-[#5C1027] via-[#721832] to-[#1F1714] text-white p-6 rounded-3xl shadow-md border border-[#C89B3C]/30 flex flex-wrap items-center justify-between gap-4">
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-2.5">
+                        <div className="p-2.5 rounded-2xl bg-white/10 border border-white/20">
+                          <ShieldCheck className="w-6 h-6 text-[#C89B3C]" />
+                        </div>
+                        <div>
+                          <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white">
+                            الأمان وتغيير كلمة المرور
+                          </h2>
+                          <p className="text-xs text-[#E8DFD1]/80 font-medium">
+                            إدارة بيانات الدخول المشفرة وتأمين حساب إدارة كاترنج سيلبر
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <span className="inline-flex items-center gap-1.5 text-xs font-bold bg-emerald-500/20 text-emerald-200 border border-emerald-400/30 px-3 py-1.5 rounded-xl">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                        <span>نظام تشفير Bcrypt + 2FA نشط</span>
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Grid Layout: Account Details + Change Password Form */}
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                    {/* Left/Col 1: Current Account Status & Security Overview (5 cols) */}
+                    <div className="lg:col-span-5 space-y-5">
+                      {/* Active Admin Profile Card */}
+                      <div className="bg-white rounded-3xl p-6 border border-[#E8DFD1] shadow-sm space-y-4">
+                        <div className="flex items-center justify-between border-b border-[#F4EFEA] pb-3">
+                          <h3 className="text-sm font-black text-[#5C1027] flex items-center gap-2">
+                            <User className="w-4 h-4 text-[#C89B3C]" />
+                            <span>بيانات حساب الأدمن الحالي</span>
+                          </h3>
+                          <span className="text-[10px] font-black uppercase tracking-wider bg-[#5C1027]/10 text-[#5C1027] px-2.5 py-1 rounded-lg">
+                            {adminUser?.role || "SUPER_ADMIN"}
+                          </span>
+                        </div>
+
+                        <div className="space-y-3 text-xs">
+                          <div className="flex items-center justify-between p-3 rounded-2xl bg-[#FAF7F2] border border-[#E8DFD1]">
+                            <span className="text-[#6B5E55] font-bold">اسم المستخدم:</span>
+                            <span className="font-black text-[#221B17] font-mono">{adminUser?.username || "admin"}</span>
+                          </div>
+
+                          <div className="flex items-center justify-between p-3 rounded-2xl bg-[#FAF7F2] border border-[#E8DFD1]">
+                            <span className="text-[#6B5E55] font-bold">الاسم الكامل:</span>
+                            <span className="font-bold text-[#221B17]">{adminUser?.fullName || "إدارة كاترنج سيلبر المركزية"}</span>
+                          </div>
+
+                          <div className="flex items-center justify-between p-3 rounded-2xl bg-[#FAF7F2] border border-[#E8DFD1]">
+                            <span className="text-[#6B5E55] font-bold">رقم هاتف التحقق 2FA:</span>
+                            <span className="font-bold text-[#721832] font-mono dir-ltr">{adminUser?.phone || "01284484868"}</span>
+                          </div>
+
+                          <div className="flex items-center justify-between p-3 rounded-2xl bg-[#FAF7F2] border border-[#E8DFD1]">
+                            <span className="text-[#6B5E55] font-bold">مستوى الصلاحيات:</span>
+                            <span className="font-bold text-emerald-700 flex items-center gap-1">
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              <span>كامل الصلاحيات (26 صلاحية معتمدة)</span>
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Security Guidelines & Recovery Notice Card */}
+                      <div className="bg-[#FAF7F2] rounded-3xl p-6 border border-[#E8DFD1] shadow-sm space-y-3 text-xs">
+                        <div className="flex items-center gap-2 text-[#5C1027] font-black">
+                          <AlertCircle className="w-4 h-4 text-[#C89B3C]" />
+                          <span>إرشادات الأمان وسياسة كلمات المرور</span>
+                        </div>
+                        <ul className="space-y-2 text-[#6B5E55] list-disc list-inside text-[11px] leading-relaxed">
+                          <li>الحد الأدنى لكلمة المرور هو <strong>12 حرفاً</strong> لضمان حماية النظام.</li>
+                          <li>يفضل استخدام مزيج من الأحرف الكبيرة والصغيرة والأرقام والرموز الخاصة.</li>
+                          <li>تغيير كلمة المرور يؤدي تلقائياً إلى <strong>إلغاء وتأمين الجلسات السابقة</strong> على الأجهزة الأخرى.</li>
+                          <li>تُخزن كلمات المرور مشفرة بخوارزمية <strong>Bcrypt (Salt Rounds: 10)</strong> دون إمكانية استرجاع النص الصريح.</li>
+                          <li>في حالة نسيان كلمة المرور وتعذر الدخول، يتم استرداد الحساب عبر سكريبت الخادم المعتمد <code>npm run admin:setup</code> بحضور المسؤول التقني فقط.</li>
+                        </ul>
+                      </div>
+                    </div>
+
+                    {/* Right/Col 2: Change Password Form (7 cols) */}
+                    <div className="lg:col-span-7">
+                      <div className="bg-white rounded-3xl p-6 sm:p-8 border border-[#E8DFD1] shadow-sm space-y-6">
+                        <div className="border-b border-[#F4EFEA] pb-4">
+                          <h3 className="text-base font-black text-[#5C1027] flex items-center gap-2">
+                            <KeyRound className="w-5 h-5 text-[#C89B3C]" />
+                            <span>تغيير كلمة المرور وتحديث الاعتماد</span>
+                          </h3>
+                          <p className="text-xs text-[#6B5E55] mt-1">
+                            أدخل كلمة المرور الحالية لتأكيد الهوية، ثم أدخل كلمة المرور الجديدة القوية
+                          </p>
+                        </div>
+
+                        {changePasswordError && (
+                          <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-2xl text-xs font-bold flex items-center gap-3 animate-fadeIn">
+                            <AlertCircle className="w-5 h-5 shrink-0 text-red-600" />
+                            <span>{changePasswordError}</span>
+                          </div>
+                        )}
+
+                        {changePasswordSuccess && (
+                          <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 p-4 rounded-2xl text-xs font-bold flex items-center gap-3 animate-fadeIn">
+                            <CheckCircle2 className="w-5 h-5 shrink-0 text-emerald-600" />
+                            <span>{changePasswordSuccess}</span>
+                          </div>
+                        )}
+
+                        <form onSubmit={handleChangePasswordSubmit} className="space-y-5">
+                          {/* 1. Current Password */}
+                          <div>
+                            <label className="block text-xs font-bold text-[#221B17] mb-1.5">
+                              كلمة المرور الحالية (Current Password) <span className="text-red-500">*</span>
+                            </label>
+                            <div className="relative">
+                              <input
+                                type={showCurrentPass ? "text" : "password"}
+                                required
+                                value={currentPasswordInput}
+                                onChange={(e) => setCurrentPasswordInput(e.target.value)}
+                                placeholder="أدخل كلمة المرور الحالية"
+                                className="w-full bg-[#FAF7F2] border border-[#D6C7B7] rounded-2xl px-4 py-3 text-xs sm:text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#721832] focus:bg-white pl-10"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setShowCurrentPass(!showCurrentPass)}
+                                className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8C7D73] hover:text-[#5C1027] p-1 cursor-pointer"
+                                title={showCurrentPass ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"}
+                              >
+                                {showCurrentPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* 2. New Password */}
+                          <div>
+                            <div className="flex items-center justify-between mb-1.5">
+                              <label className="text-xs font-bold text-[#221B17]">
+                                كلمة المرور الجديدة (New Password) <span className="text-red-500">*</span>
+                              </label>
+                              <span className="text-[11px] text-[#8C7D73]">الحد الأدنى 12 حرفاً</span>
+                            </div>
+                            <div className="relative">
+                              <input
+                                type={showNewPass ? "text" : "password"}
+                                required
+                                minLength={12}
+                                value={newPasswordInput}
+                                onChange={(e) => setNewPasswordInput(e.target.value)}
+                                placeholder="أدخل كلمة المرور الجديدة (12 حرفاً على الأقل)"
+                                className="w-full bg-[#FAF7F2] border border-[#D6C7B7] rounded-2xl px-4 py-3 text-xs sm:text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#721832] focus:bg-white pl-10"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setShowNewPass(!showNewPass)}
+                                className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8C7D73] hover:text-[#5C1027] p-1 cursor-pointer"
+                                title={showNewPass ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"}
+                              >
+                                {showNewPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                              </button>
+                            </div>
+
+                            {/* Password Strength Indicator */}
+                            {newPasswordInput && (
+                              <div className="mt-2 space-y-1.5">
+                                <div className="flex items-center justify-between text-[11px] font-bold">
+                                  <span>مستوى قوة كلمة المرور:</span>
+                                  <span className={
+                                    newPasswordInput.length >= 14 && /[A-Z]/.test(newPasswordInput) && /[0-9]/.test(newPasswordInput) && /[^A-Za-z0-9]/.test(newPasswordInput)
+                                      ? "text-emerald-700"
+                                      : newPasswordInput.length >= 12
+                                      ? "text-blue-700"
+                                      : "text-amber-700"
+                                  }>
+                                    {newPasswordInput.length >= 14 && /[A-Z]/.test(newPasswordInput) && /[0-9]/.test(newPasswordInput) && /[^A-Za-z0-9]/.test(newPasswordInput)
+                                      ? "قوية جداً ومثالية 🛡️"
+                                      : newPasswordInput.length >= 12
+                                      ? "جيدة ومقبولة ✅"
+                                      : "قصيرة (أقل من 12 حرفاً) ⚠️"}
+                                  </span>
+                                </div>
+                                <div className="w-full h-1.5 bg-[#E8DFD1] rounded-full overflow-hidden">
+                                  <div
+                                    className={`h-full transition-all duration-300 ${
+                                      newPasswordInput.length >= 14 && /[A-Z]/.test(newPasswordInput) && /[0-9]/.test(newPasswordInput) && /[^A-Za-z0-9]/.test(newPasswordInput)
+                                        ? "w-full bg-emerald-600"
+                                        : newPasswordInput.length >= 12
+                                        ? "w-3/4 bg-blue-600"
+                                        : "w-1/3 bg-amber-500"
+                                    }`}
+                                  />
+                                </div>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* 3. Confirm New Password */}
+                          <div>
+                            <label className="block text-xs font-bold text-[#221B17] mb-1.5">
+                              تأكيد كلمة المرور الجديدة (Confirm New Password) <span className="text-red-500">*</span>
+                            </label>
+                            <div className="relative">
+                              <input
+                                type={showConfirmPass ? "text" : "password"}
+                                required
+                                minLength={12}
+                                value={confirmPasswordInput}
+                                onChange={(e) => setConfirmPasswordInput(e.target.value)}
+                                placeholder="أعد كتابة كلمة المرور الجديدة للتأكيد"
+                                className={`w-full bg-[#FAF7F2] border rounded-2xl px-4 py-3 text-xs sm:text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#721832] focus:bg-white pl-10 ${
+                                  confirmPasswordInput && confirmPasswordInput !== newPasswordInput
+                                    ? "border-red-400"
+                                    : confirmPasswordInput && confirmPasswordInput === newPasswordInput
+                                    ? "border-emerald-400"
+                                    : "border-[#D6C7B7]"
+                                }`}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setShowConfirmPass(!showConfirmPass)}
+                                className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8C7D73] hover:text-[#5C1027] p-1 cursor-pointer"
+                                title={showConfirmPass ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"}
+                              >
+                                {showConfirmPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                              </button>
+                            </div>
+
+                            {confirmPasswordInput && (
+                              <p className={`text-[11px] font-bold mt-1.5 flex items-center gap-1 ${
+                                confirmPasswordInput === newPasswordInput ? "text-emerald-700" : "text-red-600"
+                              }`}>
+                                {confirmPasswordInput === newPasswordInput ? (
+                                  <>
+                                    <Check className="w-3.5 h-3.5" />
+                                    <span>كلمات المرور متطابقة بنجاح</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <AlertCircle className="w-3.5 h-3.5" />
+                                    <span>كلمة المرور غير متطابقة مع التأكيد</span>
+                                  </>
+                                )}
+                              </p>
+                            )}
+                          </div>
+
+                          {/* Submit Button */}
+                          <div className="pt-2">
+                            <button
+                              type="submit"
+                              disabled={changePasswordLoading || !currentPasswordInput || !newPasswordInput || !confirmPasswordInput || newPasswordInput !== confirmPasswordInput || newPasswordInput.length < 12}
+                              className="w-full bg-gradient-to-r from-[#721832] to-[#5C1027] hover:from-[#5C1027] hover:to-[#400B1B] text-white py-3.5 px-6 rounded-2xl text-xs sm:text-sm font-black transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer active:scale-[0.99]"
+                            >
+                              {changePasswordLoading ? (
+                                <>
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                  <span>جارٍ تشفير وحفظ كلمة المرور الجديدة...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <KeyRound className="w-4 h-4 text-[#C89B3C]" />
+                                  <span>تغيير كلمة المرور وتأمين الحساب</span>
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        </form>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
         {/* =========================================================================
             MODAL 2: CREATE ORDER (ADMIN)

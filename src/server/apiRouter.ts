@@ -332,6 +332,67 @@ apiRouter.post('/admin/auth/logout', (req: Request, res: Response) => {
   res.json({ success: true, message: 'تم تسجيل الخروج بنجاح' });
 });
 
+// Admin Auth Status
+apiRouter.get('/admin/auth/status', (req: Request, res: Response) => {
+  const authHeader = req.headers.authorization || (req.headers['x-admin-token'] as string);
+  let token = authHeader ? (authHeader.startsWith('Bearer ') ? authHeader.substring(7) : authHeader) : '';
+  if (!token && req.headers.cookie) {
+    const match = req.headers.cookie.split(';').find((c) => c.trim().startsWith('admin_session='));
+    if (match) token = match.split('=')[1]?.trim();
+  }
+  const session = token ? AuthService.getSession(token) : null;
+  res.json({
+    success: true,
+    isConfigured: true,
+    isAuthenticated: Boolean(session),
+    adminName: session?.fullName || 'إدارة كاترنج سيلبر المركزية',
+    registeredPhone: session?.phone || '01284484868',
+    role: session?.role || 'admin',
+    securityLevel: 'ENCRYPTED_ENTERPRISE_RBAC',
+  });
+});
+
+// Admin Change Password (Protected by requireAdminAuth)
+apiRouter.post('/admin/auth/change-password', requireAdminAuth, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { currentPassword, newPassword, confirmPassword } = req.body || {};
+    const ip = req.ip || req.socket.remoteAddress || 'unknown';
+    const userAgent = req.headers['user-agent'] || 'unknown';
+
+    if (!req.adminSession?.userId) {
+      return res.status(401).json({ success: false, message: 'جلسة الأدمن غير صالحة' });
+    }
+
+    const result = await AuthService.changePassword(
+      req.adminSession.userId,
+      currentPassword,
+      newPassword,
+      confirmPassword !== undefined ? confirmPassword : newPassword,
+      ip,
+      userAgent
+    );
+
+    // Update session cookie
+    const isProd = process.env.NODE_ENV === 'production';
+    res.cookie('admin_session', result.newToken, {
+      httpOnly: true,
+      secure: isProd,
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 24 * 60 * 60 * 1000,
+    });
+
+    res.json({
+      success: true,
+      message: result.message,
+      token: result.newToken,
+      session: result.session,
+    });
+  } catch (error: any) {
+    res.status(400).json({ success: false, message: error.message || 'فشل تغيير كلمة المرور' });
+  }
+});
+
 /* ==========================================================================
    ADMIN ORDERS MANAGEMENT APIS
    ========================================================================== */

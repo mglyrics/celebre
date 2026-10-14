@@ -29,6 +29,9 @@ const activeSessions = new Map<string, AdminSession>();
 // Rate-limiting store for OTP requests (phone/userId -> timestamps[])
 const otpRequestTimestamps = new Map<string, number[]>();
 
+// Rate-limiting store for Password Change attempts (key -> timestamps[])
+const passwordChangeTimestamps = new Map<string, number[]>();
+
 export class AuthService {
   /**
    * Hashes password using bcrypt with salt rounds = 10
@@ -39,17 +42,42 @@ export class AuthService {
   }
 
   /**
-   * Verifies password using bcrypt (with backward-compatible upgrade for legacy hashes)
+   * Verifies password using bcrypt (with backward-compatible upgrade for legacy hashes:
+   * bcrypt $2a$/$2b$/$2y$, colon-delimited salt:hash PBKDF2, separate salt PBKDF2, SHA-256)
    */
   public static verifyPassword(password: string, hash: string, salt?: string): boolean {
+    if (!hash) return false;
+    // 1. Modern bcrypt
     if (hash.startsWith('$2a$') || hash.startsWith('$2b$') || hash.startsWith('$2y$')) {
-      return bcrypt.compareSync(password, hash);
+      try {
+        return bcrypt.compareSync(password, hash);
+      } catch {
+        return false;
+      }
     }
-    // Backward compatibility for legacy PBKDF2 hash
+    // 2. Colon-delimited "salt:hash" (PBKDF2 sha512 10000)
+    if (hash.includes(':')) {
+      const parts = hash.split(':');
+      if (parts.length === 2 && parts[0] && parts[1]) {
+        try {
+          const computed = crypto.pbkdf2Sync(password, parts[0], 10000, 64, 'sha512').toString('hex');
+          if (computed === parts[1]) return true;
+        } catch {}
+      }
+    }
+    // 3. Separate salt column (PBKDF2 sha512 10000)
     if (salt) {
-      const legacyHash = crypto.pbkdf2Sync(password, salt, 10000, 64, 'sha512').toString('hex');
-      return legacyHash === hash;
+      try {
+        const legacyHash = crypto.pbkdf2Sync(password, salt, 10000, 64, 'sha512').toString('hex');
+        if (legacyHash === hash) return true;
+      } catch {}
     }
+    // 4. SHA-256 fallback (legacy)
+    try {
+      const sha256 = crypto.createHash('sha256').update(password).digest('hex');
+      if (sha256 === hash) return true;
+    } catch {}
+
     return false;
   }
 
@@ -636,5 +664,171 @@ export class AuthService {
       entity: 'admin_users',
       entityId: String(id),
     });
+  }
+
+  /**
+   * Rate limiting on Password Change attempts:
+   * - Max 5 attempts per 15 minutes per user/IP
+   */
+  public static checkPasswordChangeRateLimit(key: string): { allowed: boolean; waitSeconds?: number; message?: string } {
+    const now = Date.now();
+    const timestamps = (passwordChangeTimestamps.get(key) || []).filter((t) => now - t < 15 * 60 * 1000);
+
+    if (timestamps.length >= 5) {
+      const oldest = timestamps[0];
+      const waitSeconds = Math.ceil((15 * 60 * 1000 - (now - oldest)) / 1000);
+      return {
+        allowed: false,
+        waitSeconds,
+        message: `تم تجاوز الحد الأقصى لمحاولات تغيير كلمة المرور (5 محاولات). يرجى الانتظار ${Math.max(1, waitSeconds)} ثانية قبل المحاولة مجدداً.`,
+      };
+    }
+
+    timestamps.push(now);
+    passwordChangeTimestamps.set(key, timestamps);
+    return { allowed: true };
+  }
+
+  /**
+   * Securely changes password for authenticated admin:
+   * 1. Requires valid admin session
+   * 2. Verifies current password against database
+   * 3. Validates new password matching confirmation
+   * 4. Enforces minimum length >= 12 chars
+   * 5. Hashes new password with bcrypt
+   * 6. Updates database without storing plain text
+   * 7. Invalidates other sessions and issues fresh token
+   * 8. Records security audit log
+   */
+  public static async changePassword(
+    userId: number,
+    currentPasswordRaw: string,
+    newPasswordRaw: string,
+    confirmPasswordRaw: string,
+    ip?: string,
+    userAgent?: string
+  ): Promise<{ success: boolean; message: string; newToken: string; session: AdminSession }> {
+    const rateLimit = this.checkPasswordChangeRateLimit(`pwd_change_${userId}`);
+    if (!rateLimit.allowed) {
+      throw new Error(rateLimit.message || 'يرجى الانتظار قبل محاولة تغيير كلمة المرور مجدداً.');
+    }
+
+    if (!currentPasswordRaw || !newPasswordRaw || !confirmPasswordRaw) {
+      throw new Error('يرجى إدخال كلمة المرور الحالية، كلمة المرور الجديدة، وتأكيدها.');
+    }
+
+    const cleanCurrent = currentPasswordRaw.trim();
+    const cleanNew = newPasswordRaw.trim();
+    const cleanConfirm = confirmPasswordRaw.trim();
+
+    // 1. Password confirmation match check
+    if (cleanNew !== cleanConfirm) {
+      throw new Error('كلمة المرور الجديدة غير متطابقة مع تأكيد كلمة المرور.');
+    }
+
+    // 2. Minimum length check: strictly >= 12 characters
+    if (cleanNew.length < 12) {
+      throw new Error('يجب ألا تقل كلمة المرور الجديدة عن 12 حرفاً لضمان أمان النظام.');
+    }
+
+    // 3. New password must be different from current password
+    if (cleanNew === cleanCurrent) {
+      throw new Error('كلمة المرور الجديدة يجب أن تكون مختلفة عن كلمة المرور الحالية.');
+    }
+
+    // 4. Fetch user from DB
+    const users = await db.select().from(adminUsers).where(eq(adminUsers.id, userId)).limit(1);
+    if (!users.length) {
+      throw new Error('حساب المستخدم غير موجود.');
+    }
+    const user = users[0];
+
+    if (user.isLocked) {
+      throw new Error('الحساب مقفل حالياً. يرجى مراجعة الإدارة العليا.');
+    }
+
+    if (!user.isActive) {
+      throw new Error('الحساب موقوف حالياً.');
+    }
+
+    // 5. Verify current password
+    const isCurrentValid = this.verifyPassword(cleanCurrent, user.passwordHash, user.salt);
+    if (!isCurrentValid) {
+      await db.insert(auditLogs).values({
+        userId: user.id,
+        userName: user.username,
+        action: 'PASSWORD_CHANGE_FAILED_WRONG_CURRENT',
+        entity: 'admin_users',
+        entityId: String(user.id),
+        ip,
+        userAgent,
+      });
+      throw new Error('كلمة المرور الحالية غير صحيحة.');
+    }
+
+    // 6. Hash new password with bcrypt
+    const newBcryptHash = this.hashPassword(cleanNew);
+
+    // 7. Update user record in database
+    await db
+      .update(adminUsers)
+      .set({
+        passwordHash: newBcryptHash,
+        salt: '',
+        failedAttempts: 0,
+        isLocked: false,
+        updatedAt: new Date(),
+      })
+      .where(eq(adminUsers.id, user.id));
+
+    // 8. Invalidate all previous sessions for this user to ensure old sessions cannot be hijacked
+    for (const [token, sess] of activeSessions.entries()) {
+      if (sess.userId === user.id) {
+        activeSessions.delete(token);
+      }
+    }
+
+    // 9. Generate fresh session for the current user
+    const newToken = 'cel_' + crypto.randomBytes(32).toString('hex');
+    const userRoles = await db.select().from(roles).where(eq(roles.id, user.roleId)).limit(1);
+    const roleName = userRoles[0]?.name || 'SUPER_ADMIN';
+
+    const userPerms = await db
+      .select({ code: permissions.code })
+      .from(rolePermissions)
+      .innerJoin(permissions, eq(rolePermissions.permissionId, permissions.id))
+      .where(eq(rolePermissions.roleId, user.roleId));
+
+    const permissionCodes = userPerms.map((p) => p.code);
+
+    const newSession: AdminSession = {
+      userId: user.id,
+      username: user.username,
+      fullName: user.fullName,
+      phone: user.phone,
+      role: roleName,
+      permissions: permissionCodes,
+      token: newToken,
+      expiresAt: Date.now() + 24 * 60 * 60 * 1000,
+    };
+    activeSessions.set(newToken, newSession);
+
+    // 10. Audit log (strictly without logging the password!)
+    await db.insert(auditLogs).values({
+      userId: user.id,
+      userName: user.username,
+      action: 'PASSWORD_CHANGED_SUCCESS',
+      entity: 'admin_users',
+      entityId: String(user.id),
+      ip,
+      userAgent,
+    });
+
+    return {
+      success: true,
+      message: 'تم تغيير كلمة المرور بنجاح واعتمادها وتشفيرها لجميع تسجيلات الدخول القادمة 🔒',
+      newToken,
+      session: newSession,
+    };
   }
 }

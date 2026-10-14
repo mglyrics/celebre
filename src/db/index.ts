@@ -13,9 +13,16 @@ export const createPool = () => {
       connectionTimeoutMillis: 15000,
     };
 
-    if (process.env.DATABASE_URL || process.env.POSTGRES_URL) {
-      config.connectionString = process.env.DATABASE_URL || process.env.POSTGRES_URL;
-      const isLocal = config.connectionString.includes('localhost') || config.connectionString.includes('127.0.0.1');
+    const connString =
+      process.env.DATABASE_URL ||
+      process.env.POSTGRES_URL ||
+      process.env.POSTGRES_PRISMA_URL ||
+      process.env.POSTGRES_URL_NON_POOLING ||
+      process.env.DIRECT_URL;
+
+    if (connString) {
+      config.connectionString = connString;
+      const isLocal = connString.includes('localhost') || connString.includes('127.0.0.1');
       if (process.env.NODE_ENV === 'production' && !isLocal) {
         config.ssl = { rejectUnauthorized: false };
       }

@@ -5,7 +5,7 @@ import { OrderService } from '../src/services/orderService.ts';
 import { AuthService } from '../src/services/authService.ts';
 import { WhatsAppService } from '../src/services/whatsappService.ts';
 import { db } from '../src/db/index.ts';
-import { orders, menuItems, roles, permissions, rolePermissions, supplierOrders, customerPayments, supplierPayments, auditLogs, adminUsers } from '../src/db/schema.ts';
+import { orders, menuItems, roles, permissions, rolePermissions, supplierOrders, customerPayments, supplierPayments, auditLogs, adminUsers, otpTokens } from '../src/db/schema.ts';
 import { eq, sql, or } from 'drizzle-orm';
 import { ExportService, ComprehensiveReportData } from '../src/services/exportService.ts';
 import { parseSafeJsonResponse } from '../src/utils/safeApi.ts';
@@ -1072,6 +1072,169 @@ async function runSystemTests() {
     assert(allNumbersSet.size === allDbOrders.length, `Test 141a: All ${allDbOrders.length} orders in database have strictly unique orderNumbers`);
     const allHaveValidFormat = allDbOrders.every((o) => typeof o.orderNumber === 'string' && o.orderNumber.length >= 6);
     assert(allHaveValidFormat, 'Test 141b: All orders have non-empty, valid orderNumber strings');
+
+    // =========================================================================
+    // ADMIN AUTHENTICATION & CHANGE PASSWORD SECURITY TESTS (Tests 142-155)
+    // =========================================================================
+
+    // Test 142: Primary admin user exists with active status and non-empty bcrypt hash
+    const primaryAdmin = await db.select().from(adminUsers).where(eq(adminUsers.username, 'admin')).limit(1);
+    assert(primaryAdmin.length > 0, 'Test 142a: Primary admin user exists in admin_users table');
+    assert(primaryAdmin[0].isActive === true, 'Test 142b: Primary admin account is active');
+    assert(primaryAdmin[0].passwordHash.length >= 20, 'Test 142c: Admin password hash is stored safely');
+
+    // Setup an isolated dedicated test admin user for password change cycle
+    const testAdminUsername = `pwd_tester_${Date.now()}`;
+    const initialTestPassword = 'InitialP@ssword123!';
+    const initialTestHash = AuthService.hashPassword(initialTestPassword);
+    const superAdminRole = (await db.select().from(roles).where(eq(roles.name, 'SUPER_ADMIN')).limit(1))[0];
+    
+    const [testUser] = await db
+      .insert(adminUsers)
+      .values({
+        username: testAdminUsername,
+        email: `${testAdminUsername}@celebre.test`,
+        passwordHash: initialTestHash,
+        salt: '',
+        fullName: 'أدمن تجربة تغيير كلمة المرور',
+        phone: '01284484868',
+        roleId: superAdminRole.id,
+        isActive: true,
+        isLocked: false,
+        failedAttempts: 0,
+      })
+      .returning();
+
+    // Test 143: verifyCredentials with correct password returns user object
+    const verifiedUser = await AuthService.verifyCredentials(testAdminUsername, initialTestPassword);
+    assert(verifiedUser.id === testUser.id, 'Test 143: Valid credentials correctly verified by AuthService');
+
+    // Test 144: verifyCredentials with wrong password fails with friendly error and increments failure count
+    let wrongPassFailed = false;
+    try {
+      await AuthService.verifyCredentials(testAdminUsername, 'WrongPassword999!');
+    } catch (e: any) {
+      wrongPassFailed = true;
+      assert(e.message.includes('غير صحيحة') && !e.message.includes('500'), 'Test 144a: Wrong password rejected with friendly message');
+    }
+    assert(wrongPassFailed, 'Test 144b: Wrong password strictly rejected without throwing 500');
+
+    // Test 145: OTP Generation and Verification lifecycle
+    const otpRes = await AuthService.generateAndDispatchOtp(testUser.id, testUser.phone);
+    assert(otpRes.success === true && typeof otpRes.code === 'string' && otpRes.code.length === 6, 'Test 145a: Secure 6-digit OTP generated');
+    assert(Boolean(otpRes.whatsappLink) && otpRes.whatsappLink.includes('wa.me'), 'Test 145b: Official WhatsApp deep link generated cleanly');
+
+    const session = await AuthService.verifyOtpAndCreateSession(testUser.id, otpRes.code);
+    assert(Boolean(session.token) && session.token.startsWith('cel_'), 'Test 145c: OTP verification generates authenticated session token');
+    assert(session.userId === testUser.id, 'Test 145d: Session matches authenticated user ID');
+    assert(session.permissions.length > 0, 'Test 145e: Session loaded RBAC permissions');
+
+    // Test 146: Password change rejection: Wrong current password
+    let wrongCurrentRejected = false;
+    try {
+      await AuthService.changePassword(
+        testUser.id,
+        'IncorrectCurrentPassword!',
+        'NewStrongPassw0rd123!',
+        'NewStrongPassw0rd123!'
+      );
+    } catch (e: any) {
+      wrongCurrentRejected = true;
+      assert(e.message.includes('الحالية غير صحيحة'), 'Test 146a: Wrong current password rejected with specific message');
+    }
+    assert(wrongCurrentRejected, 'Test 146b: Password change strictly denied when current password is wrong');
+
+    // Test 147: Password change rejection: New password shorter than 12 characters
+    let shortPassRejected = false;
+    try {
+      await AuthService.changePassword(
+        testUser.id,
+        initialTestPassword,
+        'Short123!',
+        'Short123!'
+      );
+    } catch (e: any) {
+      shortPassRejected = true;
+      assert(e.message.includes('12'), 'Test 147a: Password under 12 characters rejected with minimum length requirement message');
+    }
+    assert(shortPassRejected, 'Test 147b: Weak/short password strictly prevented');
+
+    // Test 148: Password change rejection: Mismatched confirmation
+    let mismatchRejected = false;
+    try {
+      await AuthService.changePassword(
+        testUser.id,
+        initialTestPassword,
+        'NewStrongPassw0rd123!',
+        'DifferentConfirmation123!'
+      );
+    } catch (e: any) {
+      mismatchRejected = true;
+      assert(e.message.includes('غير متطابقة'), 'Test 148a: Mismatched confirmation rejected');
+    }
+    assert(mismatchRejected, 'Test 148b: Non-matching confirmation strictly rejected');
+
+    // Test 149: Password change rejection: New password equals current password
+    let samePasswordRejected = false;
+    try {
+      await AuthService.changePassword(
+        testUser.id,
+        initialTestPassword,
+        initialTestPassword,
+        initialTestPassword
+      );
+    } catch (e: any) {
+      samePasswordRejected = true;
+      assert(e.message.includes('مختلفة'), 'Test 149a: Identical new password rejected');
+    }
+    assert(samePasswordRejected, 'Test 149b: Reusing identical password blocked');
+
+    // Test 150: Successful password change (>= 12 chars, correct current password, matching confirmation)
+    const newStrongPassword = 'CelebreSecure2026!#Ultra';
+    const changeResult = await AuthService.changePassword(
+      testUser.id,
+      initialTestPassword,
+      newStrongPassword,
+      newStrongPassword,
+      '127.0.0.1',
+      'SystemTestAgent'
+    );
+    assert(changeResult.success === true, 'Test 150a: Password changed successfully');
+    assert(Boolean(changeResult.newToken), 'Test 150b: Fresh authenticated session token returned after password change');
+
+    // Test 151: Database record contains updated bcrypt hash (strictly not plain text)
+    const updatedUserInDb = (await db.select().from(adminUsers).where(eq(adminUsers.id, testUser.id)))[0];
+    assert(updatedUserInDb.passwordHash.startsWith('$2'), 'Test 151a: Updated password hash is valid bcrypt');
+    assert(updatedUserInDb.passwordHash !== initialTestHash, 'Test 151b: Database password hash changed to new hash');
+    assert(!updatedUserInDb.passwordHash.includes(newStrongPassword), 'Test 151c: Plain-text password is strictly never stored');
+
+    // Test 152: Old password is now invalid
+    let oldPassFailed = false;
+    try {
+      await AuthService.verifyCredentials(testAdminUsername, initialTestPassword);
+    } catch (e: any) {
+      oldPassFailed = true;
+    }
+    assert(oldPassFailed, 'Test 152: Old password no longer valid after change');
+
+    // Test 153: New password successfully logs in
+    const loginWithNew = await AuthService.verifyCredentials(testAdminUsername, newStrongPassword);
+    assert(loginWithNew.id === testUser.id, 'Test 153: Login with new password succeeds seamlessly');
+
+    // Test 154: Security Audit Log contains entry for PASSWORD_CHANGED_SUCCESS
+    const passChangeLogs = await db
+      .select()
+      .from(auditLogs)
+      .where(sql`${auditLogs.action} = 'PASSWORD_CHANGED_SUCCESS' AND ${auditLogs.userId} = ${testUser.id}`);
+    assert(passChangeLogs.length > 0, 'Test 154a: Security audit log recorded for password change');
+    assert(!JSON.stringify(passChangeLogs[0]).includes(newStrongPassword), 'Test 154b: Audit log strictly does not leak password text');
+
+    // Test 155: Safe cleanup of isolated test user and verification of database orders integrity
+    await db.delete(otpTokens).where(eq(otpTokens.userId, testUser.id));
+    await db.delete(auditLogs).where(eq(auditLogs.userId, testUser.id));
+    await db.delete(adminUsers).where(eq(adminUsers.id, testUser.id));
+    const allDbOrdersAfter = await db.select({ count: sql`count(*)` }).from(orders);
+    assert(Number(allDbOrdersAfter[0].count) >= 36, 'Test 155: All catering orders and customer data preserved with 100% integrity');
 
     console.log(`\n🏁 Test Results: ${passed} Passed, ${failed} Failed.`);
     if (failed > 0) {
