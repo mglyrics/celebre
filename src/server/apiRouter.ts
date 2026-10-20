@@ -314,14 +314,31 @@ apiRouter.get('/messenger/webhook', (req: Request, res: Response) => {
 });
 
 apiRouter.post('/messenger/webhook', async (req: Request, res: Response) => {
+  const signatureHeader = (req.headers['x-hub-signature-256'] || req.headers['x-hub-signature']) as string | undefined;
+  const rawBody = (req as any).rawBody || req.body;
+
+  const sigCheck = MessengerService.verifySignature(rawBody, signatureHeader);
+  if (!sigCheck.isValid) {
+    return res.status(403).json({
+      success: false,
+      message: 'فشل التحقق الأمني من توقيع Webhook (Signature Mismatch)',
+      reason: sigCheck.reason,
+    });
+  }
+
   const result = await MessengerService.handleWebhookEvent(req.body);
-  return res.status(200).json(result);
+  return res.status(200).json({
+    success: true,
+    status: 'EVENT_RECEIVED',
+    ...result,
+  });
 });
 
 apiRouter.get('/admin/messenger-settings', requireAdminAuth, (_req: AuthenticatedRequest, res: Response) => {
   res.json({
     success: true,
     settings: MessengerService.getConfig(),
+    guide: MessengerService.getMetaSetupGuide(),
   });
 });
 

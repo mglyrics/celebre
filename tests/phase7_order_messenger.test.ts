@@ -186,7 +186,7 @@ async function runPhase7Tests() {
     assert(Number(createdSupOrder.supplierPaid) === 0, 'Test 6.5: Factory order initial supplierPaid is strictly 0.00');
 
     // -------------------------------------------------------------------------
-    // TEST 7: Messenger Service Configuration & Facebook Welcome Message
+    // TEST 7: Messenger Service Configuration, Webhook & Facebook Integration
     // -------------------------------------------------------------------------
     console.log('\n--- 7. Messenger Service & Facebook Integration ---');
     const messengerConfig = MessengerService.getConfig();
@@ -195,6 +195,87 @@ async function runPhase7Tests() {
     assert(messengerConfig.shortGreeting.includes('celebre-eg.com/order'), 'Test 7.3: Short greeting contains direct booking link');
     assert(messengerConfig.awayMessage.includes('celebre-eg.com/order'), 'Test 7.4: Away message contains direct booking link');
     assert(typeof messengerConfig.isAutomatedApiConfigured === 'boolean', 'Test 7.5: Automated API status reported truthfully without false claims');
+
+    // 7.6: Webhook Challenge Verification (GET /api/messenger/webhook)
+    process.env.MESSENGER_VERIFY_TOKEN = 'celebre_test_verify_token_2026';
+    const validChallenge = MessengerService.verifyWebhookChallenge('subscribe', 'celebre_test_verify_token_2026', 'challenge_string_9988');
+    assert(validChallenge.isValid === true && validChallenge.challenge === 'challenge_string_9988', 'Test 7.6: Webhook challenge verifies correctly with valid token');
+
+    const invalidChallenge = MessengerService.verifyWebhookChallenge('subscribe', 'wrong_token', 'challenge_string_9988');
+    assert(invalidChallenge.isValid === false, 'Test 7.7: Webhook challenge rejected when token is invalid');
+
+    const invalidModeChallenge = MessengerService.verifyWebhookChallenge('unsubscribe', 'celebre_test_verify_token_2026', 'challenge_string_9988');
+    assert(invalidModeChallenge.isValid === false, 'Test 7.8: Webhook challenge rejected when mode is not subscribe');
+
+    // 7.9: Cryptographic Webhook Signature Verification (x-hub-signature-256 HMAC-SHA256)
+    process.env.MESSENGER_APP_SECRET = 'meta_test_secret_key_12345';
+    const testPayload = JSON.stringify({ object: 'page', entry: [] });
+    const testRawBuffer = Buffer.from(testPayload, 'utf8');
+    const crypto = await import('node:crypto');
+    const validSignature = 'sha256=' + crypto.createHmac('sha256', 'meta_test_secret_key_12345').update(testRawBuffer).digest('hex');
+
+    const sigCheckValid = MessengerService.verifySignature(testRawBuffer, validSignature);
+    assert(sigCheckValid.isValid === true, 'Test 7.9: Webhook HMAC-SHA256 signature verified successfully with valid secret');
+
+    const tamperedPayload = Buffer.from(JSON.stringify({ object: 'page', entry: [{ id: 'tampered' }] }), 'utf8');
+    const sigCheckTampered = MessengerService.verifySignature(tamperedPayload, validSignature);
+    assert(sigCheckTampered.isValid === false, 'Test 7.10: Webhook tampered payload rejected by HMAC-SHA256 signature verification');
+
+    const forgedSignature = 'sha256=' + 'a'.repeat(64);
+    const sigCheckForged = MessengerService.verifySignature(testRawBuffer, forgedSignature);
+    assert(sigCheckForged.isValid === false, 'Test 7.11: Forged webhook signature rejected safely');
+
+    // 7.12: Idempotency & Deduplication Check
+    MessengerService.clearDedupCacheForTests();
+    const testMid = `mid.test.${Date.now()}`;
+    const testEventBody = {
+      object: 'page',
+      entry: [
+        {
+          id: 'page_100200300',
+          time: Date.now(),
+          messaging: [
+            {
+              sender: { id: 'psid_user_555' },
+              recipient: { id: 'page_100200300' },
+              timestamp: Date.now(),
+              message: {
+                mid: testMid,
+                text: 'السلام عليكم أريد حجز وجبات لمناسبة',
+              },
+            },
+          ],
+        },
+      ],
+    };
+
+    const firstHandling = await MessengerService.handleWebhookEvent(testEventBody);
+    assert(firstHandling.handled === true, 'Test 7.12: First webhook message handled successfully');
+    assert(firstHandling.eventsProcessed === 1, 'Test 7.13: Event recorded as processed');
+    assert(firstHandling.duplicatesIgnored === 0, 'Test 7.14: First message is not treated as duplicate');
+    assert(firstHandling.actionsTaken[0]?.senderId === 'psid_user_555', 'Test 7.15: Identified customer PSID accurately');
+    assert(firstHandling.actionsTaken[0]?.pageId === 'page_100200300', 'Test 7.16: Identified Facebook Page ID accurately');
+
+    // Replay same event (Meta retry simulation)
+    const duplicateHandling = await MessengerService.handleWebhookEvent(testEventBody);
+    assert(duplicateHandling.duplicatesIgnored === 1, 'Test 7.17: Duplicate webhook message ignored via idempotency check');
+    assert(duplicateHandling.eventsProcessed === 0, 'Test 7.18: No repeated reply dispatched for duplicate message');
+
+    // 7.19: Three-step Arabic Conversation Flow
+    const flowText = MessengerService.getFlowReply();
+    assert(flowText.includes('سيلبر كاترينج'), 'Test 7.19: Flow contains step 1 Arabic greeting & branding');
+    assert(flowText.includes('https://celebre-eg.com/order'), 'Test 7.20: Flow contains step 2 direct booking link');
+    assert(flowText.includes('حجز مبدئي غير مدفوع'), 'Test 7.21: Flow contains step 3 preliminary & unpaid booking disclaimer');
+    assert(flowText.includes('لا يتم اعتماد الحجز نهائياً'), 'Test 7.22: Flow clarifies that booking requires admin review before factory order');
+
+    // 7.23: Meta for Developers Setup Guide
+    const setupGuide = MessengerService.getMetaSetupGuide();
+    assert(setupGuide.webhookUrl === 'https://celebre-eg.com/api/messenger/webhook', 'Test 7.23: Setup guide specifies exact webhook callback URL');
+    assert(setupGuide.requiredEnvVars.some((v) => v.name === 'MESSENGER_VERIFY_TOKEN'), 'Test 7.24: Setup guide lists MESSENGER_VERIFY_TOKEN');
+    assert(setupGuide.requiredEnvVars.some((v) => v.name === 'MESSENGER_APP_SECRET'), 'Test 7.25: Setup guide lists MESSENGER_APP_SECRET');
+    assert(setupGuide.requiredEnvVars.some((v) => v.name === 'MESSENGER_PAGE_ACCESS_TOKEN'), 'Test 7.26: Setup guide lists MESSENGER_PAGE_ACCESS_TOKEN');
+    assert(setupGuide.requiredPermissions.some((p) => p.includes('pages_messaging')), 'Test 7.27: Setup guide specifies pages_messaging permission');
+
 
     // -------------------------------------------------------------------------
     // TEST 8: Integrity of Admin Auth, Accounting, and Reports

@@ -4637,20 +4637,20 @@ export const AdminOrderManagement: React.FC<AdminOrderManagementProps> = ({
                   </div>
 
                   {/* 2. Ready-to-use Arabic Messages Templates for Meta Business Suite */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                     {/* Template 1: Instant Reply (الرد الفوري التلقائي) */}
-                    <div className="bg-white rounded-3xl p-6 border border-[#E8DFD1] shadow-sm space-y-3 flex flex-col justify-between">
+                    <div className="bg-white rounded-3xl p-5 border border-[#E8DFD1] shadow-xs space-y-3 flex flex-col justify-between">
                       <div className="space-y-2">
                         <div className="flex items-center justify-between border-b border-[#F4EFEA] pb-2">
                           <h4 className="font-black text-xs text-[#5C1027] flex items-center gap-1.5">
                             <MessageCircle className="w-4 h-4 text-[#0084FF]" />
-                            <span>1. رسالة الرد الفوري التلقائي (Instant Reply)</span>
+                            <span>1. رسالة الرد الفوري</span>
                           </h4>
                           <span className="text-[10px] text-[#6B5E55] bg-gray-100 px-2 py-0.5 rounded-full font-bold">
-                            تُرسل عند بدء المحادثة
+                            Instant Reply
                           </span>
                         </div>
-                        <div className="bg-[#FAF7F2] p-3 rounded-2xl border border-[#E8DFD1] text-xs text-[#4A3E38] font-sans leading-relaxed whitespace-pre-wrap select-all">
+                        <div className="bg-[#FAF7F2] p-3 rounded-2xl border border-[#E8DFD1] text-[11px] text-[#4A3E38] font-sans leading-relaxed whitespace-pre-wrap select-all max-h-48 overflow-y-auto">
 {`أهلاً بك في سيلبر كاترينج (Celebre Catering) 🍽️
 يسعدنا استقبال طلباتكم للمناسبات والشركات وأعياد الميلاد وتجهيز البوفيهات الفندقية.
 
@@ -4674,30 +4674,30 @@ export const AdminOrderManagement: React.FC<AdminOrderManagementProps> = ({
                         {copiedMessengerKey === "msg1" ? (
                           <>
                             <Check className="w-3.5 h-3.5 text-emerald-600" />
-                            <span>تم نسخ الرسالة الكاملة!</span>
+                            <span>تم نسخ الرسالة!</span>
                           </>
                         ) : (
                           <>
                             <Copy className="w-3.5 h-3.5" />
-                            <span>نسخ نص الرد الفوري لـ Meta Business Suite</span>
+                            <span>نسخ الرد الفوري</span>
                           </>
                         )}
                       </button>
                     </div>
 
                     {/* Template 2: Short Greeting (رسالة ترحيبية مختصرة) */}
-                    <div className="bg-white rounded-3xl p-6 border border-[#E8DFD1] shadow-sm space-y-3 flex flex-col justify-between">
+                    <div className="bg-white rounded-3xl p-5 border border-[#E8DFD1] shadow-xs space-y-3 flex flex-col justify-between">
                       <div className="space-y-2">
                         <div className="flex items-center justify-between border-b border-[#F4EFEA] pb-2">
                           <h4 className="font-black text-xs text-[#5C1027] flex items-center gap-1.5">
                             <Sparkles className="w-4 h-4 text-[#C89B3C]" />
-                            <span>2. رسالة الترحيب المختصرة (Short Greeting)</span>
+                            <span>2. ترحيب ورابط مباشر</span>
                           </h4>
                           <span className="text-[10px] text-[#6B5E55] bg-gray-100 px-2 py-0.5 rounded-full font-bold">
-                            رد سريع ومباشر
+                            Short Greeting
                           </span>
                         </div>
-                        <div className="bg-[#FAF7F2] p-3 rounded-2xl border border-[#E8DFD1] text-xs text-[#4A3E38] font-sans leading-relaxed whitespace-pre-wrap select-all">
+                        <div className="bg-[#FAF7F2] p-3 rounded-2xl border border-[#E8DFD1] text-[11px] text-[#4A3E38] font-sans leading-relaxed whitespace-pre-wrap select-all max-h-48 overflow-y-auto">
 {`مرحباً بك في سيلبر كاترينج! 🎉
 لحجز بوفيه ووجبات مناسبتك واختيار الباقة المناسبة مباشرة، اضغط على الرابط:
 👉 https://celebre-eg.com/order`}
@@ -4717,61 +4717,132 @@ export const AdminOrderManagement: React.FC<AdminOrderManagementProps> = ({
                         {copiedMessengerKey === "msg2" ? (
                           <>
                             <Check className="w-3.5 h-3.5 text-emerald-600" />
-                            <span>تم نسخ الرسالة المختصرة!</span>
+                            <span>تم نسخ الرسالة!</span>
                           </>
                         ) : (
                           <>
                             <Copy className="w-3.5 h-3.5" />
-                            <span>نسخ نص الرسالة المختصرة</span>
+                            <span>نسخ الترحيب المختصر</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+
+                    {/* Template 3: Preliminary Booking Notice (تنبيه الحجز المبدئي) */}
+                    <div className="bg-white rounded-3xl p-5 border border-[#E8DFD1] shadow-xs space-y-3 flex flex-col justify-between">
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between border-b border-[#F4EFEA] pb-2">
+                          <h4 className="font-black text-xs text-[#5C1027] flex items-center gap-1.5">
+                            <ShieldCheck className="w-4 h-4 text-amber-600" />
+                            <span>3. توضيح الحجز المبدئي</span>
+                          </h4>
+                          <span className="text-[10px] text-amber-800 bg-amber-50 px-2 py-0.5 rounded-full font-bold">
+                            Policy Notice
+                          </span>
+                        </div>
+                        <div className="bg-[#FAF7F2] p-3 rounded-2xl border border-[#E8DFD1] text-[11px] text-[#4A3E38] font-sans leading-relaxed whitespace-pre-wrap select-all max-h-48 overflow-y-auto">
+{`📌 تنبيه هام بخصوص الحجز:
+الحجز المسجل عبر الرابط هو حجز مبدئي غير مدفوع لتسجيل رغبتكم وموعد التسليم.
+لا يتم اعتماد الحجز نهائياً أو إرسال أي طلب للمصنع إلا بعد مراجعة إدارة سيلبر والتواصل المباشر معكم لتأكيد كافة التفاصيل.`}
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const text = `📌 تنبيه هام بخصوص الحجز:\nالحجز المسجل عبر الرابط (https://celebre-eg.com/order) هو حجز مبدئي غير مدفوع لتسجيل رغبتكم وموعد التسليم.\nلا يتم اعتماد الحجز نهائياً أو إرسال أي طلب للمصنع إلا بعد مراجعة إدارة سيلبر والتواصل المباشر معكم لتأكيد كافة التفاصيل وطريقة الدفع المعتمدة.`;
+                          navigator.clipboard.writeText(text);
+                          setCopiedMessengerKey("msg3");
+                          setTimeout(() => setCopiedMessengerKey(null), 2500);
+                        }}
+                        className="w-full bg-[#FAF7F2] hover:bg-amber-50 text-[#721832] border border-[#721832]/30 font-bold text-xs py-2 px-3 rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                      >
+                        {copiedMessengerKey === "msg3" ? (
+                          <>
+                            <Check className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>تم نسخ الرسالة!</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-3.5 h-3.5" />
+                            <span>نسخ تنبيه الحجز المبدئي</span>
                           </>
                         )}
                       </button>
                     </div>
                   </div>
 
-                  {/* 3. Integration Status & Meta Webhook Info */}
+                  {/* 3. Integration Status & Meta for Developers Guide */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Status Card */}
-                    <div className="bg-white rounded-3xl p-6 border border-[#E8DFD1] shadow-sm space-y-3">
+                    {/* Meta for Developers Parameters Card */}
+                    <div className="bg-white rounded-3xl p-6 border border-[#E8DFD1] shadow-sm space-y-4">
                       <h4 className="font-black text-xs text-[#5C1027] flex items-center gap-1.5 border-b border-[#F4EFEA] pb-2">
-                        <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                        <span>حالة تكامل فيسبوك ماسنجر (Meta Integration Status)</span>
+                        <ShieldCheck className="w-4 h-4 text-[#0084FF]" />
+                        <span>بيانات الربط البرمجي في Meta for Developers</span>
                       </h4>
 
-                      <div className="space-y-2.5 text-xs">
-                        <div className="flex items-center justify-between p-2.5 rounded-xl bg-emerald-50 border border-emerald-200">
-                          <span className="font-bold text-emerald-900">الرد التلقائي اليدوي (Instant Reply):</span>
-                          <span className="font-black text-emerald-700 bg-white px-2 py-0.5 rounded-md text-[11px]">
-                            متاح وجاهز فوراً
-                          </span>
+                      <div className="space-y-3 text-xs">
+                        <div className="p-3 rounded-2xl bg-[#FAF7F2] border border-[#E8DFD1] space-y-1.5">
+                          <span className="font-bold text-[#5C1027] block text-[11px]">Callback URL (Webhook مسار الـ):</span>
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-mono text-xs text-blue-700 select-all dir-ltr text-left">
+                              https://celebre-eg.com/api/messenger/webhook
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                navigator.clipboard.writeText("https://celebre-eg.com/api/messenger/webhook");
+                                setCopiedMessengerKey("webhook");
+                                setTimeout(() => setCopiedMessengerKey(null), 2000);
+                              }}
+                              className="text-[10px] bg-white border border-[#E8DFD1] px-2 py-1 rounded-lg font-bold hover:bg-gray-50"
+                            >
+                              {copiedMessengerKey === "webhook" ? "تم!" : "نسخ"}
+                            </button>
+                          </div>
                         </div>
 
-                        <div className="flex items-center justify-between p-2.5 rounded-xl bg-amber-50 border border-amber-200">
-                          <span className="font-bold text-amber-900">الربط البرمجي عبر API (Automated Messenger):</span>
-                          <span className="font-bold text-amber-800 bg-white px-2 py-0.5 rounded-md text-[10px]">
-                            يتطلب اعتماد Meta في بيئة الإنتاج
-                          </span>
+                        <div className="space-y-1 text-[11px] text-[#4A3E38]">
+                          <div className="font-bold text-[#5C1027]">متغيرات البيئة المطلوبة على الاستضافة (Environment Variables):</div>
+                          <ul className="list-disc list-inside space-y-1 text-gray-700 pr-1">
+                            <li><code className="bg-gray-100 px-1 py-0.5 rounded text-[10px] font-mono">MESSENGER_VERIFY_TOKEN</code>: رمز تحقق الـ Webhook السري.</li>
+                            <li><code className="bg-gray-100 px-1 py-0.5 rounded text-[10px] font-mono">MESSENGER_APP_SECRET</code>: سر التطبيق للتحقق من التوقيع المشفر HMAC-SHA256.</li>
+                            <li><code className="bg-gray-100 px-1 py-0.5 rounded text-[10px] font-mono">MESSENGER_PAGE_ACCESS_TOKEN</code>: رمز وصول الصفحة لإرسال الرسائل عبر Graph API.</li>
+                            <li><code className="bg-gray-100 px-1 py-0.5 rounded text-[10px] font-mono">MESSENGER_PAGE_ID</code>: المعرف الرقمي لصفحة فيسبوك.</li>
+                          </ul>
                         </div>
 
-                        <p className="text-[11px] text-[#6B5E55] leading-relaxed pt-1">
-                          • لحماية سرية وأمان المنظومة، لا يتم تخزين أي توكنات سرية (Page Access Token) داخل واجهة العميل أو كود المتصفح إطلاقاً.
-                        </p>
+                        <div className="space-y-1 text-[11px] text-[#4A3E38] pt-1 border-t border-[#F4EFEA]">
+                          <span className="font-bold text-[#5C1027] block">الأحداث المشترك بها (Webhook Subscriptions):</span>
+                          <span className="text-gray-700">حقلي <code className="bg-blue-50 text-blue-800 px-1 py-0.5 rounded text-[10px]">messages</code> و <code className="bg-blue-50 text-blue-800 px-1 py-0.5 rounded text-[10px]">messaging_postbacks</code></span>
+                        </div>
                       </div>
                     </div>
 
-                    {/* Step-by-Step Meta Setup Guide */}
-                    <div className="bg-[#FAF7F2] rounded-3xl p-6 border border-[#E8DFD1] shadow-sm space-y-2.5 text-xs">
-                      <h4 className="font-black text-xs text-[#5C1027] flex items-center gap-1.5 border-b border-[#E8DFD1] pb-2">
-                        <CheckCircle2 className="w-4 h-4 text-[#C89B3C]" />
-                        <span>خطوات التفعيل في صفحة فيسبوك خلال دقيقة:</span>
-                      </h4>
-                      <ol className="space-y-1.5 text-[11px] text-[#4A3E38] list-decimal list-inside leading-relaxed">
-                        <li>افتح صفحة فيسبوك سيلبر كاترينج على <strong>Meta Business Suite</strong>.</li>
-                        <li>من القائمة الجانبية ادخل على <strong>Inbox (صندوق الوارد)</strong> ثم <strong>Automations (الأتمتة)</strong>.</li>
-                        <li>اختر <strong>Instant Reply (الرد الفوري)</strong> وفعّله لقناة <strong>Messenger</strong>.</li>
-                        <li>اضغط "تعديل الرسالة" والصق أحد القوالب المعتمدة أعلاه التي تحتوي على رابط الحجز.</li>
-                        <li>اضغط <strong>Save changes (حفظ التغييرات)</strong> ليتم إرسال الرابط تلقائياً لأي عميل يراسل الصفحة.</li>
-                      </ol>
+                    {/* Step-by-Step Meta Setup Guide & Real Testing Disclaimer */}
+                    <div className="bg-[#FAF7F2] rounded-3xl p-6 border border-[#E8DFD1] shadow-sm space-y-3 text-xs flex flex-col justify-between">
+                      <div className="space-y-2.5">
+                        <h4 className="font-black text-xs text-[#5C1027] flex items-center gap-1.5 border-b border-[#E8DFD1] pb-2">
+                          <CheckCircle2 className="w-4 h-4 text-[#C89B3C]" />
+                          <span>خطوات ضبط Meta for Developers:</span>
+                        </h4>
+                        <ol className="space-y-1.5 text-[11px] text-[#4A3E38] list-decimal list-inside leading-relaxed">
+                          <li>افتح <strong>developers.facebook.com</strong> وأنشئ تطبيقاً جديداً وأضف منتج <strong>Messenger</strong>.</li>
+                          <li>اربط صفحة فيسبوك واستخرج <strong>Page Access Token</strong> و <strong>App Secret</strong>.</li>
+                          <li>في قسم Webhooks أضف <strong>Callback URL</strong> و <strong>Verify Token</strong> واضغط <em>Verify and Save</em>.</li>
+                          <li>اشترك في أحداث <code className="text-blue-700">messages</code> بصفحة سيلبر.</li>
+                          <li>تأكد من طلب صلاحية <code className="text-blue-700">pages_messaging</code> في مراجعة التطبيق للبث المباشر لجميع المستخدمين.</li>
+                        </ol>
+                      </div>
+
+                      <div className="p-3 rounded-2xl bg-amber-50/80 border border-amber-200/80 text-[11px] text-amber-900 space-y-1">
+                        <div className="font-bold flex items-center gap-1 text-amber-800">
+                          <span>⚠️ شرط الاعتماد النهائي:</span>
+                        </div>
+                        <p className="leading-relaxed">
+                          الكود البرمجي ونقاط الـ Webhook والتحقق المشفر جاهزة تماماً. لا يُعتبر الربط فعالاً في بيئة الإنتاج إلا بعد مراسلة الصفحة من حساب فيسبوك حقيقي وتأكيد وصول التدفق التلقائي للعميل.
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </div>

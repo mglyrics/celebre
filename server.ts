@@ -16,7 +16,13 @@ dotenv.config();
 const app = express();
 const PORT = 3000;
 
-app.use(express.json());
+app.use(
+  express.json({
+    verify: (req: any, _res, buf) => {
+      req.rawBody = buf;
+    },
+  })
+);
 
 // Rewritten path support (for Vercel or reverse proxy where /api/* was rewritten to /api/index)
 app.use((req, _res, next) => {
@@ -98,7 +104,8 @@ app.use("/api", (req, res, next) => {
     req.path.startsWith("/public/") ||
     req.path === "/public/bookings" ||
     req.path === "/orders" ||
-    req.path.startsWith("/admin/auth/")
+    req.path.startsWith("/admin/auth/") ||
+    req.path.startsWith("/messenger/")
   ) {
     return next();
   }
