@@ -21,17 +21,39 @@ export interface PublicSettings {
   officialWhatsappAdmin: string;
 }
 
+export interface BookingItemSelection {
+  menuCode: string;
+  quantity: number;
+  drinkOption: 'included' | 'exclude_juice' | 'replace_pepsi';
+}
+
 export interface BookingSubmissionData {
   customerName: string;
   phone: string;
   whatsapp: string;
-  menuCode: string;
-  quantity: number;
+  menuCode?: string;
+  quantity?: number;
+  drinkOption?: 'included' | 'exclude_juice' | 'replace_pepsi';
+  items?: BookingItemSelection[];
   pickupDate: string;
   pickupTime: string;
   pickupLocation: string;
   notes?: string;
-  drinkOption: 'included' | 'exclude_juice' | 'replace_pepsi';
+  occasion?: string;
+  venueType?: string;
+  arrivalInstructions?: string;
+  idempotencyKey?: string;
+}
+
+export interface BookingOrderItemDetail {
+  menuCode: string;
+  menuName: string;
+  quantity: number;
+  distributorUnitPrice: number;
+  customerAdjustment: number;
+  customerTotal: number;
+  drinkOption?: string;
+  componentsText?: string;
 }
 
 export interface BookingOrderResult {
@@ -39,9 +61,10 @@ export interface BookingOrderResult {
   orderNumber: string;
   customerName: string;
   phone: string;
-  menuCode: string;
-  menuName: string;
-  quantity: number;
+  menuCode?: string;
+  menuName?: string;
+  quantity?: number;
+  items?: BookingOrderItemDetail[];
   pickupDate: string;
   pickupTime: string;
   pickupLocation: string;
@@ -57,3 +80,4 @@ export interface BookingResponse {
   order: BookingOrderResult;
   whatsappLink?: string;
 }
+

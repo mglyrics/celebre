@@ -7,10 +7,9 @@ import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
 import { generateWhatsAppAiReply, sendMetaWhatsAppMessage } from "./server/whatsappService.ts";
 import { apiRouter, resolveOrderRecord } from "./src/server/apiRouter.ts";
-import { db } from "./src/db/index.ts";
-import { orders as ordersTable, customers as customersTable, orderItems as orderItemsTable } from "./src/db/schema.ts";
-import { eq, desc } from "drizzle-orm";
+import { prisma } from "./src/lib/prisma.ts";
 import { OrderService } from "./src/services/orderService.ts";
+import { AuthService } from "./src/services/authService.ts";
 
 dotenv.config();
 
@@ -540,31 +539,39 @@ function broadcastAdminBookingsUpdate(
 // API: List Orders (Strictly Protected - Authorized Admin Only)
 app.get("/api/orders", requireAdminAuth, async (_req, res) => {
   try {
-    const rawOrders = await db
-      .select({
-        id: ordersTable.id,
-        orderNumber: ordersTable.orderNumber,
-        customerId: ordersTable.customerId,
-        customerName: customersTable.fullName,
-        customerPhone: customersTable.phone,
-        orderStatus: ordersTable.orderStatus,
-        pickupDate: ordersTable.pickupDate,
-        pickupTime: ordersTable.pickupTime,
-        pickupLocation: ordersTable.pickupLocation,
-        totalAmount: ordersTable.totalAmount,
-        customerPaid: ordersTable.customerPaid,
-        customerRemaining: ordersTable.customerRemaining,
-        supplierTotal: ordersTable.supplierTotal,
-        supplierPaid: ordersTable.supplierPaid,
-        supplierRemaining: ordersTable.supplierRemaining,
-        distributorProfit: ordersTable.distributorProfit,
-        createdAt: ordersTable.createdAt,
-      })
-      .from(ordersTable)
-      .innerJoin(customersTable, eq(ordersTable.customerId, customersTable.id))
-      .orderBy(desc(ordersTable.id));
+    const rawOrders = await prisma.order.findMany({
+      orderBy: { id: "desc" },
+      include: {
+        customer: {
+          select: {
+            fullName: true,
+            phone: true,
+          },
+        },
+      },
+    });
 
-    res.json({ success: true, orders: rawOrders });
+    const formattedOrders = rawOrders.map((o) => ({
+      id: o.id,
+      orderNumber: o.orderNumber,
+      customerId: o.customerId,
+      customerName: o.customer?.fullName || "",
+      customerPhone: o.customer?.phone || "",
+      orderStatus: o.orderStatus,
+      pickupDate: o.pickupDate,
+      pickupTime: o.pickupTime,
+      pickupLocation: o.pickupLocation,
+      totalAmount: Number(o.totalAmount),
+      customerPaid: Number(o.customerPaid),
+      customerRemaining: Number(o.customerRemaining),
+      supplierTotal: Number(o.supplierTotal),
+      supplierPaid: Number(o.supplierPaid),
+      supplierRemaining: Number(o.supplierRemaining),
+      distributorProfit: Number(o.distributorProfit),
+      createdAt: o.createdAt,
+    }));
+
+    res.json({ success: true, orders: formattedOrders });
   } catch (err: any) {
     console.error("Error listing orders from DB:", err);
     res.status(500).json({ success: false, message: "تعذر الاتصال بقاعدة البيانات" });
@@ -603,21 +610,21 @@ app.get("/api/orders/:id", async (req, res) => {
     const token = (req.headers.authorization || "").replace("Bearer ", "").trim() || (req.headers["x-admin-token"] as string);
     const isAdmin = isValidAdminSession(token);
 
-    const items = await db.select().from(orderItemsTable).where(eq(orderItemsTable.orderId, order.id));
-    const customer = (await db.select().from(customersTable).where(eq(customersTable.id, order.customerId)).limit(1))[0];
+    const items = await prisma.orderItem.findMany({ where: { orderId: order.id } });
+    const customer = await prisma.customer.findUnique({ where: { id: order.customerId } });
 
     if (isAdmin) {
       return res.json({
         success: true,
         order: {
           ...order,
-          totalAmount: parseFloat(order.totalAmount),
-          customerPaid: parseFloat(order.customerPaid),
-          customerRemaining: parseFloat(order.customerRemaining),
-          supplierTotal: parseFloat(order.supplierTotal),
-          supplierPaid: parseFloat(order.supplierPaid),
-          supplierRemaining: parseFloat(order.supplierRemaining),
-          distributorProfit: parseFloat(order.distributorProfit),
+          totalAmount: Number(order.totalAmount),
+          customerPaid: Number(order.customerPaid),
+          customerRemaining: Number(order.customerRemaining),
+          supplierTotal: Number(order.supplierTotal),
+          supplierPaid: Number(order.supplierPaid),
+          supplierRemaining: Number(order.supplierRemaining),
+          distributorProfit: Number(order.distributorProfit),
         },
         customer,
         items,
@@ -636,9 +643,9 @@ app.get("/api/orders/:id", async (req, res) => {
         pickupTime: order.pickupTime,
         pickupLocation: order.pickupLocation,
         customerNotes: order.customerNotes,
-        totalAmount: parseFloat(order.totalAmount),
-        customerPaid: parseFloat(order.customerPaid),
-        customerRemaining: parseFloat(order.customerRemaining),
+        totalAmount: Number(order.totalAmount),
+        customerPaid: Number(order.customerPaid),
+        customerRemaining: Number(order.customerRemaining),
         orderStatus: order.orderStatus,
         createdAt: order.createdAt,
       },
@@ -1062,10 +1069,16 @@ function isValidAdminSession(token?: string): boolean {
   const cleanToken = token.trim();
   if (!cleanToken) return false;
 
-  // 1. In-memory session check
-  const session = activeAdminSessions.get(cleanToken);
+  // 1. Primary verification: Cryptographically signed stateless session (Vercel Serverless Compatible)
+  const session = AuthService.getSession(cleanToken);
   if (session) {
-    if (Date.now() > session.expiresAt) {
+    return true;
+  }
+
+  // 2. Local in-memory session check (with strict expiration, no static token bypasses)
+  const memSession = activeAdminSessions.get(cleanToken);
+  if (memSession) {
+    if (Date.now() > memSession.expiresAt) {
       activeAdminSessions.delete(cleanToken);
       saveAdminSessions(activeAdminSessions);
       return false;
@@ -1073,47 +1086,23 @@ function isValidAdminSession(token?: string): boolean {
     return true;
   }
 
-  // 2. Fallback check from persistent disk sessions (useful on server reload or multi-tab)
-  try {
-    const reloaded = loadAdminSessions();
-    const diskSession = reloaded.get(cleanToken);
-    if (diskSession) {
-      if (Date.now() > diskSession.expiresAt) {
-        return false;
-      }
-      activeAdminSessions.set(cleanToken, diskSession);
-      return true;
-    }
-  } catch (e) {
-    console.error("Error verifying admin session from disk:", e);
-  }
-
-  // 3. Failsafe: validated celebre token generated within 30 days
-  if (cleanToken.startsWith("celebre-sec-") || cleanToken.startsWith("celebre-admin-")) {
-    const parts = cleanToken.split("-");
-    const timestamp = Number(parts[2]);
-    if (timestamp && Date.now() - timestamp < 30 * 24 * 60 * 60 * 1000) {
-      activeAdminSessions.set(cleanToken, {
-        phone: OFFICIAL_PROJECT_PHONE,
-        createdAt: timestamp,
-        expiresAt: timestamp + 30 * 24 * 60 * 60 * 1000
-      });
-      saveAdminSessions(activeAdminSessions);
-      return true;
-    }
-  }
-
   return false;
 }
 
 // Middleware: Require High-Security Admin Authentication
 function requireAdminAuth(req: express.Request, res: express.Response, next: express.NextFunction) {
-  const authHeader = req.headers["authorization"] || "";
-  const token = (authHeader.startsWith("Bearer ") 
-    ? authHeader.slice(7) 
-    : (req.headers["x-admin-token"] || req.query.token)) as string;
+  const authHeader = req.headers["authorization"] || (req.headers["x-admin-token"] as string) || "";
+  let token = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : authHeader.trim();
+  if (!token && req.headers.cookie) {
+    const match = req.headers.cookie.split(";").find((c) => c.trim().startsWith("admin_session="));
+    if (match) token = match.split("=")[1]?.trim();
+  }
 
   if (isValidAdminSession(token)) {
+    const session = AuthService.getSession(token);
+    if (session) {
+      (req as any).adminSession = session;
+    }
     return next();
   }
 
@@ -1218,22 +1207,14 @@ app.post(["/api/admin/auth/login", "/api/admin/login"], async (req, res) => {
     });
   }
 
-  // If OTP is provided, verify it directly
+  // If OTP is provided, verify it directly (strictly no master keys or bypasses)
   const now = Date.now();
-  const isMasterKey = (
-    cleanOtp === "01284484868" ||
-    cleanOtp === "1284484868" ||
-    cleanOtp === "010973" ||
-    cleanOtp === "CELEBRE-MASTER-2025" ||
-    cleanOtp === "CELEBRE-2025"
-  );
-
   if (cleanOtp) {
     const isOtpValid = currentOtpState &&
       cleanOtp === currentOtpState.code &&
       now <= currentOtpState.expiresAt;
 
-    if (!isMasterKey && !isOtpValid) {
+    if (!isOtpValid) {
       recordFailedAttempt(ip);
       return res.status(401).json({
         success: false,
@@ -1378,39 +1359,29 @@ app.post("/api/admin/auth/verify-otp", (req, res) => {
   const cleanOtp = normalizeDigits((otp || "").trim());
   const now = Date.now();
 
-  const isMasterKey = (
-    cleanOtp === "01284484868" ||
-    cleanOtp === "1284484868" ||
-    cleanOtp === "010973" ||
-    cleanOtp === "CELEBRE-MASTER-2025" ||
-    cleanOtp === "CELEBRE-2025"
-  );
+  if (!currentOtpState || now > currentOtpState.expiresAt) {
+    return res.status(400).json({
+      success: false,
+      message: "انتهت صلاحية رمز الدخول المؤقت (صالح لـ 5 دقائق). يرجى طلب رمز جديد عبر الواتساب."
+    });
+  }
 
-  if (!isMasterKey) {
-    if (!currentOtpState || now > currentOtpState.expiresAt) {
-      return res.status(400).json({
-        success: false,
-        message: "انتهت صلاحية رمز الدخول المؤقت (صالح لـ 5 دقائق). يرجى طلب رمز جديد عبر الواتساب."
-      });
-    }
+  if (currentOtpState.attempts >= 5) {
+    currentOtpState = null;
+    return res.status(429).json({
+      success: false,
+      message: "تم تجاوز الحد الأقصى للمحاولات الخاطئة (5 محاولات). تم إلغاء الرمز لحماية النظام، يرجى طلب رمز جديد."
+    });
+  }
 
-    if (currentOtpState.attempts >= 5) {
-      currentOtpState = null;
-      return res.status(429).json({
-        success: false,
-        message: "تم تجاوز الحد الأقصى للمحاولات الخاطئة (5 محاولات). تم إلغاء الرمز لحماية النظام، يرجى طلب رمز جديد."
-      });
-    }
-
-    if (cleanOtp !== currentOtpState.code) {
-      currentOtpState.attempts++;
-      const remaining = 5 - currentOtpState.attempts;
-      return res.status(401).json({
-        success: false,
-        message: `رمز التحقق غير صحيح. متبقي لك ${remaining} محاولات.`,
-        remainingAttempts: remaining
-      });
-    }
+  if (cleanOtp !== currentOtpState.code) {
+    currentOtpState.attempts++;
+    const remaining = 5 - currentOtpState.attempts;
+    return res.status(401).json({
+      success: false,
+      message: `رمز التحقق غير صحيح. متبقي لك ${remaining} محاولات.`,
+      remainingAttempts: remaining
+    });
   }
 
   // OTP verified! Issue secure session token
@@ -1556,27 +1527,14 @@ app.post("/api/admin/auth/forgot-password/reset", (req, res) => {
   }
 
   // Master security recovery key validation for project owner
-  const isMasterKey = (
-    cleanCode === "01284484868" ||
-    cleanCode === "1284484868" ||
-    cleanCode === "CELEBRE-MASTER-SEC" ||
-    cleanCode === "CELEBRE-2025" ||
-    cleanCode === "010973" ||
-    cleanCode === "admin" ||
-    cleanCode === "sootmisr@gmail.com" ||
-    cleanCode === "sootmisr" ||
-    cleanCode === "mahmoud" ||
-    cleanCode === "محمود"
-  );
-
   const isOtpValid = currentResetOtpState &&
     cleanCode === currentResetOtpState.code &&
     now <= currentResetOtpState.expiresAt;
 
-  if (!isMasterKey && !isOtpValid) {
+  if (!isOtpValid) {
     return res.status(401).json({
       success: false,
-      message: "يرجى إدخال رقم هاتف الإدارة المسجل (01284484868) أو كود الأمان لتأكيد هويتك."
+      message: "رمز التحقق لاستعادة كلمة السر غير صحيح أو منتهي الصلاحية."
     });
   }
 

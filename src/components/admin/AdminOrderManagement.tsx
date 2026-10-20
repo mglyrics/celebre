@@ -6,11 +6,18 @@ import {
   Shield, MessageCircle, Truck, Package, TrendingUp, 
   AlertTriangle, FileText, Ban, Building2, Edit3, Check, Loader2,
   ExternalLink, Layers, Copy, Send, KeyRound,
-  BarChart3, PieChart, Download, Printer, Users, Wallet
+  BarChart3, PieChart, Download, Printer, Users, Wallet, Receipt
 } from "lucide-react";
 import { PublicMenuItem } from "../../types/publicMenu";
 import { ExportService, ComprehensiveReportData } from "../../services/exportService.ts";
 import { safeFetchJson } from "../../utils/safeApi.ts";
+import {
+  CustomerStatementModal,
+  FactoryStatementModal,
+  ProfitabilityModal,
+  RecordExpenseModal,
+  RecordAdjustmentModal,
+} from "./AccountingModals";
 
 interface AdminOrderManagementProps {
   isOpen: boolean;
@@ -74,6 +81,12 @@ export interface OrderDetailFull {
 
 const ALL_STATUSES = [
   { key: "PENDING_BOOKING", label: "حجز مبدئي", color: "bg-amber-100 text-amber-800 border-amber-300" },
+  { key: "PENDING_REVIEW", label: "بانتظار المراجعة", color: "bg-amber-100 text-amber-800 border-amber-300" },
+  { key: "REJECTED", label: "مرفوض", color: "bg-red-100 text-red-800 border-red-300" },
+  { key: "AWAITING_CUSTOMER_DEPOSIT", label: "بانتظار العربون (50%)", color: "bg-cyan-100 text-cyan-800 border-cyan-300" },
+  { key: "CUSTOMER_DEPOSIT_PARTIAL", label: "عربون جزئي", color: "bg-orange-100 text-orange-800 border-orange-300" },
+  { key: "CUSTOMER_DEPOSIT_PAID", label: "العربون مستوفى", color: "bg-emerald-100 text-emerald-800 border-emerald-300" },
+  { key: "FACTORY_PENDING", label: "بانتظار المصنع", color: "bg-purple-100 text-purple-800 border-purple-300" },
   { key: "CONFIRMED", label: "مؤكد", color: "bg-blue-100 text-blue-800 border-blue-300" },
   { key: "SENT_TO_SUPPLIER", label: "أُرسل للمصنع", color: "bg-purple-100 text-purple-800 border-purple-300" },
   { key: "IN_PRODUCTION", label: "قيد التجهيز", color: "bg-orange-100 text-orange-800 border-orange-300" },
@@ -106,9 +119,20 @@ export const AdminOrderManagement: React.FC<AdminOrderManagementProps> = ({
   const [loginUserId, setLoginUserId] = useState<number | null>(null);
   const [loginPhone, setLoginPhone] = useState("");
   const [otpWhatsappLink, setOtpWhatsappLink] = useState("");
-  const [receivedOtp, setReceivedOtp] = useState<string>("123456");
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState("");
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const [resendLoading, setResendLoading] = useState(false);
+  const [resendSuccess, setResendSuccess] = useState("");
+
+  // Countdown timer for OTP resend cooldown (60 seconds)
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = setInterval(() => {
+      setResendCooldown((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [resendCooldown]);
 
   // Orders list states
   const [orders, setOrders] = useState<AdminOrderItem[]>([]);
@@ -158,8 +182,14 @@ export const AdminOrderManagement: React.FC<AdminOrderManagementProps> = ({
   const [cancelReason, setCancelReason] = useState("");
   const [cancelLoading, setCancelLoading] = useState(false);
 
-  // Top Dashboard View Tab: dashboard vs orders vs payments vs reports vs security
-  const [dashboardTab, setDashboardTab] = useState<"dashboard" | "orders" | "payments" | "reports" | "security">("dashboard");
+  // Reject Booking Modal states
+  const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
+  const [rejectReasonPrompt, setRejectReasonPrompt] = useState("");
+  const [actionLoading, setActionLoading] = useState(false);
+
+  // Top Dashboard View Tab: dashboard vs orders vs payments vs reports vs security vs messenger
+  const [dashboardTab, setDashboardTab] = useState<"dashboard" | "orders" | "payments" | "reports" | "security" | "messenger">("dashboard");
+  const [copiedMessengerKey, setCopiedMessengerKey] = useState<string | null>(null);
 
   // Security & Change Password states
   const [currentPasswordInput, setCurrentPasswordInput] = useState("");
@@ -231,10 +261,22 @@ export const AdminOrderManagement: React.FC<AdminOrderManagementProps> = ({
   const [allSupPayments, setAllSupPayments] = useState<any[]>([]);
   const [allPaymentAuditLogs, setAllPaymentAuditLogs] = useState<any[]>([]);
   const [loadingPaymentsTab, setLoadingPaymentsTab] = useState(false);
-  const [paymentsSubTab, setPaymentsSubTab] = useState<"customer" | "supplier" | "audit">("customer");
+  const [paymentsSubTab, setPaymentsSubTab] = useState<"customer" | "supplier" | "transactions" | "audit">("customer");
   const [paymentStatusFilter, setPaymentStatusFilter] = useState("ALL");
   const [paymentMethodFilter, setPaymentMethodFilter] = useState("ALL");
   const [paymentSearchQuery, setPaymentSearchQuery] = useState("");
+
+  // Phase 6 Accounting & Financial Movements State
+  const [isCustomerStatementOpen, setIsCustomerStatementOpen] = useState(false);
+  const [isFactoryStatementOpen, setIsFactoryStatementOpen] = useState(false);
+  const [isProfitabilityOpen, setIsProfitabilityOpen] = useState(false);
+  const [isRecordExpenseOpen, setIsRecordExpenseOpen] = useState(false);
+  const [isRecordAdjustmentOpen, setIsRecordAdjustmentOpen] = useState(false);
+  const [accountingOrderId, setAccountingOrderId] = useState<number | string | null>(null);
+  const [allFinancialTransactions, setAllFinancialTransactions] = useState<any[]>([]);
+  const [financialEntityFilter, setFinancialEntityFilter] = useState<"ALL" | "CUSTOMER" | "FACTORY" | "EXPENSE">("ALL");
+  const [custPayMovementType, setCustPayMovementType] = useState<"COLLECTION" | "REFUND" | "CORRECTION">("COLLECTION");
+  const [custPayReason, setCustPayReason] = useState("");
 
   // WhatsApp Messaging Modal State
   const [isWhatsAppModalOpen, setIsWhatsAppModalOpen] = useState(false);
@@ -355,14 +397,48 @@ export const AdminOrderManagement: React.FC<AdminOrderManagementProps> = ({
         setLoginUserId(data.userId);
         setLoginPhone(data.phone || "01284484868");
         setOtpWhatsappLink(data.whatsappLink || "");
-        setReceivedOtp("");
         setOtp("");
+        setResendCooldown(60);
+        setResendSuccess("");
         setLoginStep("otp");
       }
     } catch (err: any) {
       setAuthError(err.message || "فشل تسجيل الدخول");
     } finally {
       setAuthLoading(false);
+    }
+  };
+
+  // Resend OTP Action
+  const handleResendOtp = async () => {
+    if (!loginUserId || resendCooldown > 0 || resendLoading) return;
+    setResendLoading(true);
+    setAuthError("");
+    setResendSuccess("");
+
+    try {
+      const result = await safeFetchJson<any>("/api/admin/auth/resend-otp", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-requested-with": "XMLHttpRequest",
+        },
+        body: JSON.stringify({ userId: loginUserId }),
+      });
+
+      if (!result.ok || !result.data?.success) {
+        throw new Error(result.error || result.data?.message || "فشل إعادة إرسال رمز التحقق");
+      }
+
+      setResendCooldown(60);
+      setResendSuccess(result.data.message || "تم إرسال رمز تحقق جديد بنجاح");
+      if (result.data.whatsappLink) {
+        setOtpWhatsappLink(result.data.whatsappLink);
+      }
+    } catch (err: any) {
+      setAuthError(err.message || "فشل إعادة إرسال رمز التحقق");
+    } finally {
+      setResendLoading(false);
     }
   };
 
@@ -502,6 +578,107 @@ export const AdminOrderManagement: React.FC<AdminOrderManagementProps> = ({
       }
     } catch (err) {
       alert("حدث خطأ أثناء تحديث الحالة");
+    }
+  };
+
+  // Handle Accept Booking
+  const handleAcceptBooking = async () => {
+    if (!selectedOrderId || actionLoading) return;
+    setActionLoading(true);
+    try {
+      const res = await fetch(`/api/admin/orders/${selectedOrderId}/accept`, {
+        method: "POST",
+        headers: getHeaders(),
+      });
+      const data = await res.json();
+      if (data.success) {
+        await loadOrderDetail(selectedOrderId);
+        loadOrders();
+      } else {
+        alert(data.message || "فشل قبول الحجز");
+      }
+    } catch (err: any) {
+      alert(err.message || "حدث خطأ أثناء قبول الحجز");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Handle Reject Booking
+  const handleRejectBooking = async () => {
+    if (!selectedOrderId || !rejectReasonPrompt.trim() || actionLoading) {
+      alert("يرجى كتابة سبب رفض الحجز بوضوح");
+      return;
+    }
+    setActionLoading(true);
+    try {
+      const res = await fetch(`/api/admin/orders/${selectedOrderId}/reject`, {
+        method: "POST",
+        headers: getHeaders(),
+        body: JSON.stringify({ reason: rejectReasonPrompt.trim() }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setIsRejectModalOpen(false);
+        setRejectReasonPrompt("");
+        await loadOrderDetail(selectedOrderId);
+        loadOrders();
+      } else {
+        alert(data.message || "فشل رفض الحجز");
+      }
+    } catch (err: any) {
+      alert(err.message || "حدث خطأ أثناء رفض الحجز");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Handle Create Independent Factory Order
+  const handleCreateSupplierOrder = async () => {
+    if (!selectedOrderId || actionLoading) return;
+    setActionLoading(true);
+    try {
+      const res = await fetch(`/api/admin/orders/${selectedOrderId}/supplier-order`, {
+        method: "POST",
+        headers: getHeaders(),
+      });
+      const data = await res.json();
+      if (data.success) {
+        await loadOrderDetail(selectedOrderId);
+        loadOrders();
+      } else {
+        alert(data.message || "فشل إنشاء طلب المصنع");
+      }
+    } catch (err: any) {
+      alert(err.message || "حدث خطأ أثناء إنشاء طلب المصنع");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Handle Update Supplier Order Status
+  const handleUpdateSupplierOrderStatus = async (supplierOrderId: number, newStatus: string) => {
+    if (actionLoading) return;
+    setActionLoading(true);
+    try {
+      const res = await fetch(`/api/admin/supplier-orders/${supplierOrderId}/status`, {
+        method: "PUT",
+        headers: getHeaders(),
+        body: JSON.stringify({ status: newStatus }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        if (selectedOrderId) {
+          await loadOrderDetail(selectedOrderId);
+        }
+        loadOrders();
+      } else {
+        alert(data.message || "فشل تحديث حالة أمر التوريد");
+      }
+    } catch (err: any) {
+      alert(err.message || "حدث خطأ أثناء تحديث حالة أمر التوريد");
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -804,20 +981,23 @@ export const AdminOrderManagement: React.FC<AdminOrderManagementProps> = ({
     if (!token) return;
     setLoadingPaymentsTab(true);
     try {
-      const [custRes, supRes, auditRes] = await Promise.all([
+      const [custRes, supRes, auditRes, transRes] = await Promise.all([
         fetch("/api/admin/customer-payments", { headers: getHeaders() }),
         fetch("/api/admin/supplier-payments", { headers: getHeaders() }),
         fetch("/api/admin/payment-audit-logs", { headers: getHeaders() }),
+        fetch("/api/admin/accounting/transactions", { headers: getHeaders() }),
       ]);
-      const [custData, supData, auditData] = await Promise.all([
+      const [custData, supData, auditData, transData] = await Promise.all([
         custRes.json(),
         supRes.json(),
         auditRes.json(),
+        transRes.json(),
       ]);
 
       if (custData.success) setAllCustPayments(custData.payments || []);
       if (supData.success) setAllSupPayments(supData.payments || []);
       if (auditData.success) setAllPaymentAuditLogs(auditData.logs || []);
+      if (transData.success) setAllFinancialTransactions(transData.transactions || []);
     } catch (err) {
       console.error("Error loading payment management data:", err);
     } finally {
@@ -1105,18 +1285,43 @@ export const AdminOrderManagement: React.FC<AdminOrderManagementProps> = ({
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold text-[#221B17] mb-1">
-                        رمز OTP المكون من 6 أرقام
-                      </label>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-xs font-bold text-[#221B17]">
+                          رمز OTP المكون من 6 أرقام
+                        </label>
+                        <button
+                          type="button"
+                          disabled={resendCooldown > 0 || resendLoading}
+                          onClick={handleResendOtp}
+                          className="text-[#721832] hover:text-[#5C1027] font-bold text-[11px] disabled:text-gray-400 cursor-pointer disabled:cursor-not-allowed flex items-center gap-1 transition-colors"
+                        >
+                          {resendLoading ? (
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                          ) : (
+                            <RefreshCw className="w-3 h-3" />
+                          )}
+                          <span>
+                            {resendCooldown > 0
+                              ? `إعادة إرسال (${resendCooldown}ث)`
+                              : "إعادة إرسال الرمز"}
+                          </span>
+                        </button>
+                      </div>
                       <input
                         type="text"
                         required
                         maxLength={6}
                         value={otp}
                         onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
-                        placeholder="123456"
+                        placeholder="••••••"
+                        autoFocus
                         className="w-full bg-[#FAF7F2] border border-[#D6C7B7] rounded-xl px-4 py-3 text-center text-xl font-mono font-black tracking-widest focus:outline-none focus:ring-2 focus:ring-[#721832] focus:bg-white"
                       />
+                      {resendSuccess && (
+                        <p className="text-[11px] text-emerald-700 font-bold mt-1 text-center">
+                          {resendSuccess}
+                        </p>
+                      )}
                     </div>
 
                     {otpWhatsappLink && (
@@ -1135,7 +1340,7 @@ export const AdminOrderManagement: React.FC<AdminOrderManagementProps> = ({
                       <button
                         type="button"
                         onClick={() => setLoginStep("credentials")}
-                        className="px-4 py-2.5 rounded-xl border border-[#D6C7B7] text-xs font-bold"
+                        className="px-4 py-2.5 rounded-xl border border-[#D6C7B7] text-xs font-bold hover:bg-gray-50"
                       >
                         رجوع
                       </button>
@@ -1240,7 +1445,7 @@ export const AdminOrderManagement: React.FC<AdminOrderManagementProps> = ({
                       setChangePasswordError("");
                       setChangePasswordSuccess("");
                     }}
-                    className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-black flex items-center gap-2 transition-all ${
+                    className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-black flex items-center gap-2 transition-all cursor-pointer ${
                       dashboardTab === "security"
                         ? "bg-[#721832] text-white shadow-md"
                         : "bg-white text-[#5C1027] border border-[#E8DFD1] hover:bg-[#FAF7F2]"
@@ -1248,6 +1453,21 @@ export const AdminOrderManagement: React.FC<AdminOrderManagementProps> = ({
                   >
                     <ShieldCheck className="w-4 h-4 text-[#C89B3C]" />
                     <span>الأمان وتغيير كلمة المرور</span>
+                  </button>
+
+                  {/* TAB 6: FACEBOOK MESSENGER INTEGRATION */}
+                  <button
+                    onClick={() => {
+                      setDashboardTab("messenger");
+                    }}
+                    className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-black flex items-center gap-2 transition-all cursor-pointer ${
+                      dashboardTab === "messenger"
+                        ? "bg-[#0084FF] text-white shadow-md"
+                        : "bg-white text-[#0084FF] border border-[#0084FF]/30 hover:bg-blue-50/50"
+                    }`}
+                  >
+                    <MessageCircle className="w-4 h-4 text-[#0084FF] fill-current" />
+                    <span>ربط ماسنجر فيسبوك (/order)</span>
                   </button>
                 </div>
 
@@ -2010,6 +2230,17 @@ export const AdminOrderManagement: React.FC<AdminOrderManagementProps> = ({
                           مدفوعات المصانع ({allSupPayments.length})
                         </button>
                         <button
+                          onClick={() => setPaymentsSubTab("transactions")}
+                          className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 ${
+                            paymentsSubTab === "transactions"
+                              ? "bg-[#5C1027] text-white shadow-xs"
+                              : "bg-[#FAF7F2] text-[#4A3E38] border border-[#E8DFD1] hover:bg-white"
+                          }`}
+                        >
+                          <FileText className="w-3.5 h-3.5 text-[#C89B3C]" />
+                          <span>سجل الحركات الموحد ({allFinancialTransactions.length})</span>
+                        </button>
+                        <button
                           onClick={() => setPaymentsSubTab("audit")}
                           className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 ${
                             paymentsSubTab === "audit"
@@ -2383,6 +2614,148 @@ export const AdminOrderManagement: React.FC<AdminOrderManagementProps> = ({
                             </div>
                           ))
                         )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* SUB-TAB 3: UNIFIED FINANCIAL MOVEMENTS LEDGER */}
+                  {paymentsSubTab === "transactions" && (
+                    <div className="space-y-3">
+                      {/* Filter Bar */}
+                      <div className="flex flex-wrap items-center justify-between gap-2 bg-[#FAF7F2] p-2.5 rounded-xl border border-[#D6C7B7]">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-[#5C1027]">تصفية الحركات المالية:</span>
+                          <div className="flex items-center gap-1">
+                            {(['ALL', 'CUSTOMER', 'FACTORY', 'EXPENSE'] as const).map((ent) => (
+                              <button
+                                key={ent}
+                                onClick={() => setFinancialEntityFilter(ent)}
+                                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-colors cursor-pointer ${
+                                  financialEntityFilter === ent
+                                    ? 'bg-[#5C1027] text-white border-[#5C1027]'
+                                    : 'bg-white text-[#4A3E38] border-[#D6C7B7] hover:bg-[#FAF7F2]'
+                                }`}
+                              >
+                                {ent === 'ALL' ? 'الكل' : ent === 'CUSTOMER' ? 'العملاء' : ent === 'FACTORY' ? 'المصانع' : 'المصروفات'}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <span className="text-[11px] font-bold text-[#6B5E55]">
+                          إجمالي الحركات: <strong>{allFinancialTransactions.length}</strong> حركة
+                        </span>
+                      </div>
+
+                      {/* Transactions Table */}
+                      <div className="overflow-x-auto rounded-2xl border border-[#E8DFD1] shadow-2xs bg-white">
+                        <table className="w-full text-right text-xs">
+                          <thead className="bg-[#FAF7F2] text-[#5C1027] font-bold border-b border-[#E8DFD1]">
+                            <tr>
+                              <th className="p-3">كود الحركة</th>
+                              <th className="p-3">الطلب المرتبط</th>
+                              <th className="p-3">الجهة</th>
+                              <th className="p-3">نوع الحركة</th>
+                              <th className="p-3">المبلغ</th>
+                              <th className="p-3">طريقة الدفع</th>
+                              <th className="p-3">المرجع</th>
+                              <th className="p-3">الحالة</th>
+                              <th className="p-3">المسؤول والتاريخ</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-[#E8DFD1]">
+                            {allFinancialTransactions.length === 0 ? (
+                              <tr>
+                                <td colSpan={9} className="p-8 text-center text-[#8C7D73]">
+                                  لا توجد حركات مالية مسجلة حالياً
+                                </td>
+                              </tr>
+                            ) : (
+                              allFinancialTransactions
+                                .filter((t) => {
+                                  if (financialEntityFilter !== 'ALL' && t.entityType !== financialEntityFilter) return false;
+                                  if (paymentSearchQuery.trim()) {
+                                    const q = paymentSearchQuery.toLowerCase();
+                                    const matchOrder = t.orderNumber?.toLowerCase().includes(q);
+                                    const matchCode = t.transactionNumber?.toLowerCase().includes(q);
+                                    const matchRef = t.referenceNumber?.toLowerCase().includes(q);
+                                    const matchNotes = t.notes?.toLowerCase().includes(q);
+                                    if (!matchOrder && !matchCode && !matchRef && !matchNotes) return false;
+                                  }
+                                  return true;
+                                })
+                                .map((t) => (
+                                  <tr key={t.id} className="hover:bg-[#FAF7F2]/60 transition-colors">
+                                    <td className="p-3 font-mono font-bold text-[#5C1027]">{t.transactionNumber}</td>
+                                    <td className="p-3">
+                                      <button
+                                        onClick={() => loadOrderDetail(t.orderId)}
+                                        className="font-mono font-bold text-[#721832] hover:underline cursor-pointer"
+                                      >
+                                        {t.orderNumber}
+                                      </button>
+                                    </td>
+                                    <td className="p-3">
+                                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                        t.entityType === 'CUSTOMER'
+                                          ? 'bg-emerald-100 text-emerald-800'
+                                          : t.entityType === 'FACTORY'
+                                          ? 'bg-blue-100 text-blue-800'
+                                          : 'bg-amber-100 text-amber-800'
+                                      }`}>
+                                        {t.entityType === 'CUSTOMER' ? 'عميل' : t.entityType === 'FACTORY' ? 'مصنع' : 'مصروف'}
+                                      </span>
+                                    </td>
+                                    <td className="p-3">
+                                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                        t.movementType === 'COLLECTION'
+                                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                          : t.movementType === 'PAYOUT'
+                                          ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                                          : t.movementType === 'REFUND'
+                                          ? 'bg-red-50 text-red-700 border border-red-200'
+                                          : t.movementType === 'CORRECTION'
+                                          ? 'bg-purple-50 text-purple-700 border border-purple-200'
+                                          : 'bg-orange-50 text-orange-700 border border-orange-200'
+                                      }`}>
+                                        {t.movementType === 'COLLECTION'
+                                          ? 'تحصيل'
+                                          : t.movementType === 'PAYOUT'
+                                          ? 'سداد مصنع'
+                                          : t.movementType === 'REFUND'
+                                          ? 'استرداد'
+                                          : t.movementType === 'CORRECTION'
+                                          ? 'تصحيح'
+                                          : 'مصروف تشغيل'}
+                                      </span>
+                                    </td>
+                                    <td className="p-3 font-black font-mono">
+                                      <span className={t.movementType === 'COLLECTION' ? 'text-emerald-700' : 'text-blue-800'}>
+                                        {t.amount.toLocaleString()} ج.م
+                                      </span>
+                                    </td>
+                                    <td className="p-3 font-semibold text-[#4A3E38]">{t.paymentMethod}</td>
+                                    <td className="p-3 font-mono text-[11px] text-[#6B5E55]">{t.referenceNumber || '—'}</td>
+                                    <td className="p-3">
+                                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                        t.status === 'CONFIRMED'
+                                          ? 'bg-emerald-100 text-emerald-800'
+                                          : t.status === 'CORRECTED'
+                                          ? 'bg-purple-100 text-purple-800'
+                                          : 'bg-amber-100 text-amber-800'
+                                      }`}>
+                                        {t.status === 'CONFIRMED' ? 'مؤكدة' : t.status === 'CORRECTED' ? 'مصححة' : t.status}
+                                      </span>
+                                    </td>
+                                    <td className="p-3 text-[11px]">
+                                      <span className="font-semibold block">{t.recordedBy}</span>
+                                      <span className="text-[#8C7D73] block">{new Date(t.transactionDate).toLocaleString('ar-EG')}</span>
+                                    </td>
+                                  </tr>
+                                ))
+                            )}
+                          </tbody>
+                        </table>
                       </div>
                     </div>
                   )}
@@ -3152,6 +3525,44 @@ export const AdminOrderManagement: React.FC<AdminOrderManagementProps> = ({
 
               {/* Detail Body */}
               <div className="p-5 sm:p-6 space-y-6">
+                {/* 0. DECISION BANNER FOR PENDING BOOKINGS */}
+                {["PENDING_BOOKING", "PENDING_REVIEW"].includes(orderDetail.order.orderStatus) && (
+                  <div className="bg-amber-50 border-2 border-amber-300 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-xs">
+                    <div className="space-y-0.5 text-right">
+                      <div className="font-black text-xs sm:text-sm text-amber-950 flex items-center gap-2">
+                        <AlertCircle className="w-4 h-4 text-amber-700 shrink-0" />
+                        <span>طلب حجز مبدئي جديد — بانتظار اتخاذ القرار الإداري</span>
+                      </div>
+                      <p className="text-[11px] text-amber-800 leading-relaxed">
+                        راجع بيانات العميل والمناسبة ومحتويات الوجبة بالأسفل، ثم اختر قبول الحجز لمطالبة العميل بسداد العربون (50%) أو رفض الحجز مع توثيق السبب.
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
+                      <button
+                        type="button"
+                        onClick={handleAcceptBooking}
+                        disabled={actionLoading}
+                        className="flex-1 sm:flex-initial bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-2 px-3.5 rounded-xl shadow-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                      >
+                        <Check className="w-4 h-4" />
+                        <span>قبول الحجز وطلب العربون (50%)</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRejectReasonPrompt("");
+                          setIsRejectModalOpen(true);
+                        }}
+                        disabled={actionLoading}
+                        className="flex-1 sm:flex-initial bg-red-600 hover:bg-red-700 text-white font-bold text-xs py-2 px-3.5 rounded-xl shadow-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                      >
+                        <X className="w-4 h-4" />
+                        <span>رفض الحجز</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 {/* FINANCIAL SIDES CARD (CUSTOMER SIDE vs SUPPLIER SIDE vs PROFIT) */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {/* 1. CUSTOMER SIDE */}
@@ -3161,6 +3572,19 @@ export const AdminOrderManagement: React.FC<AdminOrderManagementProps> = ({
                         <User className="w-4 h-4 text-emerald-600" />
                         <span>CUSTOMER SIDE (حساب العميل)</span>
                       </span>
+                      {orderDetail.order.customerPaid >= (orderDetail.order.totalAmount * 0.5) ? (
+                        <span className="text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-300 px-2 py-0.5 rounded-full font-black">
+                          العربون مستوفى
+                        </span>
+                      ) : orderDetail.order.customerPaid > 0 ? (
+                        <span className="text-[10px] bg-orange-100 text-orange-800 border border-orange-300 px-2 py-0.5 rounded-full font-bold">
+                          عربون جزئي
+                        </span>
+                      ) : (
+                        <span className="text-[10px] bg-gray-100 text-gray-700 border border-gray-300 px-2 py-0.5 rounded-full font-bold">
+                          لم يُسدد عربون
+                        </span>
+                      )}
                     </div>
 
                     <div className="space-y-1.5 text-xs">
@@ -3172,22 +3596,57 @@ export const AdminOrderManagement: React.FC<AdminOrderManagementProps> = ({
                         <span className="text-[#6B5E55]">Customer Total (إجمالي العميل):</span>
                         <span className="font-black text-emerald-700">{orderDetail.order.totalAmount} ج.م</span>
                       </div>
+                      <div className="flex justify-between bg-emerald-50/70 p-1.5 rounded-lg border border-emerald-200/70">
+                        <span className="text-emerald-900 font-bold">العربون المطلوب (50%):</span>
+                        <span className="font-black text-emerald-800">
+                          {(orderDetail.order.totalAmount * 0.5).toFixed(2)} ج.م
+                        </span>
+                      </div>
                       <div className="flex justify-between">
-                        <span className="text-[#6B5E55]">Customer Paid (المدفوع):</span>
+                        <span className="text-[#6B5E55]">Customer Paid (المدفوع فعلياً):</span>
                         <span className="font-bold text-emerald-600">{orderDetail.order.customerPaid} ج.م</span>
                       </div>
+                      <div className="flex justify-between text-[11px]">
+                        <span className="text-[#6B5E55]">متبقي العربون:</span>
+                        <span className="font-bold text-amber-700">
+                          {Math.max(0, orderDetail.order.totalAmount * 0.5 - orderDetail.order.customerPaid).toFixed(2)} ج.م
+                        </span>
+                      </div>
                       <div className="flex justify-between pt-1 border-t border-[#E8DFD1]">
-                        <span className="font-bold text-[#221B17]">Customer Remaining (المتبقي):</span>
+                        <span className="font-bold text-[#221B17]">Customer Remaining (المتبقي الإجمالي):</span>
                         <span className="font-black text-red-600">{orderDetail.order.customerRemaining} ج.م</span>
                       </div>
                     </div>
 
+                    <div className="grid grid-cols-2 gap-1.5 pt-1">
+                      <button
+                        onClick={() => {
+                          setAccountingOrderId(orderDetail.order.id);
+                          setIsCustomerStatementOpen(true);
+                        }}
+                        className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 font-bold text-[11px] py-1.5 px-2 rounded-xl transition-colors flex items-center justify-center gap-1 cursor-pointer"
+                      >
+                        <FileText className="w-3.5 h-3.5" />
+                        <span>كشف حساب العميل</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          setAccountingOrderId(orderDetail.order.id);
+                          setIsRecordAdjustmentOpen(true);
+                        }}
+                        className="bg-[#FAF7F2] hover:bg-white text-[#5C1027] border border-[#D6C7B7] font-bold text-[11px] py-1.5 px-2 rounded-xl transition-colors flex items-center justify-center gap-1 cursor-pointer"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                        <span>إضافة / تعديل مالي</span>
+                      </button>
+                    </div>
+
                     <button
                       onClick={() => setIsCustPayOpen(true)}
-                      className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-2 px-3 rounded-xl transition-colors flex items-center justify-center gap-1"
+                      className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-2 px-3 rounded-xl transition-colors flex items-center justify-center gap-1 cursor-pointer"
                     >
                       <Plus className="w-3.5 h-3.5" />
-                      <span>تسجيل دفعة عميل (InstaPay / كاش)</span>
+                      <span>تسجيل دفعة / استرداد للعميل</span>
                     </button>
                   </div>
 
@@ -3198,6 +3657,15 @@ export const AdminOrderManagement: React.FC<AdminOrderManagementProps> = ({
                         <Building2 className="w-4 h-4 text-blue-600" />
                         <span>SUPPLIER SIDE (حساب المصنع)</span>
                       </span>
+                      {orderDetail.supplierOrders && orderDetail.supplierOrders.length > 0 ? (
+                        <span className="text-[10px] bg-blue-100 text-blue-800 border border-blue-300 px-2 py-0.5 rounded-full font-bold">
+                          {orderDetail.supplierOrders[0].supplierOrderNumber}
+                        </span>
+                      ) : (
+                        <span className="text-[10px] bg-amber-100 text-amber-800 border border-amber-300 px-2 py-0.5 rounded-full font-bold">
+                          لم يُنشأ بعد
+                        </span>
+                      )}
                     </div>
 
                     <div className="space-y-1.5 text-xs">
@@ -3219,13 +3687,75 @@ export const AdminOrderManagement: React.FC<AdminOrderManagementProps> = ({
                       </div>
                     </div>
 
-                    <button
-                      onClick={() => setIsSupPayOpen(true)}
-                      className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs py-2 px-3 rounded-xl transition-colors flex items-center justify-center gap-1"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>تسجيل تحويل للمصنع</span>
-                    </button>
+                    {(!orderDetail.supplierOrders || orderDetail.supplierOrders.length === 0) ? (
+                      <div className="space-y-2">
+                        <button
+                          onClick={handleCreateSupplierOrder}
+                          disabled={actionLoading || ["PENDING_BOOKING", "PENDING_REVIEW", "REJECTED", "CANCELLED"].includes(orderDetail.order.orderStatus)}
+                          className="w-full bg-[#1F1714] hover:bg-[#362720] text-white font-bold text-xs py-2 px-3 rounded-xl transition-colors flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                          title={["PENDING_BOOKING", "PENDING_REVIEW"].includes(orderDetail.order.orderStatus) ? "يجب موافقة الإدارة على الحجز أولاً" : "إنشاء طلب مصنع مستقل"}
+                        >
+                          <Building2 className="w-3.5 h-3.5 text-[#C89B3C]" />
+                          <span>إنشاء طلب المصنع المستقل</span>
+                        </button>
+                        <button
+                          onClick={() => {
+                            setAccountingOrderId(orderDetail.order.id);
+                            setIsFactoryStatementOpen(true);
+                          }}
+                          className="w-full bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-300 font-bold text-[11px] py-1.5 px-2 rounded-xl transition-colors flex items-center justify-center gap-1 cursor-pointer"
+                        >
+                          <FileText className="w-3.5 h-3.5" />
+                          <span>كشف حساب المصنع المبدئي</span>
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <div className="bg-[#FAF7F2] p-2 rounded-xl border border-[#D6C7B7] text-[11px] flex items-center justify-between">
+                          <span className="text-[#6B5E55]">حالة أمر التوريد:</span>
+                          <span className="font-black text-[#5C1027]">
+                            {orderDetail.supplierOrders[0].status}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateSupplierOrderStatus(orderDetail.supplierOrders[0].id, "ACCEPTED_BY_FACTORY")}
+                            disabled={actionLoading}
+                            className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 text-[10px] font-bold py-1 px-2 rounded-lg transition-colors"
+                          >
+                            تأكيد المصنع
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateSupplierOrderStatus(orderDetail.supplierOrders[0].id, "IN_PREPARATION")}
+                            disabled={actionLoading}
+                            className="bg-orange-50 hover:bg-orange-100 text-orange-800 border border-orange-300 text-[10px] font-bold py-1 px-2 rounded-lg transition-colors"
+                          >
+                            قيد التجهيز
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-1.5">
+                          <button
+                            onClick={() => {
+                              setAccountingOrderId(orderDetail.order.id);
+                              setIsFactoryStatementOpen(true);
+                            }}
+                            className="bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-300 font-bold text-[11px] py-1.5 px-2 rounded-xl transition-colors flex items-center justify-center gap-1 cursor-pointer"
+                          >
+                            <FileText className="w-3.5 h-3.5" />
+                            <span>كشف حساب المصنع</span>
+                          </button>
+                          <button
+                            onClick={() => setIsSupPayOpen(true)}
+                            className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-[11px] py-1.5 px-2 rounded-xl transition-colors flex items-center justify-center gap-1 cursor-pointer"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>تحويل للمصنع</span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* 3. PROFIT */}
@@ -3254,7 +3784,30 @@ export const AdminOrderManagement: React.FC<AdminOrderManagementProps> = ({
                       </div>
                     </div>
 
-                    <div className="text-[10px] text-[#8C6D28] bg-white/60 p-2 rounded-lg text-center font-bold">
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <button
+                        onClick={() => {
+                          setAccountingOrderId(orderDetail.order.id);
+                          setIsProfitabilityOpen(true);
+                        }}
+                        className="bg-[#721832] hover:bg-[#5C1027] text-white font-bold text-[11px] py-2 px-2 rounded-xl transition-colors flex items-center justify-center gap-1 cursor-pointer shadow-xs"
+                      >
+                        <TrendingUp className="w-3.5 h-3.5 text-[#C89B3C]" />
+                        <span>كشف الربحية والتدفق</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          setAccountingOrderId(orderDetail.order.id);
+                          setIsRecordExpenseOpen(true);
+                        }}
+                        className="bg-white hover:bg-red-50 text-red-800 border border-red-200 font-bold text-[11px] py-2 px-2 rounded-xl transition-colors flex items-center justify-center gap-1 cursor-pointer"
+                      >
+                        <Receipt className="w-3.5 h-3.5" />
+                        <span>تسجيل مصروف</span>
+                      </button>
+                    </div>
+
+                    <div className="text-[10px] text-[#8C6D28] bg-white/60 p-1.5 rounded-lg text-center font-bold">
                       حسابات منفصلة تماماً • لا يتم خلط دفعات العميل بالمصنع
                     </div>
                   </div>
@@ -3989,6 +4542,236 @@ export const AdminOrderManagement: React.FC<AdminOrderManagementProps> = ({
                           </div>
                         </form>
                       </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* =========================================================================
+                  VIEW 6: FACEBOOK MESSENGER INTEGRATION (ربط ماسنجر فيسبوك ونموذج /order)
+                  ========================================================================= */}
+              {dashboardTab === "messenger" && (
+                <div className="space-y-6 animate-fadeIn" dir="rtl">
+                  {/* Messenger Header Banner */}
+                  <div className="bg-gradient-to-r from-[#0084FF] via-[#0066CC] to-[#1F1714] text-white p-6 rounded-3xl shadow-md border border-[#0084FF]/30 flex flex-wrap items-center justify-between gap-4">
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-2.5">
+                        <div className="p-2.5 rounded-2xl bg-white/10 border border-white/20">
+                          <MessageCircle className="w-6 h-6 text-white fill-current" />
+                        </div>
+                        <div>
+                          <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white">
+                            إعدادات ربط ماسنجر فيسبوك (Facebook Messenger Integration)
+                          </h2>
+                          <p className="text-xs text-white/80 font-medium">
+                            توجيه عملاء صفحة فيسبوك وماسنجر مباشرة إلى نموذج الحجز التفاعلي المعتمد: celebre-eg.com/order
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <a
+                        href="/order"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 text-xs font-bold bg-white text-[#0066CC] px-4 py-2 rounded-xl shadow-xs hover:bg-[#FAF7F2] transition-colors"
+                      >
+                        <ExternalLink className="w-4 h-4" />
+                        <span>معاينة صفحة /order مباشرة</span>
+                      </a>
+                    </div>
+                  </div>
+
+                  {/* 1. Direct Booking Link Card */}
+                  <div className="bg-white rounded-3xl p-6 border border-[#E8DFD1] shadow-sm space-y-4">
+                    <div className="flex items-center justify-between border-b border-[#F4EFEA] pb-3">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="w-5 h-5 text-[#C89B3C]" />
+                        <h3 className="text-sm font-black text-[#5C1027]">
+                          الرابط الرسمي المعتمد لنموذج الحجز المباشر (Public Booking URL)
+                        </h3>
+                      </div>
+                      <span className="text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-0.5 rounded-full">
+                        متوافق 100% مع الموبايل وماسنجر
+                      </span>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row items-center gap-2 bg-[#FAF7F2] p-3 rounded-2xl border border-[#E8DFD1]">
+                      <span className="font-mono font-black text-[#721832] text-sm dir-ltr flex-1 px-2 select-all text-left">
+                        https://celebre-eg.com/order
+                      </span>
+                      <div className="flex items-center gap-2 w-full sm:w-auto">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            navigator.clipboard.writeText("https://celebre-eg.com/order");
+                            setCopiedMessengerKey("link");
+                            setTimeout(() => setCopiedMessengerKey(null), 2500);
+                          }}
+                          className="flex-1 sm:flex-initial bg-[#721832] hover:bg-[#5C1027] text-white text-xs font-bold py-2 px-3.5 rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                        >
+                          {copiedMessengerKey === "link" ? (
+                            <>
+                              <Check className="w-3.5 h-3.5 text-[#C89B3C]" />
+                              <span>تم النسخ!</span>
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="w-3.5 h-3.5" />
+                              <span>نسخ الرابط</span>
+                            </>
+                          )}
+                        </button>
+                        <a
+                          href="https://m.me/celebre.catering"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="bg-[#0084FF] hover:bg-[#0073E6] text-white text-xs font-bold py-2 px-3.5 rounded-xl flex items-center justify-center gap-1.5 transition-colors"
+                        >
+                          <Send className="w-3.5 h-3.5" />
+                          <span>فتح ماسنجر</span>
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 2. Ready-to-use Arabic Messages Templates for Meta Business Suite */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Template 1: Instant Reply (الرد الفوري التلقائي) */}
+                    <div className="bg-white rounded-3xl p-6 border border-[#E8DFD1] shadow-sm space-y-3 flex flex-col justify-between">
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between border-b border-[#F4EFEA] pb-2">
+                          <h4 className="font-black text-xs text-[#5C1027] flex items-center gap-1.5">
+                            <MessageCircle className="w-4 h-4 text-[#0084FF]" />
+                            <span>1. رسالة الرد الفوري التلقائي (Instant Reply)</span>
+                          </h4>
+                          <span className="text-[10px] text-[#6B5E55] bg-gray-100 px-2 py-0.5 rounded-full font-bold">
+                            تُرسل عند بدء المحادثة
+                          </span>
+                        </div>
+                        <div className="bg-[#FAF7F2] p-3 rounded-2xl border border-[#E8DFD1] text-xs text-[#4A3E38] font-sans leading-relaxed whitespace-pre-wrap select-all">
+{`أهلاً بك في سيلبر كاترينج (Celebre Catering) 🍽️
+يسعدنا استقبال طلباتكم للمناسبات والشركات وأعياد الميلاد وتجهيز البوفيهات الفندقية.
+
+لحجز باقتك مباشرة ومراجعة مكونات الوجبات والأسعار الرسمية، تفضل بزيارة رابط الحجز الفوري:
+👉 https://celebre-eg.com/order
+
+نوفر باقات الميكس بوكس وسندوتش بوكس بأسعار الموزع المعتمدة، مع إمكانية تعديل المشروب وتوصيل طلبك لمكان مناسبتك.`}
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const text = `أهلاً بك في سيلبر كاترينج (Celebre Catering) 🍽️\nيسعدنا استقبال طلباتكم للمناسبات والشركات وأعياد الميلاد وتجهيز البوفيهات الفندقية.\n\nلحجز باقتك مباشرة ومراجعة مكونات الوجبات والأسعار الرسمية، تفضل بزيارة رابط الحجز الفوري:\n👉 https://celebre-eg.com/order\n\nنوفر باقات الميكس بوكس وسندوتش بوكس بأسعار الموزع المعتمدة، مع إمكانية تعديل المشروب وتوصيل طلبك لمكان مناسبتك.`;
+                          navigator.clipboard.writeText(text);
+                          setCopiedMessengerKey("msg1");
+                          setTimeout(() => setCopiedMessengerKey(null), 2500);
+                        }}
+                        className="w-full bg-[#FAF7F2] hover:bg-blue-50 text-[#0066CC] border border-[#0084FF]/40 font-bold text-xs py-2 px-3 rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                      >
+                        {copiedMessengerKey === "msg1" ? (
+                          <>
+                            <Check className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>تم نسخ الرسالة الكاملة!</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-3.5 h-3.5" />
+                            <span>نسخ نص الرد الفوري لـ Meta Business Suite</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+
+                    {/* Template 2: Short Greeting (رسالة ترحيبية مختصرة) */}
+                    <div className="bg-white rounded-3xl p-6 border border-[#E8DFD1] shadow-sm space-y-3 flex flex-col justify-between">
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between border-b border-[#F4EFEA] pb-2">
+                          <h4 className="font-black text-xs text-[#5C1027] flex items-center gap-1.5">
+                            <Sparkles className="w-4 h-4 text-[#C89B3C]" />
+                            <span>2. رسالة الترحيب المختصرة (Short Greeting)</span>
+                          </h4>
+                          <span className="text-[10px] text-[#6B5E55] bg-gray-100 px-2 py-0.5 rounded-full font-bold">
+                            رد سريع ومباشر
+                          </span>
+                        </div>
+                        <div className="bg-[#FAF7F2] p-3 rounded-2xl border border-[#E8DFD1] text-xs text-[#4A3E38] font-sans leading-relaxed whitespace-pre-wrap select-all">
+{`مرحباً بك في سيلبر كاترينج! 🎉
+لحجز بوفيه ووجبات مناسبتك واختيار الباقة المناسبة مباشرة، اضغط على الرابط:
+👉 https://celebre-eg.com/order`}
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const text = `مرحباً بك في سيلبر كاترينج! 🎉\nلحجز بوفيه ووجبات مناسبتك واختيار الباقة المناسبة مباشرة، اضغط على الرابط:\n👉 https://celebre-eg.com/order`;
+                          navigator.clipboard.writeText(text);
+                          setCopiedMessengerKey("msg2");
+                          setTimeout(() => setCopiedMessengerKey(null), 2500);
+                        }}
+                        className="w-full bg-[#FAF7F2] hover:bg-blue-50 text-[#0066CC] border border-[#0084FF]/40 font-bold text-xs py-2 px-3 rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                      >
+                        {copiedMessengerKey === "msg2" ? (
+                          <>
+                            <Check className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>تم نسخ الرسالة المختصرة!</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-3.5 h-3.5" />
+                            <span>نسخ نص الرسالة المختصرة</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 3. Integration Status & Meta Webhook Info */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Status Card */}
+                    <div className="bg-white rounded-3xl p-6 border border-[#E8DFD1] shadow-sm space-y-3">
+                      <h4 className="font-black text-xs text-[#5C1027] flex items-center gap-1.5 border-b border-[#F4EFEA] pb-2">
+                        <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                        <span>حالة تكامل فيسبوك ماسنجر (Meta Integration Status)</span>
+                      </h4>
+
+                      <div className="space-y-2.5 text-xs">
+                        <div className="flex items-center justify-between p-2.5 rounded-xl bg-emerald-50 border border-emerald-200">
+                          <span className="font-bold text-emerald-900">الرد التلقائي اليدوي (Instant Reply):</span>
+                          <span className="font-black text-emerald-700 bg-white px-2 py-0.5 rounded-md text-[11px]">
+                            متاح وجاهز فوراً
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between p-2.5 rounded-xl bg-amber-50 border border-amber-200">
+                          <span className="font-bold text-amber-900">الربط البرمجي عبر API (Automated Messenger):</span>
+                          <span className="font-bold text-amber-800 bg-white px-2 py-0.5 rounded-md text-[10px]">
+                            يتطلب اعتماد Meta في بيئة الإنتاج
+                          </span>
+                        </div>
+
+                        <p className="text-[11px] text-[#6B5E55] leading-relaxed pt-1">
+                          • لحماية سرية وأمان المنظومة، لا يتم تخزين أي توكنات سرية (Page Access Token) داخل واجهة العميل أو كود المتصفح إطلاقاً.
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Step-by-Step Meta Setup Guide */}
+                    <div className="bg-[#FAF7F2] rounded-3xl p-6 border border-[#E8DFD1] shadow-sm space-y-2.5 text-xs">
+                      <h4 className="font-black text-xs text-[#5C1027] flex items-center gap-1.5 border-b border-[#E8DFD1] pb-2">
+                        <CheckCircle2 className="w-4 h-4 text-[#C89B3C]" />
+                        <span>خطوات التفعيل في صفحة فيسبوك خلال دقيقة:</span>
+                      </h4>
+                      <ol className="space-y-1.5 text-[11px] text-[#4A3E38] list-decimal list-inside leading-relaxed">
+                        <li>افتح صفحة فيسبوك سيلبر كاترينج على <strong>Meta Business Suite</strong>.</li>
+                        <li>من القائمة الجانبية ادخل على <strong>Inbox (صندوق الوارد)</strong> ثم <strong>Automations (الأتمتة)</strong>.</li>
+                        <li>اختر <strong>Instant Reply (الرد الفوري)</strong> وفعّله لقناة <strong>Messenger</strong>.</li>
+                        <li>اضغط "تعديل الرسالة" والصق أحد القوالب المعتمدة أعلاه التي تحتوي على رابط الحجز.</li>
+                        <li>اضغط <strong>Save changes (حفظ التغييرات)</strong> ليتم إرسال الرابط تلقائياً لأي عميل يراسل الصفحة.</li>
+                      </ol>
                     </div>
                   </div>
                 </div>

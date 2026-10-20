@@ -1,6 +1,5 @@
-import { PrismaClient, Prisma, OrderStatus } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import { Prisma } from '@prisma/client';
+import { prisma } from './prisma.ts';
 
 export interface CreateOrderInput {
   customerName: string;
@@ -9,11 +8,11 @@ export interface CreateOrderInput {
   email?: string;
   menuCode: string;
   quantity: number;
-  pickupDate: Date;
+  pickupDate: string | Date;
   pickupTime: string;
   pickupLocation: string;
   customerNotes?: string;
-  drinkOption?: "included" | "exclude_juice" | "replace_pepsi";
+  drinkOption?: 'included' | 'exclude_juice' | 'replace_pepsi';
   customDrinkAdjustment?: number;
   ipAddress?: string;
   userAgent?: string;
@@ -25,8 +24,8 @@ export interface CreateOrderInput {
 export async function generateOrderNumber(tx: Prisma.TransactionClient): Promise<string> {
   const today = new Date();
   const yyyy = today.getFullYear();
-  const mm = String(today.getMonth() + 1).padStart(2, "0");
-  const dd = String(today.getDate()).padStart(2, "0");
+  const mm = String(today.getMonth() + 1).padStart(2, '0');
+  const dd = String(today.getDate()).padStart(2, '0');
   const prefix = `CB-${yyyy}${mm}${dd}-`;
 
   const latest = await tx.order.findFirst({
@@ -36,7 +35,7 @@ export async function generateOrderNumber(tx: Prisma.TransactionClient): Promise
       },
     },
     orderBy: {
-      orderNumber: "desc",
+      orderNumber: 'desc',
     },
     select: {
       orderNumber: true,
@@ -45,19 +44,19 @@ export async function generateOrderNumber(tx: Prisma.TransactionClient): Promise
 
   let seq = 1;
   if (latest && latest.orderNumber) {
-    const parts = latest.orderNumber.split("-");
+    const parts = latest.orderNumber.split('-');
     const lastSeq = parseInt(parts[parts.length - 1], 10);
     if (!isNaN(lastSeq)) {
       seq = lastSeq + 1;
     }
   }
 
-  return `${prefix}${String(seq).padStart(4, "0")}`;
+  return `${prefix}${String(seq).padStart(4, '0')}`;
 }
 
 /**
- * Creates a Preliminary Booking & Order inside an ACID Database Transaction.
- * 
+ * Creates a Preliminary Booking & Order inside an ACID Database Transaction via Prisma.
+ *
  * Rules:
  * 1. Customer record created or updated by phone.
  * 2. Exact Snapshot of distributor_unit_price and supplier_unit_price saved in OrderItem.
@@ -68,14 +67,20 @@ export async function generateOrderNumber(tx: Prisma.TransactionClient): Promise
  */
 export async function createOrderTransaction(input: CreateOrderInput) {
   if (!input.phone || !input.customerName || !input.menuCode || !input.quantity) {
-    throw new Error("جميع بيانات الحجز الأساسية مطلوبة (الاسم، الهاتف، الوجبة، الكمية)");
+    throw new Error('جميع بيانات الحجز الأساسية مطلوبة (الاسم، الهاتف، الوجبة، الكمية)');
   }
 
   if (input.quantity < 50) {
-    throw new Error("الحد الأدنى للطلب هو 50 علبة كاترنج لضمان التجهيز والجودة الفندقية");
+    throw new Error('الحد الأدنى للطلب هو 50 علبة كاترنج لضمان التجهيز والجودة الفندقية');
   }
 
   const cleanPhone = input.phone.trim();
+  const pickupDateStr =
+    typeof input.pickupDate === 'string'
+      ? input.pickupDate
+      : input.pickupDate instanceof Date
+        ? input.pickupDate.toISOString().split('T')[0]
+        : String(input.pickupDate);
 
   return await prisma.$transaction(async (tx) => {
     // 1. Find or create customer
@@ -111,21 +116,20 @@ export async function createOrderTransaction(input: CreateOrderInput) {
     // Exclusion: -5 EGP on customer price
     // Pepsi replacement: +10 EGP on customer price
     let customerAdjustment = new Prisma.Decimal(0);
-    let optionType = "DEFAULT_JUICE";
-    let optionName = "عصير بخيرة مشمول مع الوجبة";
+    let optionType = 'DEFAULT_JUICE';
+    let optionName = 'عصير بخيرة مشمول مع الوجبة';
 
-    if (input.drinkOption === "exclude_juice") {
+    if (input.drinkOption === 'exclude_juice') {
       customerAdjustment = new Prisma.Decimal(-5);
-      optionType = "DRINK_EXCLUDE_JUICE";
-      optionName = "استبعاد العصير (خصم 5 ج.م للوجبة)";
-    } else if (input.drinkOption === "replace_pepsi") {
+      optionType = 'DRINK_EXCLUDE_JUICE';
+      optionName = 'استبعاد العصير (خصم 5 ج.م للوجبة)';
+    } else if (input.drinkOption === 'replace_pepsi') {
       customerAdjustment = new Prisma.Decimal(10);
-      optionType = "DRINK_REPLACE_PEPSI";
-      optionName = "استبدال العصير بكانز بيبسي (+10 ج.م للوجبة)";
+      optionType = 'DRINK_REPLACE_PEPSI';
+      optionName = 'استبدال العصير بكانز بيبسي (+10 ج.م للوجبة)';
     }
 
     const supplierAdjustment = new Prisma.Decimal(0);
-
     const qty = new Prisma.Decimal(input.quantity);
     const effectiveCustomerUnitPrice = distributorUnitPrice.add(customerAdjustment);
     const customerTotal = effectiveCustomerUnitPrice.mul(qty);
@@ -139,10 +143,10 @@ export async function createOrderTransaction(input: CreateOrderInput) {
       data: {
         orderNumber,
         customerId: customer.id,
-        orderStatus: OrderStatus.PENDING_BOOKING,
-        pickupDate: input.pickupDate,
-        pickupTime: input.pickupTime,
-        pickupLocation: input.pickupLocation,
+        orderStatus: 'PENDING_BOOKING',
+        pickupDate: pickupDateStr,
+        pickupTime: input.pickupTime || 'المغرب 06:30 م',
+        pickupLocation: input.pickupLocation || 'القاهرة - سيتم التنسيق عبر واتساب',
         customerNotes: input.customerNotes,
 
         // Financials - Customer
@@ -198,20 +202,18 @@ export async function createOrderTransaction(input: CreateOrderInput) {
     });
 
     // 7. Create Supplier Order linked to primary supplier
-    const primarySupplier = await tx.supplier.findFirst({
-      where: { name: "Celebre Factory" },
-    });
+    const primarySupplier = await tx.supplier.findFirst();
 
     if (primarySupplier) {
       await tx.supplierOrder.create({
         data: {
           orderId: order.id,
           supplierId: primarySupplier.id,
-          supplierOrderNumber: `SUP-${orderNumber.replace("CB-", "")}`,
+          supplierOrderNumber: `SUP-${orderNumber.replace('CB-', '')}`,
           supplierTotal,
           supplierPaid: new Prisma.Decimal(0),
           supplierRemaining: supplierTotal,
-          status: "PENDING",
+          status: 'PENDING_CONFIRMATION',
         },
       });
     }
@@ -219,9 +221,10 @@ export async function createOrderTransaction(input: CreateOrderInput) {
     // 8. Create Audit Log
     await tx.auditLog.create({
       data: {
-        action: "ORDER_CREATED",
-        entity: "orders",
-        entityId: order.id,
+        userName: 'العميل (حجز مبدئي عبر الموقع)',
+        action: 'ORDER_CREATED',
+        entity: 'orders',
+        entityId: String(order.id),
         newData: {
           orderNumber,
           customerName: customer.fullName,
@@ -229,9 +232,9 @@ export async function createOrderTransaction(input: CreateOrderInput) {
           menuCode: menuItem.code,
           quantity: input.quantity,
           customerTotal: customerTotal.toNumber(),
-          orderStatus: "PENDING_BOOKING",
+          orderStatus: 'PENDING_BOOKING',
         },
-        ipAddress: input.ipAddress,
+        ip: input.ipAddress,
         userAgent: input.userAgent,
       },
     });

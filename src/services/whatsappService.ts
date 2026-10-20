@@ -1,6 +1,4 @@
-import { db } from '../db/index.ts';
-import { orders, customers, orderItems, supplierOrders, auditLogs, suppliers } from '../db/schema.ts';
-import { eq } from 'drizzle-orm';
+import { prisma } from '../lib/prisma.ts';
 
 export interface WhatsAppMessagePayload {
   orderNumber: string;
@@ -198,25 +196,28 @@ ${updateReason ? `📢 تفاصيل التحديث: ${updateReason}\n` : ''}
     customerWhatsapp: string;
     supplierPhone: string;
   }> {
-    const orderList = await db.select().from(orders).where(eq(orders.id, orderId)).limit(1);
-    if (!orderList.length) throw new Error('الطلب غير موجود');
-    const order = orderList[0];
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      include: {
+        customer: true,
+        items: true,
+        supplierOrders: {
+          include: {
+            supplier: true,
+          },
+        },
+      },
+    });
+    if (!order) throw new Error('الطلب غير موجود');
 
-    const customerList = await db.select().from(customers).where(eq(customers.id, order.customerId)).limit(1);
-    const customer = customerList[0];
-
-    const items = await db.select().from(orderItems).where(eq(orderItems.orderId, orderId));
+    const customer = order.customer;
+    const items = order.items;
     const firstItem = items[0];
-
-    const supOrders = await db.select().from(supplierOrders).where(eq(supplierOrders.orderId, orderId)).limit(1);
-    const supOrder = supOrders[0];
+    const supOrder = order.supplierOrders[0];
 
     let supplierPhone = this.defaultSupplierPhone;
-    if (supOrder) {
-      const supRecords = await db.select().from(suppliers).where(eq(suppliers.id, supOrder.supplierId)).limit(1);
-      if (supRecords.length && supRecords[0].phone) {
-        supplierPhone = supRecords[0].phone;
-      }
+    if (supOrder && supOrder.supplier?.phone) {
+      supplierPhone = supOrder.supplier.phone;
     }
 
     const payload: WhatsAppMessagePayload = {
@@ -232,14 +233,14 @@ ${updateReason ? `📢 تفاصيل التحديث: ${updateReason}\n` : ''}
       pickupLocation: order.pickupLocation,
       notes: order.customerNotes || undefined,
 
-      customerTotal: parseFloat(order.totalAmount),
-      customerPaid: parseFloat(order.customerPaid),
-      customerRemaining: parseFloat(order.customerRemaining),
+      customerTotal: Number(order.totalAmount),
+      customerPaid: Number(order.customerPaid),
+      customerRemaining: Number(order.customerRemaining),
 
-      supplierUnitPrice: firstItem ? parseFloat(firstItem.supplierUnitPrice) : 0,
-      supplierTotal: parseFloat(order.supplierTotal),
-      supplierPaid: parseFloat(order.supplierPaid),
-      supplierRemaining: parseFloat(order.supplierRemaining),
+      supplierUnitPrice: firstItem ? Number(firstItem.supplierUnitPrice) : 0,
+      supplierTotal: Number(order.supplierTotal),
+      supplierPaid: Number(order.supplierPaid),
+      supplierRemaining: Number(order.supplierRemaining),
 
       orderStatus: order.orderStatus,
     };
@@ -324,41 +325,47 @@ ${updateReason ? `📢 تفاصيل التحديث: ${updateReason}\n` : ''}
     const recipientInfo = `${recipientName} (${recipientPhone})`;
 
     // Record last message timestamp and user in orders table
-    await db
-      .update(orders)
-      .set({
+    await prisma.order.update({
+      where: { id: orderId },
+      data: {
         lastMessageAt: now,
         lastMessageBy: adminUsername,
         lastMessageType: messageType,
         lastMessageRecipient: recipientInfo,
         updatedAt: now,
-      })
-      .where(eq(orders.id, orderId));
+      },
+    });
 
     // Record in Audit Log
-    const orderRecord = (await db.select({ num: orders.orderNumber }).from(orders).where(eq(orders.id, orderId)))[0];
-    await db.insert(auditLogs).values({
-      userName: adminUsername,
-      action: `WHATSAPP_${messageType}`,
-      entity: 'orders',
-      entityId: String(orderId),
-      newData: {
-        orderId,
-        orderNumber: orderRecord?.num,
-        messageType,
-        recipientName,
-        recipientPhone,
-        deliveryMode,
-        sent,
-        deepLink,
-        messagePreview: messageText.substring(0, 200) + '...',
-        timestamp: now,
+    const orderRecord = await prisma.order.findUnique({
+      where: { id: orderId },
+      select: { orderNumber: true },
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        userName: adminUsername,
+        action: `WHATSAPP_${messageType}`,
+        entity: 'orders',
+        entityId: String(orderId),
+        newData: {
+          orderId,
+          orderNumber: orderRecord?.orderNumber,
+          messageType,
+          recipientName,
+          recipientPhone,
+          deliveryMode,
+          sent,
+          deepLink,
+          messagePreview: messageText.substring(0, 200) + '...',
+          timestamp: now,
+        },
       },
     });
 
     return {
       orderId,
-      orderNumber: orderRecord?.num || '',
+      orderNumber: orderRecord?.orderNumber || '',
       messageType,
       recipientPhone,
       recipientName,

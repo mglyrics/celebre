@@ -1,13 +1,13 @@
 import React, { useState } from "react";
-import { Phone, MessageCircle, UtensilsCrossed, CalendarCheck, Sparkles, Menu, X, ShieldCheck, FileDown, Loader2 } from "lucide-react";
+import { Phone, MessageCircle, UtensilsCrossed, CalendarCheck, Sparkles, Menu, X, ShieldCheck, FileDown, Loader2, ShoppingBag } from "lucide-react";
 import { CelebreLogo } from "../CelebreLogo";
 import { PublicMenuItem } from "../../types/publicMenu";
 import { downloadMenuPdf } from "../../services/menuPdfService";
 import { OFFICIAL_18_MENU_ITEMS } from "../../data/fallbackMenu";
 
 interface PublicNavbarProps {
-  activePage: "home" | "menu" | "details" | "booking" | "confirmation";
-  onNavigate: (page: "home" | "menu" | "booking", category?: "all" | "mix" | "sandwich") => void;
+  activePage: "home" | "menu" | "details" | "booking" | "confirmation" | "order";
+  onNavigate: (page: "home" | "menu" | "booking" | "order", category?: "all" | "mix" | "sandwich") => void;
   selectedMenuCode?: string | null;
   menuItems?: PublicMenuItem[];
 }
@@ -165,7 +165,19 @@ export const PublicNavbar: React.FC<PublicNavbarProps> = ({
               }`}
             >
               <CalendarCheck className="w-4 h-4 text-[#C89B3C]" />
-              <span>نموذج الحجز المبدئي</span>
+              <span>نموذج الحجز</span>
+            </button>
+
+            <button
+              onClick={() => onNavigate("order")}
+              className={`flex items-center gap-1.5 transition-colors py-2 px-3 rounded-lg cursor-pointer ${
+                activePage === "order"
+                  ? "text-[#5C1027] bg-[#721832]/10 font-black"
+                  : "text-[#221B17] hover:text-[#5C1027] hover:bg-[#FAF7F2]"
+              }`}
+            >
+              <ShoppingBag className="w-4 h-4 text-[#721832]" />
+              <span className="font-bold">حجز السلة (/order)</span>
             </button>
           </nav>
 
@@ -263,12 +275,23 @@ export const PublicNavbar: React.FC<PublicNavbarProps> = ({
 
           <button
             onClick={() => {
+              onNavigate("order");
+              setMobileMenuOpen(false);
+            }}
+            className="w-full text-right py-3 px-4 rounded-xl font-bold text-sm flex items-center justify-between bg-gradient-to-r from-[#721832] to-[#5C1027] text-white shadow-xs"
+          >
+            <span>بوابة الحجز المباشر والسلة (/order)</span>
+            <ShoppingBag className="w-4 h-4 text-[#C89B3C]" />
+          </button>
+
+          <button
+            onClick={() => {
               onNavigate("booking");
               setMobileMenuOpen(false);
             }}
             className="w-full text-right py-3 px-4 rounded-xl font-bold text-sm flex items-center justify-between bg-white text-[#221B17]"
           >
-            <span>نموذج الحجز المبدئي (بدون دفع)</span>
+            <span>نموذج الحجز المبدئي (وجبة واحدة)</span>
             <CalendarCheck className="w-4 h-4 text-[#C89B3C]" />
           </button>
           <button

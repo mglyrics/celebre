@@ -3,7 +3,7 @@ import { Phone, MessageCircle, Mail, MapPin, ShieldCheck, Heart, Sparkles } from
 import { CelebreLogo } from "../CelebreLogo";
 
 interface PublicFooterProps {
-  onNavigate: (page: "home" | "menu" | "booking", category?: "all" | "mix" | "sandwich") => void;
+  onNavigate: (page: "home" | "menu" | "booking" | "order", category?: "all" | "mix" | "sandwich") => void;
 }
 
 export const PublicFooter: React.FC<PublicFooterProps> = ({ onNavigate }) => {
@@ -81,6 +81,14 @@ export const PublicFooter: React.FC<PublicFooterProps> = ({ onNavigate }) => {
                   نموذج الحجز المبدئي (بدون دفع)
                 </button>
               </li>
+              <li>
+                <button
+                  onClick={() => onNavigate("order")}
+                  className="hover:text-white transition-colors cursor-pointer text-[#C89B3C] font-bold"
+                >
+                  بوابة الحجز والسلة (/order)
+                </button>
+              </li>
             </ul>
           </div>
 
@@ -106,6 +114,16 @@ export const PublicFooter: React.FC<PublicFooterProps> = ({ onNavigate }) => {
               >
                 <MessageCircle className="w-4 h-4 text-[#25D366]" />
                 <span>واتساب الإدارة المباشر</span>
+              </a>
+
+              <a
+                href="https://m.me/celebre.catering"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 hover:text-[#0084FF] transition-colors"
+              >
+                <span className="w-4 h-4 rounded-full bg-[#0084FF] text-white flex items-center justify-center text-[9px] font-bold">f</span>
+                <span>فيسبوك ماسنجر (Facebook)</span>
               </a>
 
               <div className="flex items-center gap-2 text-[#D6C7B7]">

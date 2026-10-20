@@ -10,10 +10,11 @@ import { BookingConfirmationModal } from "./components/public/BookingConfirmatio
 import { PublicFooter } from "./components/public/PublicFooter";
 import { AdminOrderManagement } from "./components/admin/AdminOrderManagement";
 import { OFFICIAL_18_MENU_ITEMS } from "./data/fallbackMenu";
+import { OrderPage } from "./components/public/OrderPage";
 
 export const App: React.FC = () => {
-  // Navigation: "home" | "menu" | "booking"
-  const [activePage, setActivePage] = useState<"home" | "menu" | "booking">("home");
+  // Navigation: "home" | "menu" | "booking" | "order"
+  const [activePage, setActivePage] = useState<"home" | "menu" | "booking" | "order">("home");
   const [menuCategory, setMenuCategory] = useState<"all" | "mix" | "sandwich">("all");
 
   // Menu items initialized with official 18 products so they are always available
@@ -73,7 +74,10 @@ export const App: React.FC = () => {
         setIsAdminOpen(false);
       }
 
-      if (hash === "menu-mix" || hash === "mix" || hash === "mix-box") {
+      if (pathname === "/order" || pathname === "/order/" || hash === "order" || hash === "cart") {
+        setActivePage("order");
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      } else if (hash === "menu-mix" || hash === "mix" || hash === "mix-box") {
         setActivePage("menu");
         setMenuCategory("mix");
         window.scrollTo({ top: 0, behavior: "smooth" });
@@ -102,9 +106,14 @@ export const App: React.FC = () => {
     };
   }, []);
 
-  const navigateTo = (page: "home" | "menu" | "booking", category: "all" | "mix" | "sandwich" = "all") => {
+  const navigateTo = (page: "home" | "menu" | "booking" | "order", category: "all" | "mix" | "sandwich" = "all") => {
     setActivePage(page);
-    if (page === "menu") {
+    if (page === "order") {
+      try {
+        window.history.pushState(null, "", "/order");
+      } catch {}
+      window.location.hash = "#order";
+    } else if (page === "menu") {
       setMenuCategory(category);
       if (category === "mix") {
         window.location.hash = "#menu-mix";
@@ -187,6 +196,14 @@ export const App: React.FC = () => {
               onCancel={() => navigateTo("menu")}
             />
           </div>
+        )}
+
+        {activePage === "order" && (
+          <OrderPage
+            menuItems={menuItems}
+            onBookingSuccess={handleBookingSuccess}
+            onNavigateHome={() => navigateTo("home")}
+          />
         )}
       </main>
 

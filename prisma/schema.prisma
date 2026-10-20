@@ -10,29 +10,107 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// 1. Customers
+// 1. Roles
+model Role {
+  id          Int              @id @default(autoincrement())
+  name        String           @unique(map: "roles_name_unique")
+  description String?
+  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamp(6)
+
+  users       AdminUser[]
+  permissions RolePermission[]
+
+  @@map("roles")
+}
+
+// 2. Permissions
+model Permission {
+  id     Int              @id @default(autoincrement())
+  code   String           @unique(map: "permissions_code_unique")
+  name   String
+  module String
+
+  roles  RolePermission[]
+
+  @@map("permissions")
+}
+
+// 3. Role Permissions Join Table
+model RolePermission {
+  id           Int        @id @default(autoincrement())
+  roleId       Int        @map("role_id")
+  permissionId Int        @map("permission_id")
+
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "role_permissions_role_id_roles_id_fk")
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "role_permissions_permission_id_permissions_id_fk")
+
+  @@map("role_permissions")
+}
+
+// 4. Admin Users
+model AdminUser {
+  id             Int        @id @default(autoincrement())
+  username       String     @unique(map: "admin_users_username_unique")
+  email          String     @unique(map: "admin_users_email_unique")
+  passwordHash   String     @map("password_hash")
+  salt           String     @default("")
+  fullName       String     @map("full_name")
+  phone          String     @default("01284484868")
+  roleId         Int        @map("role_id")
+  isActive       Boolean    @default(true) @map("is_active")
+  isLocked       Boolean    @default(false) @map("is_locked")
+  failedAttempts Int        @default(0) @map("failed_attempts")
+  lastLoginAt    DateTime?  @map("last_login_at") @db.Timestamp(6)
+  createdAt      DateTime   @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt      DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  role           Role       @relation(fields: [roleId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "admin_users_role_id_roles_id_fk")
+  otpTokens      OtpToken[]
+  auditLogs      AuditLog[]
+
+  @@map("admin_users")
+}
+
+// 5. OTP Tokens for Admin WhatsApp 2FA
+model OtpToken {
+  id        Int        @id @default(autoincrement())
+  userId    Int?       @map("user_id")
+  phone     String
+  tokenHash String     @map("token_hash")
+  purpose   String     @default("login")
+  expiresAt DateTime   @map("expires_at") @db.Timestamp(6)
+  attempts  Int        @default(0)
+  isUsed    Boolean    @default(false) @map("is_used")
+  createdAt DateTime   @default(now()) @map("created_at") @db.Timestamp(6)
+
+  user      AdminUser? @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "otp_tokens_user_id_admin_users_id_fk")
+
+  @@map("otp_tokens")
+}
+
+// 6. Customers
 model Customer {
-  id        String            @id @default(uuid())
+  id        Int               @id @default(autoincrement())
   fullName  String            @map("full_name")
-  phone     String            @unique
+  phone     String            @unique(map: "customers_phone_unique")
   whatsapp  String?
   email     String?
   notes     String?
-  createdAt DateTime          @default(now()) @map("created_at")
-  updatedAt DateTime          @updatedAt @map("updated_at")
+  createdAt DateTime          @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
 
   orders    Order[]
   payments  CustomerPayment[]
 
-  @@index([phone])
+  @@index([phone], map: "customer_phone_idx")
   @@map("customers")
 }
 
-// 2. Suppliers / Factories
+// 7. Suppliers (Factories)
 model Supplier {
-  id             String            @id @default(uuid())
+  id             Int               @id @default(autoincrement())
   name           String
-  companyName    String?           @map("company_name")
+  companyName    String            @map("company_name")
   phone          String
   whatsapp       String?
   email          String?
@@ -40,8 +118,8 @@ model Supplier {
   taxNumber      String?           @map("tax_number")
   notes          String?
   isActive       Boolean           @default(true) @map("is_active")
-  createdAt      DateTime          @default(now()) @map("created_at")
-  updatedAt      DateTime          @updatedAt @map("updated_at")
+  createdAt      DateTime          @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt      DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
 
   supplierOrders SupplierOrder[]
   payments       SupplierPayment[]
@@ -49,296 +127,240 @@ model Supplier {
   @@map("suppliers")
 }
 
-// 3. Menu Items
+// 8. Menu Items (The 18 Sales packages)
 model MenuItem {
-  id               String               @id @default(uuid())
-  code             String               @unique // e.g. "Sale-01" to "Sale-18"
+  id               Int                 @id @default(autoincrement())
+  code             String              @unique(map: "menu_items_code_unique")
   name             String
-  description      String?
-  distributorPrice Decimal              @map("distributor_price") @db.Decimal(10, 2)
-  supplierPrice    Decimal              @map("supplier_price") @db.Decimal(10, 2)
-  isActive         Boolean              @default(true) @map("is_active")
-  sortOrder        Int                  @default(0) @map("sort_order")
-  createdAt        DateTime             @default(now()) @map("created_at")
-  updatedAt        DateTime             @updatedAt @map("updated_at")
+  description      String
+  distributorPrice Decimal             @map("distributor_price") @db.Decimal(10, 2)
+  supplierPrice    Decimal             @map("supplier_price") @db.Decimal(10, 2)
+  isActive         Boolean             @default(true) @map("is_active")
+  sortOrder        Int                 @default(0) @map("sort_order")
+  createdAt        DateTime            @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt        DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
 
   components       MenuItemComponent[]
   priceHistory     MenuPriceHistory[]
   orderItems       OrderItem[]
 
-  @@index([code])
   @@map("menu_items")
 }
 
-// 4. Menu Item Components
+// 9. Menu Item Components (Ingredients / contents of box)
 model MenuItemComponent {
-  id            String   @id @default(uuid())
-  menuItemId    String   @map("menu_item_id")
-  menuItem      MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  id            Int      @id @default(autoincrement())
+  menuItemId    Int      @map("menu_item_id")
   componentName String   @map("component_name")
-  quantity      Decimal  @default(1) @db.Decimal(8, 2)
+  quantity      Decimal  @default(1.00) @db.Decimal(8, 2)
   unit          String   @default("قطعة")
   sortOrder     Int      @default(0) @map("sort_order")
+
+  menuItem      MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "menu_item_components_menu_item_id_menu_items_id_fk")
 
   @@map("menu_item_components")
 }
 
-// 5. Menu Price History
+// 10. Menu Price History
 model MenuPriceHistory {
-  id               String    @id @default(uuid())
-  menuItemId       String    @map("menu_item_id")
-  menuItem         MenuItem  @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  id               Int       @id @default(autoincrement())
+  menuItemId       Int       @map("menu_item_id")
   distributorPrice Decimal   @map("distributor_price") @db.Decimal(10, 2)
   supplierPrice    Decimal   @map("supplier_price") @db.Decimal(10, 2)
-  validFrom        DateTime  @default(now()) @map("valid_from")
-  validTo          DateTime? @map("valid_to")
-  createdBy        String?   @map("created_by")
-  createdAt        DateTime  @default(now()) @map("created_at")
+  validFrom        DateTime  @default(now()) @map("valid_from") @db.Timestamp(6)
+  validTo          DateTime? @map("valid_to") @db.Timestamp(6)
+  createdBy        String?   @default("system") @map("created_by")
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+
+  menuItem         MenuItem  @relation(fields: [menuItemId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "menu_price_history_menu_item_id_menu_items_id_fk")
 
   @@map("menu_price_history")
 }
 
-// 6. Orders
-enum OrderStatus {
-  PENDING_BOOKING
-  CONFIRMED
-  SENT_TO_SUPPLIER
-  IN_PRODUCTION
-  READY
-  DELIVERED
-  COMPLETED
-  CANCELLED
-}
-
+// 11. Orders
 model Order {
-  id                String            @id @default(uuid())
-  orderNumber       String            @unique @map("order_number") // CB-YYYYMMDD-XXXX
-  customerId        String            @map("customer_id")
-  customer          Customer          @relation(fields: [customerId], references: [id])
-  orderStatus       OrderStatus       @default(PENDING_BOOKING) @map("order_status")
-  pickupDate        DateTime          @map("pickup_date")
-  pickupTime        String            @map("pickup_time")
-  pickupLocation    String            @map("pickup_location")
-  customerNotes     String?           @map("customer_notes")
-  
-  // Financials - Customer Account
-  subtotal          Decimal           @default(0) @map("subtotal") @db.Decimal(12, 2)
-  discount          Decimal           @default(0) @map("discount") @db.Decimal(12, 2)
-  adjustments       Decimal           @default(0) @map("adjustments") @db.Decimal(12, 2)
-  totalAmount       Decimal           @map("total_amount") @db.Decimal(12, 2)
-  customerPaid      Decimal           @default(0) @map("customer_paid") @db.Decimal(12, 2)
-  customerRemaining Decimal           @map("customer_remaining") @db.Decimal(12, 2)
+  id                   Int               @id @default(autoincrement())
+  orderNumber          String            @unique(map: "orders_order_number_unique") @map("order_number")
+  customerId           Int               @map("customer_id")
+  orderStatus          String            @default("PENDING_BOOKING") @map("order_status")
+  cancelReason         String?           @map("cancel_reason")
+  pickupDate           String            @map("pickup_date")
+  pickupTime           String            @map("pickup_time")
+  pickupLocation       String            @map("pickup_location")
+  customerNotes        String?           @map("customer_notes")
 
-  // Financials - Supplier Account (Strictly Independent)
-  supplierTotal     Decimal           @default(0) @map("supplier_total") @db.Decimal(12, 2)
-  supplierPaid      Decimal           @default(0) @map("supplier_paid") @db.Decimal(12, 2)
-  supplierRemaining Decimal           @default(0) @map("supplier_remaining") @db.Decimal(12, 2)
+  // Financials - Customer Account (Celebre <-> Customer)
+  subtotal             Decimal           @map("subtotal") @db.Decimal(12, 2)
+  discount             Decimal           @default(0.00) @map("discount") @db.Decimal(12, 2)
+  adjustments          Decimal           @default(0.00) @map("adjustments") @db.Decimal(12, 2)
+  totalAmount          Decimal           @map("total_amount") @db.Decimal(12, 2)
+  customerPaid         Decimal           @default(0.00) @map("customer_paid") @db.Decimal(12, 2)
+  customerRemaining    Decimal           @map("customer_remaining") @db.Decimal(12, 2)
 
-  // Gross Margin Snapshot
-  distributorProfit Decimal           @default(0) @map("distributor_profit") @db.Decimal(12, 2)
+  // Financials - Supplier Account (Celebre <-> Supplier/Factory)
+  supplierTotal        Decimal           @map("supplier_total") @db.Decimal(12, 2)
+  supplierPaid         Decimal           @default(0.00) @map("supplier_paid") @db.Decimal(12, 2)
+  supplierRemaining    Decimal           @map("supplier_remaining") @db.Decimal(12, 2)
 
-  createdAt         DateTime          @default(now()) @map("created_at")
-  updatedAt         DateTime          @updatedAt @map("updated_at")
-  completedAt       DateTime?         @map("completed_at")
-  cancelledAt       DateTime?         @map("cancelled_at")
-  cancelReason      String?           @map("cancel_reason")
+  // Profit Snapshot
+  distributorProfit    Decimal           @map("distributor_profit") @db.Decimal(12, 2)
 
-  items             OrderItem[]
-  customerPayments  CustomerPayment[]
-  supplierOrders    SupplierOrder[]
-  supplierPayments  SupplierPayment[]
+  createdAt            DateTime          @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt            DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+  completedAt          DateTime?         @map("completed_at") @db.Timestamp(6)
+  cancelledAt          DateTime?         @map("cancelled_at") @db.Timestamp(6)
 
-  @@index([orderNumber])
-  @@index([orderStatus])
-  @@index([pickupDate])
+  // WhatsApp Messaging Layer Tracking
+  lastMessageAt        DateTime?         @map("last_message_at") @db.Timestamp(6)
+  lastMessageBy        String?           @map("last_message_by")
+  lastMessageType      String?           @map("last_message_type")
+  lastMessageRecipient String?           @map("last_message_recipient")
+
+  customer             Customer          @relation(fields: [customerId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "orders_customer_id_customers_id_fk")
+  items                OrderItem[]
+  customerPayments     CustomerPayment[]
+  supplierOrders       SupplierOrder[]
+  supplierPayments     SupplierPayment[]
+
+  @@index([customerId], map: "order_customer_idx")
+  @@index([orderNumber], map: "order_number_idx")
+  @@index([pickupDate], map: "order_pickup_date_idx")
+  @@index([orderStatus], map: "order_status_idx")
   @@map("orders")
 }
 
-// 7. Order Items (Preserving exact historical price snapshot)
+// 12. Order Items (Preserving exact price snapshots)
 model OrderItem {
-  id                   String             @id @default(uuid())
-  orderId              String             @map("order_id")
-  order                Order              @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  menuItemId           String?            @map("menu_item_id")
-  menuItem             MenuItem?          @relation(fields: [menuItemId], references: [id])
-  menuCode             String             @map("menu_code")
-  menuName             String             @map("menu_name")
+  id                   Int               @id @default(autoincrement())
+  orderId              Int               @map("order_id")
+  menuItemId           Int               @map("menu_item_id")
+  menuCode             String            @map("menu_code")
+  menuName             String            @map("menu_name")
   quantity             Int
 
-  // Snapshot prices at moment of order creation
-  distributorUnitPrice Decimal            @map("distributor_unit_price") @db.Decimal(10, 2)
-  supplierUnitPrice    Decimal            @map("supplier_unit_price") @db.Decimal(10, 2)
-  distributorTotal     Decimal            @map("distributor_total") @db.Decimal(12, 2)
-  supplierTotal        Decimal            @map("supplier_total") @db.Decimal(12, 2)
-  
-  customerAdjustment   Decimal            @default(0) @map("customer_adjustment") @db.Decimal(10, 2)
-  supplierAdjustment   Decimal            @default(0) @map("supplier_adjustment") @db.Decimal(10, 2)
-  customerTotal        Decimal            @map("customer_total") @db.Decimal(12, 2)
-  supplierTotalFinal   Decimal            @map("supplier_total_final") @db.Decimal(12, 2)
-  profit               Decimal            @map("profit") @db.Decimal(12, 2)
+  // Unit Price Snapshots at order creation time
+  distributorUnitPrice Decimal           @map("distributor_unit_price") @db.Decimal(10, 2)
+  supplierUnitPrice    Decimal           @map("supplier_unit_price") @db.Decimal(10, 2)
+  distributorTotal     Decimal           @map("distributor_total") @db.Decimal(12, 2)
+  supplierTotal        Decimal           @map("supplier_total") @db.Decimal(12, 2)
+
+  customerAdjustment   Decimal           @default(0.00) @map("customer_adjustment") @db.Decimal(10, 2)
+  supplierAdjustment   Decimal           @default(0.00) @map("supplier_adjustment") @db.Decimal(10, 2)
+
+  customerTotal        Decimal           @map("customer_total") @db.Decimal(12, 2)
+  supplierTotalFinal   Decimal           @map("supplier_total_final") @db.Decimal(12, 2)
+  profit               Decimal           @map("profit") @db.Decimal(12, 2)
 
   options              OrderItemOption[]
+  order                Order             @relation(fields: [orderId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "order_items_order_id_orders_id_fk")
+  menuItem             MenuItem          @relation(fields: [menuItemId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "order_items_menu_item_id_menu_items_id_fk")
 
   @@map("order_items")
 }
 
-// 8. Order Item Options (Drink selections, modifications)
+// 13. Order Item Options (Drink selections, modifications)
 model OrderItemOption {
-  id                    String    @id @default(uuid())
-  orderItemId           String    @map("order_item_id")
-  orderItem             OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  id                    Int       @id @default(autoincrement())
+  orderItemId           Int       @map("order_item_id")
   optionType            String    @map("option_type")
   optionName            String    @map("option_name")
-  distributorAdjustment Decimal   @default(0) @map("distributor_adjustment") @db.Decimal(10, 2)
-  supplierAdjustment    Decimal   @default(0) @map("supplier_adjustment") @db.Decimal(10, 2)
+  distributorAdjustment Decimal   @map("distributor_adjustment") @db.Decimal(10, 2)
+  supplierAdjustment    Decimal   @default(0.00) @map("supplier_adjustment") @db.Decimal(10, 2)
+
+  orderItem             OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "order_item_options_order_item_id_order_items_id_fk")
 
   @@map("order_item_options")
 }
 
-// 9. Supplier Orders
-model SupplierOrder {
-  id                  String            @id @default(uuid())
-  orderId             String            @map("order_id")
-  order               Order             @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  supplierId          String            @map("supplier_id")
-  supplier            Supplier          @relation(fields: [supplierId], references: [id])
-  supplierOrderNumber String            @unique @map("supplier_order_number")
-  supplierTotal       Decimal           @map("supplier_total") @db.Decimal(12, 2)
-  supplierPaid        Decimal           @default(0) @map("supplier_paid") @db.Decimal(12, 2)
-  supplierRemaining   Decimal           @map("supplier_remaining") @db.Decimal(12, 2)
-  status              String            @default("PENDING") @map("status")
-  createdAt           DateTime          @default(now()) @map("created_at")
-  updatedAt           DateTime          @updatedAt @map("updated_at")
+// 14. Customer Payments (Recorded manually by Admin - Offline InstaPay / Cash)
+model CustomerPayment {
+  id               Int      @id @default(autoincrement())
+  orderId          Int      @map("order_id")
+  customerId       Int      @map("customer_id")
+  amount           Decimal  @map("amount") @db.Decimal(12, 2)
+  paymentMethod    String   @default("INSTAPAY") @map("payment_method")
+  paymentStatus    String   @default("VERIFIED") @map("payment_status")
+  paymentReference String?  @map("payment_reference")
+  notes            String?
+  receivedBy       String   @default("admin") @map("received_by")
+  paidAt           DateTime @default(now()) @map("paid_at") @db.Timestamp(6)
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamp(6)
 
+  order            Order    @relation(fields: [orderId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "customer_payments_order_id_orders_id_fk")
+  customer         Customer @relation(fields: [customerId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "customer_payments_customer_id_customers_id_fk")
+
+  @@map("customer_payments")
+}
+
+// 15. Supplier Orders (Independent factory order linked to client order)
+model SupplierOrder {
+  id                  Int               @id @default(autoincrement())
+  orderId             Int               @map("order_id")
+  supplierId          Int               @map("supplier_id")
+  supplierOrderNumber String            @unique(map: "supplier_orders_supplier_order_number_unique") @map("supplier_order_number")
+  supplierTotal       Decimal           @map("supplier_total") @db.Decimal(12, 2)
+  supplierPaid        Decimal           @default(0.00) @map("supplier_paid") @db.Decimal(12, 2)
+  supplierRemaining   Decimal           @map("supplier_remaining") @db.Decimal(12, 2)
+  status              String            @default("PENDING_CONFIRMATION") @map("status")
+  createdAt           DateTime          @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt           DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  order               Order             @relation(fields: [orderId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "supplier_orders_order_id_orders_id_fk")
+  supplier            Supplier          @relation(fields: [supplierId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "supplier_orders_supplier_id_suppliers_id_fk")
   payments            SupplierPayment[]
 
   @@map("supplier_orders")
 }
 
-// 10. Customer Payments (Manual verification by Admin - NO Gateway)
-model CustomerPayment {
-  id               String   @id @default(uuid())
-  orderId          String   @map("order_id")
-  order            Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  customerId       String   @map("customer_id")
-  customer         Customer @relation(fields: [customerId], references: [id])
-  amount           Decimal  @map("amount") @db.Decimal(12, 2)
-  paymentMethod    String   @default("INSTAPAY") @map("payment_method")
-  paymentStatus    String   @default("PENDING_REVIEW") @map("payment_status")
-  paymentReference String?  @map("payment_reference")
-  notes            String?
-  receivedBy       String?  @map("received_by")
-  paidAt           DateTime @default(now()) @map("paid_at")
-  createdAt        DateTime @default(now()) @map("created_at")
-
-  @@map("customer_payments")
-}
-
-// 11. Supplier Payments (Payments from Celebre to the Factory)
+// 16. Supplier Payments (Payments from Celebre to the Factory)
 model SupplierPayment {
-  id              String        @id @default(uuid())
-  supplierOrderId String        @map("supplier_order_id")
-  supplierOrder   SupplierOrder @relation(fields: [supplierOrderId], references: [id], onDelete: Cascade)
-  supplierId      String        @map("supplier_id")
-  supplier        Supplier      @relation(fields: [supplierId], references: [id])
-  orderId         String?       @map("order_id")
-  order           Order?        @relation(fields: [orderId], references: [id])
+  id              Int           @id @default(autoincrement())
+  supplierOrderId Int           @map("supplier_order_id")
+  supplierId      Int           @map("supplier_id")
+  orderId         Int           @map("order_id")
   amount          Decimal       @map("amount") @db.Decimal(12, 2)
-  paymentMethod   String        @default("INSTAPAY") @map("payment_method")
+  paymentMethod   String        @default("BANK_TRANSFER") @map("payment_method")
   reference       String?
   notes           String?
-  paidBy          String?       @map("paid_by")
-  paidAt          DateTime      @default(now()) @map("paid_at")
-  createdAt       DateTime      @default(now()) @map("created_at")
+  paidBy          String        @default("admin") @map("paid_by")
+  paidAt          DateTime      @default(now()) @map("paid_at") @db.Timestamp(6)
+  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamp(6)
+
+  supplierOrder   SupplierOrder @relation(fields: [supplierOrderId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "supplier_payments_supplier_order_id_supplier_orders_id_fk")
+  supplier        Supplier      @relation(fields: [supplierId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "supplier_payments_supplier_id_suppliers_id_fk")
+  order           Order         @relation(fields: [orderId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "supplier_payments_order_id_orders_id_fk")
 
   @@map("supplier_payments")
 }
 
-// 12. Roles
-model Role {
-  id          String           @id @default(uuid())
-  name        String           @unique
-  description String?
-  
-  users       AdminUser[]
-  permissions RolePermission[]
-
-  @@map("roles")
-}
-
-// 13. Permissions
-model Permission {
-  id            String           @id @default(uuid())
-  permissionKey String           @unique @map("permission_key")
-  description   String?
-
-  roles         RolePermission[]
-
-  @@map("permissions")
-}
-
-// 14. Role Permissions
-model RolePermission {
-  roleId       String     @map("role_id")
-  permissionId String     @map("permission_id")
-  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
-  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
-
-  @@id([roleId, permissionId])
-  @@map("role_permissions")
-}
-
-// 15. Admin Users
-model AdminUser {
-  id           String     @id @default(uuid())
-  username     String     @unique
-  email        String     @unique
-  passwordHash String     @map("password_hash")
-  fullName     String     @map("full_name")
-  roleId       String     @map("role_id")
-  role         Role       @relation(fields: [roleId], references: [id])
-  isActive     Boolean    @default(true) @map("is_active")
-  isLocked     Boolean    @default(false) @map("is_locked")
-  lastLoginAt  DateTime?  @map("last_login_at")
-  createdAt    DateTime   @default(now()) @map("created_at")
-  updatedAt    DateTime   @updatedAt @map("updated_at")
-
-  otpCodes     OtpCode[]
-  auditLogs    AuditLog[]
-
-  @@map("admin_users")
-}
-
-// 16. OTP Verification Codes
-model OtpCode {
-  id        String     @id @default(uuid())
-  userId    String?    @map("user_id")
-  user      AdminUser? @relation(fields: [userId], references: [id], onDelete: Cascade)
-  codeHash  String     @map("code_hash")
-  purpose   String     @default("ADMIN_LOGIN")
-  expiresAt DateTime   @map("expires_at")
-  usedAt    DateTime?  @map("used_at")
-  attempts  Int        @default(0)
-  createdAt DateTime   @default(now()) @map("created_at")
-
-  @@map("otp_codes")
-}
-
 // 17. Security Audit Log
 model AuditLog {
-  id        String     @id @default(uuid())
-  userId    String?    @map("user_id")
-  user      AdminUser? @relation(fields: [userId], references: [id])
+  id        Int       @id @default(autoincrement())
+  userId    Int?      @map("user_id")
+  userName  String    @default("system") @map("user_name")
   action    String
   entity    String
-  entityId  String?    @map("entity_id")
-  oldData   Json?      @map("old_data")
-  newData   Json?      @map("new_data")
-  ipAddress String?    @map("ip_address")
-  userAgent String?    @map("user_agent")
-  createdAt DateTime   @default(now()) @map("created_at")
+  entityId  String    @map("entity_id")
+  oldData   Json?     @map("old_data")
+  newData   Json?     @map("new_data")
+  ip        String?
+  userAgent String?   @map("user_agent")
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
 
-  @@index([entity, entityId])
-  @@index([createdAt])
+  user      AdminUser? @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([createdAt], map: "audit_created_idx")
+  @@index([entity, entityId], map: "audit_entity_idx")
   @@map("audit_logs")
+}
+
+// 18. Application Dynamic Settings
+model AppSetting {
+  id          Int      @id @default(autoincrement())
+  key         String   @unique(map: "app_settings_key_unique")
+  value       String
+  description String?
+  updatedAt   DateTime @default(now()) @map("updated_at") @db.Timestamp(6)
+
+  @@map("app_settings")
 }

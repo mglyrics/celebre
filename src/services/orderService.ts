@@ -1,31 +1,31 @@
-import { db } from '../db/index.ts';
-import {
-  orders,
-  orderItems,
-  orderItemOptions,
-  customers,
-  menuItems,
-  suppliers,
-  supplierOrders,
-  customerPayments,
-  supplierPayments,
-  auditLogs,
-  appSettings,
-} from '../db/schema.ts';
-import { eq, desc, and, or, sql } from 'drizzle-orm';
+import { Prisma } from '@prisma/client';
+import { prisma } from '../lib/prisma.ts';
+
+export interface BookingItemInput {
+  menuCode: string;
+  quantity: number;
+  drinkOption?: 'included' | 'exclude_juice' | 'replace_pepsi';
+}
 
 export interface CreateBookingInput {
   customerName: string;
   phone: string;
   whatsapp?: string;
-  menuCode: string;
-  quantity: number;
+  menuCode?: string;
+  quantity?: number;
   pickupDate: string;
   pickupTime: string;
   pickupLocation: string;
   notes?: string;
-  drinkOption: 'included' | 'exclude_juice' | 'replace_pepsi';
+  drinkOption?: 'included' | 'exclude_juice' | 'replace_pepsi';
+  items?: BookingItemInput[];
+  venueType?: string;
+  occasion?: string;
+  arrivalInstructions?: string;
+  idempotencyKey?: string;
   initialStatus?: string;
+  skipIdempotency?: boolean;
+  skipSupplierOrderCreation?: boolean;
   adminUsername?: string;
   ip?: string;
   userAgent?: string;
@@ -33,15 +33,14 @@ export interface CreateBookingInput {
 
 export class OrderService {
   /**
-   * Helper to format numbers cleanly
+   * Helper to format numbers cleanly to 2 decimal places
    */
-  private static toDecimalStr(num: number): string {
-    return num.toFixed(2);
+  private static toDecimal(num: number | string | Prisma.Decimal): Prisma.Decimal {
+    return new Prisma.Decimal(typeof num === 'number' ? num.toFixed(2) : String(num));
   }
 
   /**
    * Generates a unique, chronological order number: CB-YYYYMMDD-XXXX
-   * Orders by orderNumber desc so highest sequence for that date is always picked.
    */
   public static async generateOrderNumber(txClient?: any): Promise<string> {
     const today = new Date();
@@ -50,17 +49,24 @@ export class OrderService {
     const dd = String(today.getDate()).padStart(2, '0');
     const prefix = `CB-${yyyy}${mm}${dd}-`;
 
-    const client = txClient || db;
-    const latest = await client
-      .select({ orderNumber: orders.orderNumber })
-      .from(orders)
-      .where(sql`${orders.orderNumber} LIKE ${prefix + '%'}`)
-      .orderBy(desc(orders.orderNumber))
-      .limit(1);
+    const client = txClient || prisma;
+    const latest = await client.order.findFirst({
+      where: {
+        orderNumber: {
+          startsWith: prefix,
+        },
+      },
+      orderBy: {
+        orderNumber: 'desc',
+      },
+      select: {
+        orderNumber: true,
+      },
+    });
 
     let nextSeq = 1;
-    if (latest.length > 0 && latest[0].orderNumber) {
-      const parts = latest[0].orderNumber.split('-');
+    if (latest && latest.orderNumber) {
+      const parts = latest.orderNumber.split('-');
       const lastSeq = parseInt(parts[parts.length - 1], 10);
       if (!isNaN(lastSeq)) {
         nextSeq = lastSeq + 1;
@@ -78,17 +84,30 @@ export class OrderService {
     if (!str) return null;
     const isPureInt = /^\d+$/.test(str);
     const upperStr = str.toUpperCase();
-    const client = txClient || db;
-    const list = await client
-      .select()
-      .from(orders)
-      .where(
-        isPureInt
-          ? or(eq(orders.id, parseInt(str, 10)), eq(orders.orderNumber, str), eq(orders.orderNumber, upperStr))
-          : or(eq(orders.orderNumber, str), eq(orders.orderNumber, upperStr))
-      )
-      .limit(1);
-    return list.length ? list[0] : null;
+    const client = txClient || prisma;
+
+    if (isPureInt) {
+      const numId = parseInt(str, 10);
+      const found = await client.order.findFirst({
+        where: {
+          OR: [
+            { id: numId },
+            { orderNumber: { equals: str, mode: 'insensitive' } },
+            { orderNumber: { equals: upperStr, mode: 'insensitive' } },
+          ],
+        },
+      });
+      return found;
+    }
+
+    return await client.order.findFirst({
+      where: {
+        OR: [
+          { orderNumber: { equals: str, mode: 'insensitive' } },
+          { orderNumber: { equals: upperStr, mode: 'insensitive' } },
+        ],
+      },
+    });
   }
 
   /**
@@ -96,7 +115,7 @@ export class OrderService {
    */
   public static async getDrinkAdjustments(): Promise<{ juiceDiscount: number; pepsiMarkup: number }> {
     try {
-      const settings = await db.select().from(appSettings);
+      const settings = await prisma.appSetting.findMany();
       let juiceDiscount = 5;
       let pepsiMarkup = 10;
       for (const s of settings) {
@@ -115,217 +134,433 @@ export class OrderService {
   }
 
   /**
-   * Creates a preliminary booking inside a database transaction
-   * Status: PENDING_BOOKING (No payment required on site)
+   * Creates a preliminary booking inside a Prisma database transaction
+   * Status: PENDING_BOOKING (No online payment required)
+   * Supports both single-meal and multi-meal orders with dynamic per-item juice verification
    */
   public static async createPreliminaryBooking(input: CreateBookingInput) {
-    if (!input.phone || !input.customerName || !input.menuCode || !input.quantity) {
+    if (!input.phone || !input.customerName) {
       throw new Error('يرجى إدخال جميع البيانات المطلوبة للحجز المبدئي');
     }
 
-    if (input.quantity < 50) {
-      throw new Error('الحد الأدنى للطلب هو 50 وجبة كاترنج لضمان الجودة والتجهيز الفندقي');
+    if (input.customerName.trim().length < 2) {
+      throw new Error('يرجى إدخال اسم العميل بشكل صحيح');
     }
 
     const cleanPhone = input.phone.trim();
+    if (cleanPhone.length < 10) {
+      throw new Error('يرجى إدخال رقم هاتف صحيح للتواصل والتأكيد');
+    }
+
+    // Determine items list (supports multi-item orders and legacy single-item format)
+    const rawItems: BookingItemInput[] = (input.items && Array.isArray(input.items) && input.items.length > 0)
+      ? input.items
+      : [{
+          menuCode: input.menuCode || '',
+          quantity: Number(input.quantity),
+          drinkOption: input.drinkOption || 'included',
+        }];
+
+    if (rawItems.length === 0 || !rawItems[0].menuCode) {
+      throw new Error('يرجى اختيار وجبة واحدة على الأقل لإتمام الحجز');
+    }
+
+    // Validate quantities
+    let totalQuantity = 0;
+    for (const item of rawItems) {
+      const q = Number(item.quantity);
+      if (isNaN(q) || q < 1) {
+        throw new Error(`الكمية غير صالحة للوجبة (${item.menuCode})`);
+      }
+      totalQuantity += q;
+    }
+
+    if (totalQuantity < 50) {
+      throw new Error('الحد الأدنى للطلب هو 50 وجبة كاترنج لضمان الجودة والتجهيز الفندقي');
+    }
+
     const cleanWhatsapp = (input.whatsapp || cleanPhone).trim();
 
-    // 1. Fetch menu item
-    const menuList = await db.select().from(menuItems).where(eq(menuItems.code, input.menuCode)).limit(1);
-    if (!menuList.length) {
-      throw new Error(`الوجبة المختارة (${input.menuCode}) غير متوفرة حالياً`);
-    }
-    const menuItem = menuList[0];
-
-    const distUnitPrice = parseFloat(menuItem.distributorPrice);
-    const suppUnitPrice = parseFloat(menuItem.supplierPrice);
-
-    // 2. Fetch adjustments
+    // Fetch dynamic adjustments from app_settings
     const { juiceDiscount, pepsiMarkup } = await this.getDrinkAdjustments();
 
-    let customerDrinkAdjustment = 0;
-    let optionName = 'عصير بخيرة مشمول مع الوجبة';
-    let optionType = 'default_juice';
+    // 1. Fetch menu items & components via Prisma directly from Database (trust server only, never client price)
+    const processedItems: Array<{
+      menuItem: any;
+      quantity: number;
+      drinkOption: string;
+      hasJuice: boolean;
+      distUnitPrice: number;
+      suppUnitPrice: number;
+      customerDrinkAdjustment: number;
+      effectiveDistUnitPrice: number;
+      itemSubtotal: number;
+      itemAdjustments: number;
+      itemCustomerTotal: number;
+      itemSupplierTotal: number;
+      itemProfit: number;
+      optionName: string;
+      optionType: string;
+      componentsSnapshotText: string;
+    }> = [];
 
-    if (input.drinkOption === 'exclude_juice') {
-      customerDrinkAdjustment = -juiceDiscount; // e.g. -5
-      optionName = 'استبعاد العصير (خصم 5 ج.م للوجبة)';
-      optionType = 'juice_exclusion';
-    } else if (input.drinkOption === 'replace_pepsi') {
-      customerDrinkAdjustment = pepsiMarkup; // e.g. +10
-      optionName = 'استبدال العصير بكانز بيبسي (+10 ج.م للوجبة)';
-      optionType = 'pepsi_replacement';
+    let orderSubtotal = 0;
+    let orderAdjustments = 0;
+    let orderCustomerTotal = 0;
+    let orderSupplierTotal = 0;
+    let orderGrossProfit = 0;
+
+    for (const rawItem of rawItems) {
+      const menuItem = await prisma.menuItem.findUnique({
+        where: { code: rawItem.menuCode },
+        include: {
+          components: { orderBy: { sortOrder: 'asc' } },
+        },
+      });
+
+      if (!menuItem) {
+        throw new Error(`الوجبة المختارة (${rawItem.menuCode}) غير متوفرة حالياً`);
+      }
+
+      // Check whether this specific meal actually contains juice in its registered components
+      const hasJuice = menuItem.components.some(
+        (c) => c.componentName.includes('عصير') || (c as any).isBeverage === true
+      );
+
+      const distUnitPrice = Number(menuItem.distributorPrice);
+      const suppUnitPrice = Number(menuItem.supplierPrice);
+
+      let customerDrinkAdjustment = 0;
+      let optionName = 'عصير بخيرة مشمول مع الوجبة';
+      let optionType = 'default_juice';
+
+      const chosenOption = rawItem.drinkOption || 'included';
+
+      if (chosenOption === 'exclude_juice') {
+        if (hasJuice) {
+          customerDrinkAdjustment = -juiceDiscount;
+          optionName = 'استبعاد العصير (خصم 5 ج.م للوجبة)';
+          optionType = 'juice_exclusion';
+        } else {
+          // Meal does not contain juice: no discount or adjustment applies
+          customerDrinkAdjustment = 0;
+          optionName = 'الوجبة لا تتضمن عصير - بدون تعديل';
+          optionType = 'no_juice_in_meal';
+        }
+      } else if (chosenOption === 'replace_pepsi') {
+        if (hasJuice) {
+          customerDrinkAdjustment = pepsiMarkup;
+          optionName = 'استبدال العصير بكانز بيبسي (+10 ج.م للوجبة)';
+          optionType = 'pepsi_replacement';
+        } else {
+          // Meal does not contain juice: no replacement addition applies
+          customerDrinkAdjustment = 0;
+          optionName = 'الوجبة لا تتضمن عصير - بدون تعديل';
+          optionType = 'no_juice_in_meal';
+        }
+      } else {
+        if (!hasJuice) {
+          optionName = 'الوجبة لا تتضمن عصير';
+          optionType = 'no_juice_in_meal';
+        }
+      }
+
+      const effectiveDistUnitPrice = Math.max(0, distUnitPrice + customerDrinkAdjustment);
+      const effectiveSuppUnitPrice = suppUnitPrice;
+
+      const q = rawItem.quantity;
+      const itemSubtotal = distUnitPrice * q;
+      const itemAdjustments = customerDrinkAdjustment * q;
+      const itemCustomerTotal = effectiveDistUnitPrice * q;
+      const itemSupplierTotal = effectiveSuppUnitPrice * q;
+      const itemProfit = itemCustomerTotal - itemSupplierTotal;
+
+      orderSubtotal += itemSubtotal;
+      orderAdjustments += itemAdjustments;
+      orderCustomerTotal += itemCustomerTotal;
+      orderSupplierTotal += itemSupplierTotal;
+      orderGrossProfit += itemProfit;
+
+      const componentsSnapshotText = menuItem.components
+        .map((c) => `${Number(c.quantity)} ${c.unit} ${c.componentName}`)
+        .join(' + ');
+
+      processedItems.push({
+        menuItem,
+        quantity: q,
+        drinkOption: chosenOption,
+        hasJuice,
+        distUnitPrice,
+        suppUnitPrice,
+        customerDrinkAdjustment,
+        effectiveDistUnitPrice,
+        itemSubtotal,
+        itemAdjustments,
+        itemCustomerTotal,
+        itemSupplierTotal,
+        itemProfit,
+        optionName,
+        optionType,
+        componentsSnapshotText,
+      });
     }
 
-    const effectiveDistUnitPrice = distUnitPrice + customerDrinkAdjustment;
-    const effectiveSuppUnitPrice = suppUnitPrice; // Supplier cost is not altered automatically unless agreed
+    // 3. Format Location and Occasion details
+    let fullLocation = (input.pickupLocation || '').trim();
+    if (input.venueType) {
+      fullLocation = `[${input.venueType}] ${fullLocation}`;
+    }
+    if (input.arrivalInstructions && input.arrivalInstructions.trim()) {
+      fullLocation = `${fullLocation} (تفاصيل الوصول: ${input.arrivalInstructions.trim()})`;
+    }
+    if (!fullLocation) {
+      fullLocation = 'سيتم التنسيق هاتفياً عبر واتساب';
+    }
 
-    const customerTotal = effectiveDistUnitPrice * input.quantity;
-    const supplierTotal = effectiveSuppUnitPrice * input.quantity;
-    const grossProfit = customerTotal - supplierTotal;
+    let combinedNotes = input.notes ? input.notes.trim() : '';
+    if (input.occasion) {
+      combinedNotes = `المناسبة: ${input.occasion}${combinedNotes ? ' | ' + combinedNotes : ''}`;
+    }
 
-    // 3. Database Transaction with concurrency collision protection
+    // 4. Idempotency & Re-submission Protection (prevents duplicate orders within 60s)
+    if (!input.skipIdempotency) {
+      const oneMinuteAgo = new Date(Date.now() - 60 * 1000);
+      const expectedInitialStatus = input.initialStatus || 'PENDING_BOOKING';
+      const firstCode = processedItems[0].menuItem.code;
+      const existingRecentOrder = await prisma.order.findFirst({
+        where: {
+          customer: { phone: cleanPhone },
+          pickupDate: input.pickupDate,
+          orderStatus: expectedInitialStatus,
+          createdAt: { gt: oneMinuteAgo },
+          items: {
+            some: {
+              menuCode: firstCode,
+            },
+          },
+        },
+        include: {
+          customer: true,
+          items: {
+            include: {
+              options: true,
+            },
+          },
+        },
+        orderBy: { id: 'desc' },
+      });
+
+      if (existingRecentOrder) {
+        return {
+          order: existingRecentOrder,
+          menuItem: processedItems[0].menuItem,
+          customerName: input.customerName.trim(),
+          phone: cleanPhone,
+          customerTotal: Number(existingRecentOrder.totalAmount),
+          supplierTotal: Number(existingRecentOrder.supplierTotal),
+          optionName: processedItems[0].optionName,
+          items: processedItems.map((p) => ({
+            menuCode: p.menuItem.code,
+            menuName: p.menuItem.name,
+            quantity: p.quantity,
+            distributorUnitPrice: p.distUnitPrice,
+            customerAdjustment: p.customerDrinkAdjustment,
+            customerTotal: p.itemCustomerTotal,
+            optionName: p.optionName,
+            componentsText: p.componentsSnapshotText,
+          })),
+          isIdempotentDuplicate: true,
+        };
+      }
+    }
+
+    // Concurrency collision retry loop
     let lastError: any = null;
     for (let attempt = 0; attempt < 5; attempt++) {
       try {
-        return await db.transaction(async (tx) => {
-          // Acquire transactional advisory lock to strictly serialize orderNumber generation & insertion across concurrent requests
-          await tx.execute(sql`SELECT pg_advisory_xact_lock(847291)`);
+        return await prisma.$transaction(async (tx) => {
           const orderNumber = await this.generateOrderNumber(tx);
 
           // Find or create customer
-          const existingCust = await tx.select().from(customers).where(eq(customers.phone, cleanPhone)).limit(1);
+          const existingCust = await tx.customer.findUnique({
+            where: { phone: cleanPhone },
+          });
+
           let customerId: number;
-          if (existingCust.length > 0) {
-            customerId = existingCust[0].id;
-            await tx
-              .update(customers)
-              .set({
+          if (existingCust) {
+            customerId = existingCust.id;
+            await tx.customer.update({
+              where: { id: customerId },
+              data: {
                 fullName: input.customerName.trim(),
                 whatsapp: cleanWhatsapp,
                 updatedAt: new Date(),
-              })
-              .where(eq(customers.id, customerId));
+              },
+            });
           } else {
-            const newCust = await tx
-              .insert(customers)
-              .values({
+            const newCust = await tx.customer.create({
+              data: {
                 fullName: input.customerName.trim(),
                 phone: cleanPhone,
                 whatsapp: cleanWhatsapp,
-              })
-              .returning();
-            customerId = newCust[0].id;
+              },
+            });
+            customerId = newCust.id;
           }
 
           const orderStatus = input.initialStatus || 'PENDING_BOOKING';
           const actorName = input.adminUsername || 'العميل (حجز مبدئي عبر الموقع)';
 
-          // Create Order
-          const newOrders = await tx
-            .insert(orders)
-            .values({
+          // Create Order in PostgreSQL
+          const order = await tx.order.create({
+            data: {
               orderNumber,
               customerId,
               orderStatus,
               pickupDate: input.pickupDate,
               pickupTime: input.pickupTime || 'المغرب 06:30 م',
-          pickupLocation: input.pickupLocation || 'القاهرة - سيتم التنسيق عبر واتساب',
-          customerNotes: input.notes,
-          subtotal: this.toDecimalStr(distUnitPrice * input.quantity),
-          adjustments: this.toDecimalStr(customerDrinkAdjustment * input.quantity),
-          totalAmount: this.toDecimalStr(customerTotal),
-          customerPaid: '0.00', // NO online payment!
-          customerRemaining: this.toDecimalStr(customerTotal),
-          supplierTotal: this.toDecimalStr(supplierTotal),
-          supplierPaid: '0.00',
-          supplierRemaining: this.toDecimalStr(supplierTotal),
-          distributorProfit: this.toDecimalStr(grossProfit),
-        })
-        .returning();
+              pickupLocation: fullLocation,
+              customerNotes: combinedNotes,
+              subtotal: this.toDecimal(orderSubtotal),
+              adjustments: this.toDecimal(orderAdjustments),
+              totalAmount: this.toDecimal(orderCustomerTotal),
+              customerPaid: this.toDecimal(0),
+              customerRemaining: this.toDecimal(orderCustomerTotal),
+              supplierTotal: this.toDecimal(orderSupplierTotal),
+              supplierPaid: this.toDecimal(0),
+              supplierRemaining: this.toDecimal(orderSupplierTotal),
+              distributorProfit: this.toDecimal(orderGrossProfit),
+            },
+          });
 
-      const order = newOrders[0];
+          // Create Order Items & Options
+          for (const item of processedItems) {
+            const orderItemRecord = await tx.orderItem.create({
+              data: {
+                orderId: order.id,
+                menuItemId: item.menuItem.id,
+                menuCode: item.menuItem.code,
+                menuName: item.menuItem.name,
+                quantity: item.quantity,
+                distributorUnitPrice: this.toDecimal(item.distUnitPrice),
+                supplierUnitPrice: this.toDecimal(item.suppUnitPrice),
+                distributorTotal: this.toDecimal(item.itemSubtotal),
+                supplierTotal: this.toDecimal(item.itemSupplierTotal),
+                customerAdjustment: this.toDecimal(item.customerDrinkAdjustment),
+                supplierAdjustment: this.toDecimal(0),
+                customerTotal: this.toDecimal(item.itemCustomerTotal),
+                supplierTotalFinal: this.toDecimal(item.itemSupplierTotal),
+                profit: this.toDecimal(item.itemProfit),
+              },
+            });
 
-      // Create Order Item (Snapshots exact prices at creation time)
-      const newOrderItems = await tx
-        .insert(orderItems)
-        .values({
-          orderId: order.id,
-          menuItemId: menuItem.id,
-          menuCode: menuItem.code,
-          menuName: menuItem.name,
-          quantity: input.quantity,
-          distributorUnitPrice: this.toDecimalStr(distUnitPrice),
-          supplierUnitPrice: this.toDecimalStr(suppUnitPrice),
-          distributorTotal: this.toDecimalStr(distUnitPrice * input.quantity),
-          supplierTotal: this.toDecimalStr(suppUnitPrice * input.quantity),
-          customerAdjustment: this.toDecimalStr(customerDrinkAdjustment),
-          supplierAdjustment: '0.00',
-          customerTotal: this.toDecimalStr(customerTotal),
-          supplierTotalFinal: this.toDecimalStr(supplierTotal),
-          profit: this.toDecimalStr(grossProfit),
-        })
-        .returning();
+            // Drink Option
+            await tx.orderItemOption.create({
+              data: {
+                orderItemId: orderItemRecord.id,
+                optionType: item.optionType,
+                optionName: item.optionName,
+                distributorAdjustment: this.toDecimal(item.customerDrinkAdjustment),
+                supplierAdjustment: this.toDecimal(0),
+              },
+            });
 
-      const orderItemRecord = newOrderItems[0];
+            // Components Snapshot
+            if (item.componentsSnapshotText) {
+              await tx.orderItemOption.create({
+                data: {
+                  orderItemId: orderItemRecord.id,
+                  optionType: 'components_snapshot',
+                  optionName: `محتويات الوجبة وقت الحجز: ${item.componentsSnapshotText}`,
+                  distributorAdjustment: this.toDecimal(0),
+                  supplierAdjustment: this.toDecimal(0),
+                },
+              });
+            }
+          }
 
-      // Create Order Item Option
-      await tx.insert(orderItemOptions).values({
-        orderItemId: orderItemRecord.id,
-        optionType,
-        optionName,
-        distributorAdjustment: this.toDecimalStr(customerDrinkAdjustment),
-        supplierAdjustment: '0.00',
-      });
+          // Create Supplier Order only if NOT skipped (defaults to false for public bookings to ensure admin approval first)
+          if (!input.skipSupplierOrderCreation) {
+            const primarySupplier = await tx.supplier.findFirst();
+            if (primarySupplier) {
+              const supStatus =
+                orderStatus === 'SENT_TO_SUPPLIER'
+                  ? 'SENT'
+                  : orderStatus === 'CONFIRMED'
+                    ? 'CONFIRMED'
+                    : 'PENDING_CONFIRMATION';
+              await tx.supplierOrder.create({
+                data: {
+                  orderId: order.id,
+                  supplierId: primarySupplier.id,
+                  supplierOrderNumber: `SUP-${orderNumber.replace('CB-', '')}`,
+                  supplierTotal: this.toDecimal(orderSupplierTotal),
+                  supplierPaid: this.toDecimal(0),
+                  supplierRemaining: this.toDecimal(orderSupplierTotal),
+                  status: supStatus,
+                },
+              });
+            }
+          }
 
-      // Create Supplier Order (Linked to the exact same order_id)
-      const primarySupplier = await tx.select().from(suppliers).limit(1);
-      if (primarySupplier.length > 0) {
-        const supStatus = orderStatus === 'SENT_TO_SUPPLIER' ? 'SENT' : (orderStatus === 'CONFIRMED' ? 'CONFIRMED' : 'PENDING_CONFIRMATION');
-        await tx.insert(supplierOrders).values({
-          orderId: order.id,
-          supplierId: primarySupplier[0].id,
-          supplierOrderNumber: `SUP-${orderNumber.replace('CB-', '')}`,
-          supplierTotal: this.toDecimalStr(supplierTotal),
-          supplierPaid: '0.00',
-          supplierRemaining: this.toDecimalStr(supplierTotal),
-          status: supStatus,
-        });
-      }
+          // Log Audit for Order Creation
+          await tx.auditLog.create({
+            data: {
+              userName: actorName,
+              action: 'ORDER_CREATED',
+              entity: 'orders',
+              entityId: String(order.id),
+              newData: {
+                orderNumber,
+                customerName: input.customerName,
+                phone: cleanPhone,
+                totalItemsCount: processedItems.length,
+                totalMealsQuantity: totalQuantity,
+                customerTotal: orderCustomerTotal,
+                supplierTotal: orderSupplierTotal,
+                grossProfit: orderGrossProfit,
+                orderStatus,
+              },
+              ip: input.ip,
+              userAgent: input.userAgent,
+            },
+          });
 
-      // Log Audit for Order Creation
-      await tx.insert(auditLogs).values({
-        userName: actorName,
-        action: 'ORDER_CREATED',
-        entity: 'orders',
-        entityId: String(order.id),
-        newData: {
-          orderNumber,
-          customerName: input.customerName,
-          phone: cleanPhone,
-          menuCode: input.menuCode,
-          quantity: input.quantity,
-          customerTotal,
-          supplierTotal,
-          grossProfit,
-          orderStatus,
-        },
-        ip: input.ip,
-        userAgent: input.userAgent,
-      });
-
-      return {
-        order,
-        menuItem,
-        customerName: input.customerName,
-        phone: cleanPhone,
-        customerTotal,
-        supplierTotal,
-        optionName,
-      };
+          return {
+            order,
+            menuItem: processedItems[0].menuItem,
+            customerName: input.customerName,
+            phone: cleanPhone,
+            customerTotal: orderCustomerTotal,
+            supplierTotal: orderSupplierTotal,
+            optionName: processedItems[0].optionName,
+            items: processedItems.map((p) => ({
+              menuCode: p.menuItem.code,
+              menuName: p.menuItem.name,
+              quantity: p.quantity,
+              distributorUnitPrice: p.distUnitPrice,
+              customerAdjustment: p.customerDrinkAdjustment,
+              customerTotal: p.itemCustomerTotal,
+              optionName: p.optionName,
+              componentsText: p.componentsSnapshotText,
+            })),
+          };
         });
       } catch (err: any) {
         lastError = err;
-        const errCode = String(err?.code || err?.cause?.code || '');
-        const msg = (String(err?.message || '') + ' ' + String(err?.cause?.message || '') + ' ' + String(err?.cause?.detail || '')).toLowerCase();
-        const isConflict =
-          errCode === '23505' ||
-          msg.includes('unique') ||
-          msg.includes('duplicate') ||
-          msg.includes('orders_order_number_unique');
-        if (isConflict && attempt < 4) {
+        const msg = String(err?.message || '').toLowerCase();
+        if ((msg.includes('unique') || msg.includes('duplicate')) && attempt < 4) {
           await new Promise((r) => setTimeout(r, 40 * (attempt + 1) + Math.random() * 40));
           continue;
         }
         throw err;
       }
     }
-    throw lastError;
+    throw lastError || new Error('فشل إنشاء الحجز المبدئي بعد عدة محاولات');
   }
 
   /**
    * Records a manual customer payment (received outside system via InstaPay/Cash/Bank)
-   * Payment Status: PENDING_REVIEW, VERIFIED, REJECTED
    */
   public static async recordCustomerPayment(
     orderId: number | string,
@@ -349,80 +584,119 @@ export class OrderService {
       throw new Error('حالة الدفعة غير صالحة');
     }
 
-    return await db.transaction(async (tx) => {
+    return await prisma.$transaction(async (tx) => {
       const order = await this.getOrderByIdOrNumber(orderId, tx);
       if (!order) throw new Error('الطلب غير موجود');
 
-      // Insert payment record
-      const insertedPayments = await tx
-        .insert(customerPayments)
-        .values({
+      // Idempotency: Prevent duplicate payment submitted within 10 seconds with same amount and ref
+      const tenSecondsAgo = new Date(Date.now() - 10 * 1000);
+      const recentDup = await tx.customerPayment.findFirst({
+        where: {
           orderId: order.id,
-          customerId: order.customerId,
-          amount: this.toDecimalStr(amount),
-          paymentMethod,
-          paymentStatus,
-          paymentReference,
-          notes,
-          receivedBy: adminUsername,
-        })
-        .returning();
-
-      const newPayment = insertedPayments[0];
-
-      // Recalculate customer_paid strictly from VERIFIED payments
-      const allVerifiedPayments = await tx
-        .select({ total: sql<string>`COALESCE(SUM(amount), 0)` })
-        .from(customerPayments)
-        .where(and(eq(customerPayments.orderId, order.id), eq(customerPayments.paymentStatus, 'VERIFIED')));
-
-      const totalCustomerPaid = parseFloat(allVerifiedPayments[0]?.total || '0');
-      const orderTotal = parseFloat(order.totalAmount);
-      // Strictly prevent negative remaining balance
-      const customerRemaining = Math.max(0, orderTotal - totalCustomerPaid);
-
-      // Auto update order status from PENDING_BOOKING to CONFIRMED if at least one verified payment exists
-      let newOrderStatus = order.orderStatus;
-      if (order.orderStatus === 'PENDING_BOOKING' && totalCustomerPaid > 0) {
-        newOrderStatus = 'CONFIRMED';
+          amount: this.toDecimal(amount),
+          paymentReference: paymentReference ? paymentReference.trim() : undefined,
+          createdAt: { gt: tenSecondsAgo },
+        },
+      });
+      if (recentDup) {
+        throw new Error('تم تسجيل هذه الدفعة للعميل مسبقاً قبل قليل. تم منع التكرار.');
       }
 
-      await tx
-        .update(orders)
-        .set({
-          customerPaid: this.toDecimalStr(totalCustomerPaid),
-          customerRemaining: this.toDecimalStr(customerRemaining),
-          orderStatus: newOrderStatus,
-          updatedAt: new Date(),
-        })
-        .where(eq(orders.id, order.id));
-
-      // Audit Log for Payment Creation
-      await tx.insert(auditLogs).values({
-        userName: adminUsername,
-        action: 'CUSTOMER_PAYMENT_ADDED',
-        entity: 'customer_payments',
-        entityId: String(newPayment.id),
-        newData: {
+      // Insert payment record
+      const newPayment = await tx.customerPayment.create({
+        data: {
           orderId: order.id,
-          orderNumber: order.orderNumber,
-          amount,
+          customerId: order.customerId,
+          amount: this.toDecimal(amount),
           paymentMethod,
           paymentStatus,
-          paymentReference,
-          newPaid: totalCustomerPaid,
-          newRemaining: customerRemaining,
+          paymentReference: paymentReference ? paymentReference.trim() : null,
+          notes: notes ? notes.trim() : null,
+          receivedBy: adminUsername,
         },
-        ip,
       });
 
-      return { payment: newPayment, totalCustomerPaid, customerRemaining, orderStatus: newOrderStatus };
+      // Recalculate customer_paid strictly from VERIFIED payments
+      const verifiedAgg = await tx.customerPayment.aggregate({
+        where: {
+          orderId: order.id,
+          paymentStatus: 'VERIFIED',
+        },
+        _sum: {
+          amount: true,
+        },
+      });
+
+      const totalCustomerPaid = Number(verifiedAgg._sum.amount || 0);
+      const orderTotal = Number(order.totalAmount);
+      const customerRemaining = Math.max(0, orderTotal - totalCustomerPaid);
+      const requiredDeposit = Math.round(orderTotal * 0.5 * 100) / 100;
+
+      // Update order status based on verified customer deposit progression
+      let newOrderStatus = order.orderStatus;
+      if (
+        [
+          'PENDING_BOOKING',
+          'PENDING_REVIEW',
+          'AWAITING_CUSTOMER_DEPOSIT',
+          'CUSTOMER_DEPOSIT_PARTIAL',
+          'CUSTOMER_DEPOSIT_PAID',
+        ].includes(order.orderStatus)
+      ) {
+        if (totalCustomerPaid >= orderTotal) {
+          newOrderStatus = 'CONFIRMED';
+        } else if (totalCustomerPaid >= requiredDeposit) {
+          newOrderStatus = 'CUSTOMER_DEPOSIT_PAID';
+        } else if (totalCustomerPaid > 0) {
+          newOrderStatus = 'CUSTOMER_DEPOSIT_PARTIAL';
+        }
+      }
+
+      await tx.order.update({
+        where: { id: order.id },
+        data: {
+          customerPaid: this.toDecimal(totalCustomerPaid),
+          customerRemaining: this.toDecimal(customerRemaining),
+          orderStatus: newOrderStatus,
+          updatedAt: new Date(),
+        },
+      });
+
+      // Audit Log for Payment Creation
+      await tx.auditLog.create({
+        data: {
+          userName: adminUsername,
+          action: 'CUSTOMER_PAYMENT_ADDED',
+          entity: 'customer_payments',
+          entityId: String(newPayment.id),
+          newData: {
+            orderId: order.id,
+            orderNumber: order.orderNumber,
+            amount,
+            paymentMethod,
+            paymentStatus,
+            paymentReference,
+            newPaid: totalCustomerPaid,
+            newRemaining: customerRemaining,
+            requiredDeposit,
+            newOrderStatus,
+          },
+          ip,
+        },
+      });
+
+      return {
+        payment: newPayment,
+        totalCustomerPaid,
+        customerRemaining,
+        requiredDeposit,
+        orderStatus: newOrderStatus,
+      };
     });
   }
 
   /**
-   * Updates an existing customer payment (amount, status, method, reference, notes)
-   * Recalculates verified customer payments with zero tolerance for negative balance
+   * Updates an existing customer payment
    */
   public static async updateCustomerPayment(
     paymentId: number,
@@ -436,20 +710,22 @@ export class OrderService {
     adminUsername: string,
     ip?: string
   ) {
-    return await db.transaction(async (tx) => {
-      const existingList = await tx.select().from(customerPayments).where(eq(customerPayments.id, paymentId)).limit(1);
-      if (!existingList.length) throw new Error('سجل الدفعة غير موجود');
-      const oldPayment = existingList[0];
+    return await prisma.$transaction(async (tx) => {
+      const oldPayment = await tx.customerPayment.findUnique({
+        where: { id: paymentId },
+      });
+      if (!oldPayment) throw new Error('سجل الدفعة غير موجود');
       const orderId = oldPayment.orderId;
 
-      const orderList = await tx.select().from(orders).where(eq(orders.id, orderId)).limit(1);
-      if (!orderList.length) throw new Error('الطلب المرتبط بالدفعة غير موجود');
-      const order = orderList[0];
+      const order = await tx.order.findUnique({
+        where: { id: orderId },
+      });
+      if (!order) throw new Error('الطلب المرتبط بالدفعة غير موجود');
 
       const updateData: any = {};
       if (data.amount !== undefined) {
         if (data.amount <= 0) throw new Error('مبلغ الدفعة يجب أن يكون أكبر من صفر');
-        updateData.amount = this.toDecimalStr(data.amount);
+        updateData.amount = this.toDecimal(data.amount);
       }
       if (data.paymentMethod) {
         const validMethods = ['INSTAPAY', 'CASH', 'BANK_TRANSFER', 'OTHER'];
@@ -464,45 +740,55 @@ export class OrderService {
       if (data.paymentReference !== undefined) updateData.paymentReference = data.paymentReference;
       if (data.notes !== undefined) updateData.notes = data.notes;
 
-      await tx.update(customerPayments).set(updateData).where(eq(customerPayments.id, paymentId));
+      await tx.customerPayment.update({
+        where: { id: paymentId },
+        data: updateData,
+      });
 
       // Recalculate customer_paid strictly from VERIFIED payments
-      const allVerified = await tx
-        .select({ total: sql<string>`COALESCE(SUM(amount), 0)` })
-        .from(customerPayments)
-        .where(and(eq(customerPayments.orderId, orderId), eq(customerPayments.paymentStatus, 'VERIFIED')));
+      const verifiedAgg = await tx.customerPayment.aggregate({
+        where: {
+          orderId,
+          paymentStatus: 'VERIFIED',
+        },
+        _sum: {
+          amount: true,
+        },
+      });
 
-      const totalCustomerPaid = parseFloat(allVerified[0]?.total || '0');
-      const orderTotal = parseFloat(order.totalAmount);
+      const totalCustomerPaid = Number(verifiedAgg._sum.amount || 0);
+      const orderTotal = Number(order.totalAmount);
       const customerRemaining = Math.max(0, orderTotal - totalCustomerPaid);
 
-      await tx
-        .update(orders)
-        .set({
-          customerPaid: this.toDecimalStr(totalCustomerPaid),
-          customerRemaining: this.toDecimalStr(customerRemaining),
+      await tx.order.update({
+        where: { id: orderId },
+        data: {
+          customerPaid: this.toDecimal(totalCustomerPaid),
+          customerRemaining: this.toDecimal(customerRemaining),
           updatedAt: new Date(),
-        })
-        .where(eq(orders.id, orderId));
+        },
+      });
 
       // Audit Log for Payment Update
-      await tx.insert(auditLogs).values({
-        userName: adminUsername,
-        action: 'CUSTOMER_PAYMENT_UPDATED',
-        entity: 'customer_payments',
-        entityId: String(paymentId),
-        oldData: {
-          amount: parseFloat(oldPayment.amount),
-          paymentMethod: oldPayment.paymentMethod,
-          paymentStatus: oldPayment.paymentStatus,
-          paymentReference: oldPayment.paymentReference,
+      await tx.auditLog.create({
+        data: {
+          userName: adminUsername,
+          action: 'CUSTOMER_PAYMENT_UPDATED',
+          entity: 'customer_payments',
+          entityId: String(paymentId),
+          oldData: {
+            amount: Number(oldPayment.amount),
+            paymentMethod: oldPayment.paymentMethod,
+            paymentStatus: oldPayment.paymentStatus,
+            paymentReference: oldPayment.paymentReference,
+          },
+          newData: {
+            ...updateData,
+            newPaid: totalCustomerPaid,
+            newRemaining: customerRemaining,
+          },
+          ip,
         },
-        newData: {
-          ...updateData,
-          newPaid: totalCustomerPaid,
-          newRemaining: customerRemaining,
-        },
-        ip,
       });
 
       return { totalCustomerPaid, customerRemaining };
@@ -511,7 +797,6 @@ export class OrderService {
 
   /**
    * Records a manual payment from Celebre to the Factory (Supplier)
-   * Independent from customer payments!
    */
   public static async recordSupplierPayment(
     supplierOrderId: number,
@@ -524,72 +809,96 @@ export class OrderService {
   ) {
     if (amount <= 0) throw new Error('مبلغ دفعة المصنع يجب أن يكون أكبر من صفر');
 
-    return await db.transaction(async (tx) => {
-      const supOrders = await tx.select().from(supplierOrders).where(eq(supplierOrders.id, supplierOrderId)).limit(1);
-      if (!supOrders.length) throw new Error('أمر التوريد غير موجود');
-      const supOrder = supOrders[0];
+    return await prisma.$transaction(async (tx) => {
+      const supOrder = await tx.supplierOrder.findUnique({
+        where: { id: supplierOrderId },
+      });
+      if (!supOrder) throw new Error('أمر التوريد غير موجود');
 
-      const inserted = await tx
-        .insert(supplierPayments)
-        .values({
+      // Idempotency: Prevent duplicate payment submitted within 10 seconds with same amount and ref
+      const tenSecondsAgo = new Date(Date.now() - 10 * 1000);
+      const recentDup = await tx.supplierPayment.findFirst({
+        where: {
+          supplierOrderId,
+          amount: this.toDecimal(amount),
+          reference: reference ? reference.trim() : undefined,
+          createdAt: { gt: tenSecondsAgo },
+        },
+      });
+      if (recentDup) {
+        throw new Error('تم تسجيل هذا التحويل المالي للمصنع مسبقاً قبل قليل. تم منع التكرار.');
+      }
+
+      const newPayment = await tx.supplierPayment.create({
+        data: {
           supplierOrderId,
           supplierId: supOrder.supplierId,
           orderId: supOrder.orderId,
-          amount: this.toDecimalStr(amount),
+          amount: this.toDecimal(amount),
           paymentMethod,
-          reference,
-          notes,
+          reference: reference ? reference.trim() : null,
+          notes: notes ? notes.trim() : null,
           paidBy: adminUsername,
-        })
-        .returning();
-
-      const newPayment = inserted[0];
+        },
+      });
 
       // Recalculate supplier_paid
-      const allSupPayments = await tx
-        .select({ total: sql<string>`COALESCE(SUM(amount), 0)` })
-        .from(supplierPayments)
-        .where(eq(supplierPayments.supplierOrderId, supplierOrderId));
+      const agg = await tx.supplierPayment.aggregate({
+        where: { supplierOrderId },
+        _sum: { amount: true },
+      });
 
-      const totalSupplierPaid = parseFloat(allSupPayments[0]?.total || '0');
-      const supTotal = parseFloat(supOrder.supplierTotal);
-      // Strictly prevent negative remaining balance
+      const totalSupplierPaid = Number(agg._sum.amount || 0);
+      const supTotal = Number(supOrder.supplierTotal);
       const supplierRemaining = Math.max(0, supTotal - totalSupplierPaid);
 
-      await tx
-        .update(supplierOrders)
-        .set({
-          supplierPaid: this.toDecimalStr(totalSupplierPaid),
-          supplierRemaining: this.toDecimalStr(supplierRemaining),
-          updatedAt: new Date(),
-        })
-        .where(eq(supplierOrders.id, supplierOrderId));
+      // Advance supplier order status if it was awaiting deposit
+      let newSupStatus = supOrder.status;
+      if (['AWAITING_DEPOSIT', 'DEPOSIT_PARTIAL', 'DRAFT'].includes(supOrder.status)) {
+        if (totalSupplierPaid >= supTotal) {
+          newSupStatus = 'IN_PREPARATION';
+        } else if (totalSupplierPaid > 0) {
+          newSupStatus = 'DEPOSIT_PARTIAL';
+        }
+      }
 
-      // Also update orders table supplier columns (never touches customer columns!)
-      await tx
-        .update(orders)
-        .set({
-          supplierPaid: this.toDecimalStr(totalSupplierPaid),
-          supplierRemaining: this.toDecimalStr(supplierRemaining),
+      await tx.supplierOrder.update({
+        where: { id: supplierOrderId },
+        data: {
+          supplierPaid: this.toDecimal(totalSupplierPaid),
+          supplierRemaining: this.toDecimal(supplierRemaining),
+          status: newSupStatus,
           updatedAt: new Date(),
-        })
-        .where(eq(orders.id, supOrder.orderId));
+        },
+      });
+
+      // Also update orders table supplier columns
+      await tx.order.update({
+        where: { id: supOrder.orderId },
+        data: {
+          supplierPaid: this.toDecimal(totalSupplierPaid),
+          supplierRemaining: this.toDecimal(supplierRemaining),
+          updatedAt: new Date(),
+        },
+      });
 
       // Audit Log
-      await tx.insert(auditLogs).values({
-        userName: adminUsername,
-        action: 'SUPPLIER_PAYMENT_ADDED',
-        entity: 'supplier_payments',
-        entityId: String(newPayment.id),
-        newData: {
-          supplierOrderId,
-          supplierOrderNumber: supOrder.supplierOrderNumber,
-          amount,
-          reference,
-          totalSupplierPaid,
-          supplierRemaining,
+      await tx.auditLog.create({
+        data: {
+          userName: adminUsername,
+          action: 'SUPPLIER_PAYMENT_ADDED',
+          entity: 'supplier_payments',
+          entityId: String(newPayment.id),
+          newData: {
+            supplierOrderId,
+            supplierOrderNumber: supOrder.supplierOrderNumber,
+            amount,
+            reference,
+            totalSupplierPaid,
+            supplierRemaining,
+          },
+          ip,
         },
-        ip,
       });
 
       return { payment: newPayment, totalSupplierPaid, supplierRemaining };
@@ -597,7 +906,7 @@ export class OrderService {
   }
 
   /**
-   * Updates an existing supplier payment (amount, method, reference, notes)
+   * Updates an existing supplier payment
    */
   public static async updateSupplierPayment(
     paymentId: number,
@@ -610,72 +919,79 @@ export class OrderService {
     adminUsername: string,
     ip?: string
   ) {
-    return await db.transaction(async (tx) => {
-      const existingList = await tx.select().from(supplierPayments).where(eq(supplierPayments.id, paymentId)).limit(1);
-      if (!existingList.length) throw new Error('سجل دفعة المصنع غير موجود');
-      const oldPayment = existingList[0];
+    return await prisma.$transaction(async (tx) => {
+      const oldPayment = await tx.supplierPayment.findUnique({
+        where: { id: paymentId },
+      });
+      if (!oldPayment) throw new Error('سجل دفعة المصنع غير موجود');
       const supplierOrderId = oldPayment.supplierOrderId;
 
-      const supOrders = await tx.select().from(supplierOrders).where(eq(supplierOrders.id, supplierOrderId)).limit(1);
-      if (!supOrders.length) throw new Error('أمر التوريد المرتبط بالدفعة غير موجود');
-      const supOrder = supOrders[0];
+      const supOrder = await tx.supplierOrder.findUnique({
+        where: { id: supplierOrderId },
+      });
+      if (!supOrder) throw new Error('أمر التوريد المرتبط بالدفعة غير موجود');
 
       const updateData: any = {};
       if (data.amount !== undefined) {
         if (data.amount <= 0) throw new Error('مبلغ الدفعة يجب أن يكون أكبر من صفر');
-        updateData.amount = this.toDecimalStr(data.amount);
+        updateData.amount = this.toDecimal(data.amount);
       }
       if (data.paymentMethod) updateData.paymentMethod = data.paymentMethod;
       if (data.reference !== undefined) updateData.reference = data.reference;
       if (data.notes !== undefined) updateData.notes = data.notes;
 
-      await tx.update(supplierPayments).set(updateData).where(eq(supplierPayments.id, paymentId));
+      await tx.supplierPayment.update({
+        where: { id: paymentId },
+        data: updateData,
+      });
 
       // Recalculate supplier_paid
-      const allSupPayments = await tx
-        .select({ total: sql<string>`COALESCE(SUM(amount), 0)` })
-        .from(supplierPayments)
-        .where(eq(supplierPayments.supplierOrderId, supplierOrderId));
+      const agg = await tx.supplierPayment.aggregate({
+        where: { supplierOrderId },
+        _sum: { amount: true },
+      });
 
-      const totalSupplierPaid = parseFloat(allSupPayments[0]?.total || '0');
-      const supTotal = parseFloat(supOrder.supplierTotal);
+      const totalSupplierPaid = Number(agg._sum.amount || 0);
+      const supTotal = Number(supOrder.supplierTotal);
       const supplierRemaining = Math.max(0, supTotal - totalSupplierPaid);
 
-      await tx
-        .update(supplierOrders)
-        .set({
-          supplierPaid: this.toDecimalStr(totalSupplierPaid),
-          supplierRemaining: this.toDecimalStr(supplierRemaining),
+      await tx.supplierOrder.update({
+        where: { id: supplierOrderId },
+        data: {
+          supplierPaid: this.toDecimal(totalSupplierPaid),
+          supplierRemaining: this.toDecimal(supplierRemaining),
           updatedAt: new Date(),
-        })
-        .where(eq(supplierOrders.id, supplierOrderId));
+        },
+      });
 
-      await tx
-        .update(orders)
-        .set({
-          supplierPaid: this.toDecimalStr(totalSupplierPaid),
-          supplierRemaining: this.toDecimalStr(supplierRemaining),
+      await tx.order.update({
+        where: { id: supOrder.orderId },
+        data: {
+          supplierPaid: this.toDecimal(totalSupplierPaid),
+          supplierRemaining: this.toDecimal(supplierRemaining),
           updatedAt: new Date(),
-        })
-        .where(eq(orders.id, supOrder.orderId));
+        },
+      });
 
       // Audit Log
-      await tx.insert(auditLogs).values({
-        userName: adminUsername,
-        action: 'SUPPLIER_PAYMENT_UPDATED',
-        entity: 'supplier_payments',
-        entityId: String(paymentId),
-        oldData: {
-          amount: parseFloat(oldPayment.amount),
-          paymentMethod: oldPayment.paymentMethod,
-          reference: oldPayment.reference,
+      await tx.auditLog.create({
+        data: {
+          userName: adminUsername,
+          action: 'SUPPLIER_PAYMENT_UPDATED',
+          entity: 'supplier_payments',
+          entityId: String(paymentId),
+          oldData: {
+            amount: Number(oldPayment.amount),
+            paymentMethod: oldPayment.paymentMethod,
+            reference: oldPayment.reference,
+          },
+          newData: {
+            ...updateData,
+            totalSupplierPaid,
+            supplierRemaining,
+          },
+          ip,
         },
-        newData: {
-          ...updateData,
-          totalSupplierPaid,
-          supplierRemaining,
-        },
-        ip,
       });
 
       return { totalSupplierPaid, supplierRemaining };
@@ -693,7 +1009,13 @@ export class OrderService {
     ip?: string
   ) {
     const validStatuses = [
+      'PENDING_REVIEW',
       'PENDING_BOOKING',
+      'REJECTED',
+      'AWAITING_CUSTOMER_DEPOSIT',
+      'CUSTOMER_DEPOSIT_PARTIAL',
+      'CUSTOMER_DEPOSIT_PAID',
+      'FACTORY_PENDING',
       'CONFIRMED',
       'SENT_TO_SUPPLIER',
       'IN_PRODUCTION',
@@ -707,7 +1029,7 @@ export class OrderService {
       throw new Error('حالة الطلب غير صالحة');
     }
 
-    return await db.transaction(async (tx) => {
+    return await prisma.$transaction(async (tx) => {
       const order = await this.getOrderByIdOrNumber(orderId, tx);
       if (!order) throw new Error('الطلب غير موجود');
 
@@ -716,54 +1038,330 @@ export class OrderService {
         updatedAt: new Date(),
       };
 
-      if (newStatus === 'CANCELLED') {
+      if (newStatus === 'REJECTED') {
+        updateData.cancelReason = cancelReason || 'تم رفض الحجز من قبل الإدارة';
+        updateData.cancelledAt = new Date();
+      } else if (newStatus === 'CANCELLED') {
         updateData.cancelReason = cancelReason || 'تم الإلغاء بالتنسيق مع العميل';
         updateData.cancelledAt = new Date();
       } else if (newStatus === 'COMPLETED') {
         updateData.completedAt = new Date();
       }
 
-      if (newStatus === 'CONFIRMED' || newStatus === 'SENT_TO_SUPPLIER') {
-        const existingSup = await tx.select().from(supplierOrders).where(eq(supplierOrders.orderId, order.id)).limit(1);
-        if (existingSup.length === 0) {
-          const primarySupplier = await tx.select().from(suppliers).limit(1);
-          if (primarySupplier.length > 0) {
-            await tx.insert(supplierOrders).values({
-              orderId: order.id,
-              supplierId: primarySupplier[0].id,
-              supplierOrderNumber: `SUP-${order.orderNumber.replace('CB-', '')}`,
-              supplierTotal: order.supplierTotal,
-              supplierPaid: order.supplierPaid,
-              supplierRemaining: order.supplierRemaining,
-              status: newStatus === 'SENT_TO_SUPPLIER' ? 'SENT' : 'CONFIRMED',
-            });
-          }
-        } else if (newStatus === 'SENT_TO_SUPPLIER') {
-          await tx
-            .update(supplierOrders)
-            .set({ status: 'SENT', updatedAt: new Date() })
-            .where(eq(supplierOrders.orderId, order.id));
-        } else if (newStatus === 'CONFIRMED' && existingSup[0].status === 'PENDING_CONFIRMATION') {
-          await tx
-            .update(supplierOrders)
-            .set({ status: 'CONFIRMED', updatedAt: new Date() })
-            .where(eq(supplierOrders.orderId, order.id));
+      // Synchronize existing supplierOrder if order is cancelled or completed
+      const existingSup = await tx.supplierOrder.findFirst({
+        where: { orderId: order.id },
+      });
+      if (existingSup) {
+        if (newStatus === 'CANCELLED' && existingSup.status !== 'CANCELLED') {
+          await tx.supplierOrder.update({
+            where: { id: existingSup.id },
+            data: { status: 'CANCELLED', updatedAt: new Date() },
+          });
+        } else if (newStatus === 'COMPLETED' && existingSup.status !== 'COMPLETED') {
+          await tx.supplierOrder.update({
+            where: { id: existingSup.id },
+            data: { status: 'COMPLETED', updatedAt: new Date() },
+          });
         }
       }
 
-      await tx.update(orders).set(updateData).where(eq(orders.id, order.id));
+      await tx.order.update({
+        where: { id: order.id },
+        data: updateData,
+      });
 
-      await tx.insert(auditLogs).values({
-        userName: adminUsername,
-        action: 'ORDER_STATUS_CHANGED',
-        entity: 'orders',
-        entityId: String(order.id),
-        oldData: { status: order.orderStatus },
-        newData: { status: newStatus, cancelReason },
-        ip,
+      await tx.auditLog.create({
+        data: {
+          userName: adminUsername,
+          action: 'ORDER_STATUS_CHANGED',
+          entity: 'orders',
+          entityId: String(order.id),
+          oldData: { status: order.orderStatus },
+          newData: { status: newStatus, cancelReason },
+          ip,
+        },
       });
 
       return { success: true, status: newStatus };
+    });
+  }
+
+  /**
+   * Approves customer booking and transitions to AWAITING_CUSTOMER_DEPOSIT
+   */
+  public static async acceptPreliminaryBooking(
+    orderId: number | string,
+    adminUsername: string,
+    ip?: string
+  ) {
+    return await prisma.$transaction(async (tx) => {
+      const order = await this.getOrderByIdOrNumber(orderId, tx);
+      if (!order) throw new Error('الطلب غير موجود');
+
+      if (order.orderStatus === 'REJECTED') {
+        throw new Error('لا يمكن قبول حجز تم رفضه مسبقاً');
+      }
+      if (order.orderStatus === 'CANCELLED') {
+        throw new Error('لا يمكن قبول حجز ملغي');
+      }
+      if (
+        order.orderStatus !== 'PENDING_BOOKING' &&
+        order.orderStatus !== 'PENDING_REVIEW'
+      ) {
+        throw new Error(`الحجز بالفعل في حالة متقدمة: ${order.orderStatus}`);
+      }
+
+      if (!order.pickupDate || order.pickupDate.trim() === '') {
+        throw new Error('لا يمكن قبول الحجز دون تحديد موعد مناسبة صالح');
+      }
+
+      const updated = await tx.order.update({
+        where: { id: order.id },
+        data: {
+          orderStatus: 'AWAITING_CUSTOMER_DEPOSIT',
+          updatedAt: new Date(),
+        },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          userName: adminUsername,
+          action: 'BOOKING_ACCEPTED',
+          entity: 'orders',
+          entityId: String(order.id),
+          oldData: { status: order.orderStatus },
+          newData: { status: 'AWAITING_CUSTOMER_DEPOSIT', approvedBy: adminUsername },
+          ip,
+        },
+      });
+
+      return updated;
+    });
+  }
+
+  /**
+   * Rejects customer booking with mandatory rejection reason
+   */
+  public static async rejectPreliminaryBooking(
+    orderId: number | string,
+    reason: string,
+    adminUsername: string,
+    ip?: string
+  ) {
+    if (!reason || reason.trim().length < 3) {
+      throw new Error('يجب إدخال سبب واضح لرفض الحجز');
+    }
+
+    return await prisma.$transaction(async (tx) => {
+      const order = await this.getOrderByIdOrNumber(orderId, tx);
+      if (!order) throw new Error('الطلب غير موجود');
+
+      if (order.orderStatus === 'REJECTED') {
+        throw new Error('الحجز مرفوض بالفعل');
+      }
+      if (order.orderStatus === 'COMPLETED' || order.orderStatus === 'DELIVERED') {
+        throw new Error('لا يمكن رفض طلب مكتمل أو تم تسليمه');
+      }
+
+      const updated = await tx.order.update({
+        where: { id: order.id },
+        data: {
+          orderStatus: 'REJECTED',
+          cancelReason: reason.trim(),
+          cancelledAt: new Date(),
+          updatedAt: new Date(),
+        },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          userName: adminUsername,
+          action: 'BOOKING_REJECTED',
+          entity: 'orders',
+          entityId: String(order.id),
+          oldData: { status: order.orderStatus },
+          newData: { status: 'REJECTED', reason: reason.trim(), rejectedBy: adminUsername },
+          ip,
+        },
+      });
+
+      return updated;
+    });
+  }
+
+  /**
+   * Creates an independent Supplier (Factory) Order for an approved booking
+   */
+  public static async createSupplierOrder(
+    orderId: number | string,
+    adminUsername: string,
+    ip?: string
+  ) {
+    return await prisma.$transaction(async (tx) => {
+      const order = await this.getOrderByIdOrNumber(orderId, tx);
+      if (!order) throw new Error('الطلب غير موجود');
+
+      if (order.orderStatus === 'REJECTED') {
+        throw new Error('لا يمكن إنشاء طلب مصنع لحجز مرفوض');
+      }
+      if (order.orderStatus === 'CANCELLED') {
+        throw new Error('لا يمكن إنشاء طلب مصنع لحجز ملغي');
+      }
+      if (order.orderStatus === 'PENDING_BOOKING' || order.orderStatus === 'PENDING_REVIEW') {
+        throw new Error('يجب موافقة الإدارة على حجز العميل أولاً قبل إنشاء طلب المصنع');
+      }
+
+      const existingSup = await tx.supplierOrder.findFirst({
+        where: { orderId: order.id },
+      });
+      if (existingSup) {
+        throw new Error(`طلب المصنع موجود بالفعل لهذا الحجز برقم: ${existingSup.supplierOrderNumber}`);
+      }
+
+      let primarySupplier = await tx.supplier.findFirst();
+      if (!primarySupplier) {
+        primarySupplier = await tx.supplier.create({
+          data: {
+            name: 'Celebre Factory',
+            companyName: 'مصنع التجهيزات الفندقية المركزي',
+            phone: '01284484868',
+          },
+        });
+      }
+
+      const supplierOrderNumber = `SUP-${order.orderNumber.replace('CB-', '')}`;
+      const supplierTotal = order.supplierTotal;
+      const supplierPaid = new Prisma.Decimal('0.00'); // strictly 0 on creation
+      const supplierRemaining = supplierTotal;
+
+      const newSupOrder = await tx.supplierOrder.create({
+        data: {
+          orderId: order.id,
+          supplierId: primarySupplier.id,
+          supplierOrderNumber,
+          supplierTotal,
+          supplierPaid,
+          supplierRemaining,
+          status: 'DRAFT',
+        },
+      });
+
+      if (order.orderStatus === 'AWAITING_CUSTOMER_DEPOSIT' || order.orderStatus === 'CUSTOMER_DEPOSIT_PAID') {
+        await tx.order.update({
+          where: { id: order.id },
+          data: { orderStatus: 'FACTORY_PENDING', updatedAt: new Date() },
+        });
+      }
+
+      await tx.auditLog.create({
+        data: {
+          userName: adminUsername,
+          action: 'SUPPLIER_ORDER_CREATED',
+          entity: 'supplier_orders',
+          entityId: String(newSupOrder.id),
+          newData: {
+            supplierOrderId: newSupOrder.id,
+            supplierOrderNumber,
+            orderId: order.id,
+            supplierTotal: Number(supplierTotal),
+            status: 'DRAFT',
+          },
+          ip,
+        },
+      });
+
+      return newSupOrder;
+    });
+  }
+
+  /**
+   * Updates status of independent factory order with logging
+   */
+  public static async updateSupplierOrderStatus(
+    supplierOrderId: number,
+    newStatus: string,
+    reason: string | undefined,
+    adminUsername: string,
+    ip?: string
+  ) {
+    const validSupStatuses = [
+      'DRAFT',
+      'SENT_TO_FACTORY',
+      'SENT',
+      'ACCEPTED_BY_FACTORY',
+      'CONFIRMED',
+      'REJECTED_BY_FACTORY',
+      'AWAITING_DEPOSIT',
+      'DEPOSIT_PARTIAL',
+      'DEPOSIT_PAID',
+      'IN_PREPARATION',
+      'IN_PRODUCTION',
+      'READY',
+      'COMPLETED',
+      'CANCELLED',
+      'PENDING_CONFIRMATION',
+    ];
+
+    if (!validSupStatuses.includes(newStatus)) {
+      throw new Error('حالة طلب المصنع غير صالحة');
+    }
+
+    if (newStatus === 'REJECTED_BY_FACTORY' && (!reason || reason.trim().length < 3)) {
+      throw new Error('يجب إدخال سبب رفض المصنع للطلب');
+    }
+
+    return await prisma.$transaction(async (tx) => {
+      const supOrder = await tx.supplierOrder.findUnique({
+        where: { id: supplierOrderId },
+      });
+      if (!supOrder) throw new Error('أمر التوريد غير موجود');
+
+      const updated = await tx.supplierOrder.update({
+        where: { id: supplierOrderId },
+        data: {
+          status: newStatus,
+          updatedAt: new Date(),
+        },
+      });
+
+      if (newStatus === 'ACCEPTED_BY_FACTORY') {
+        const parentOrder = await tx.order.findUnique({ where: { id: supOrder.orderId } });
+        if (
+          parentOrder &&
+          (parentOrder.orderStatus === 'FACTORY_PENDING' ||
+            parentOrder.orderStatus === 'CUSTOMER_DEPOSIT_PAID')
+        ) {
+          await tx.order.update({
+            where: { id: supOrder.orderId },
+            data: { orderStatus: 'CONFIRMED', updatedAt: new Date() },
+          });
+        }
+      } else if (newStatus === 'IN_PREPARATION' || newStatus === 'IN_PRODUCTION') {
+        await tx.order.update({
+          where: { id: supOrder.orderId },
+          data: { orderStatus: 'IN_PRODUCTION', updatedAt: new Date() },
+        });
+      } else if (newStatus === 'READY') {
+        await tx.order.update({
+          where: { id: supOrder.orderId },
+          data: { orderStatus: 'READY', updatedAt: new Date() },
+        });
+      }
+
+      await tx.auditLog.create({
+        data: {
+          userName: adminUsername,
+          action: 'SUPPLIER_ORDER_STATUS_CHANGED',
+          entity: 'supplier_orders',
+          entityId: String(supplierOrderId),
+          oldData: { status: supOrder.status },
+          newData: { status: newStatus, reason },
+          ip,
+        },
+      });
+
+      return updated;
     });
   }
 
@@ -785,7 +1383,7 @@ export class OrderService {
     adminUsername: string,
     ip?: string
   ) {
-    return await db.transaction(async (tx) => {
+    return await prisma.$transaction(async (tx) => {
       const order = await this.getOrderByIdOrNumber(orderId, tx);
       if (!order) throw new Error('الطلب غير موجود');
 
@@ -797,7 +1395,10 @@ export class OrderService {
         if (details.customerName) custUpdates.fullName = details.customerName.trim();
         if (details.phone) custUpdates.phone = details.phone.trim();
         if (details.whatsapp) custUpdates.whatsapp = details.whatsapp.trim();
-        await tx.update(customers).set(custUpdates).where(eq(customers.id, order.customerId));
+        await tx.customer.update({
+          where: { id: order.customerId },
+          data: custUpdates,
+        });
       }
 
       if (details.pickupDate) updateData.pickupDate = details.pickupDate;
@@ -807,63 +1408,77 @@ export class OrderService {
 
       // If quantity changed, recalculate items & totals based on price snapshots
       if (details.quantity && details.quantity !== 0) {
-        const items = await tx.select().from(orderItems).where(eq(orderItems.orderId, order.id));
+        const items = await tx.orderItem.findMany({
+          where: { orderId: order.id },
+        });
+
         if (items.length > 0) {
           const item = items[0];
           const newQty = details.quantity;
-          const distUnitPrice = parseFloat(item.distributorUnitPrice);
-          const suppUnitPrice = parseFloat(item.supplierUnitPrice);
-          const customerAdj = parseFloat(item.customerAdjustment);
+          const distUnitPrice = Number(item.distributorUnitPrice);
+          const suppUnitPrice = Number(item.supplierUnitPrice);
+          const customerAdj = Number(item.customerAdjustment);
 
           const newCustomerTotal = (distUnitPrice + customerAdj) * newQty;
           const newSupplierTotal = suppUnitPrice * newQty;
           const newProfit = newCustomerTotal - newSupplierTotal;
 
-          await tx
-            .update(orderItems)
-            .set({
+          await tx.orderItem.update({
+            where: { id: item.id },
+            data: {
               quantity: newQty,
-              distributorTotal: this.toDecimalStr(distUnitPrice * newQty),
-              supplierTotal: this.toDecimalStr(suppUnitPrice * newQty),
-              customerTotal: this.toDecimalStr(newCustomerTotal),
-              supplierTotalFinal: this.toDecimalStr(newSupplierTotal),
-              profit: this.toDecimalStr(newProfit),
-            })
-            .where(eq(orderItems.id, item.id));
+              distributorTotal: this.toDecimal(distUnitPrice * newQty),
+              supplierTotal: this.toDecimal(suppUnitPrice * newQty),
+              customerTotal: this.toDecimal(newCustomerTotal),
+              supplierTotalFinal: this.toDecimal(newSupplierTotal),
+              profit: this.toDecimal(newProfit),
+            },
+          });
 
-          const customerPaid = parseFloat(order.customerPaid);
-          const supplierPaid = parseFloat(order.supplierPaid);
+          const customerPaid = Number(order.customerPaid);
+          const supplierPaid = Number(order.supplierPaid);
 
-          updateData.subtotal = this.toDecimalStr(distUnitPrice * newQty);
-          updateData.adjustments = this.toDecimalStr(customerAdj * newQty);
-          updateData.totalAmount = this.toDecimalStr(newCustomerTotal);
-          updateData.customerRemaining = this.toDecimalStr(Math.max(0, newCustomerTotal - customerPaid));
-          updateData.supplierTotal = this.toDecimalStr(newSupplierTotal);
-          updateData.supplierRemaining = this.toDecimalStr(Math.max(0, newSupplierTotal - supplierPaid));
-          updateData.distributorProfit = this.toDecimalStr(newProfit);
+          updateData.subtotal = this.toDecimal(distUnitPrice * newQty);
+          updateData.adjustments = this.toDecimal(customerAdj * newQty);
+          updateData.totalAmount = this.toDecimal(newCustomerTotal);
+          updateData.customerRemaining = this.toDecimal(Math.max(0, newCustomerTotal - customerPaid));
+          updateData.supplierTotal = this.toDecimal(newSupplierTotal);
+          updateData.supplierRemaining = this.toDecimal(Math.max(0, newSupplierTotal - supplierPaid));
+          updateData.distributorProfit = this.toDecimal(newProfit);
 
           // Update supplier order
-          await tx
-            .update(supplierOrders)
-            .set({
-              supplierTotal: this.toDecimalStr(newSupplierTotal),
-              supplierRemaining: this.toDecimalStr(Math.max(0, newSupplierTotal - supplierPaid)),
-              updatedAt: new Date(),
-            })
-            .where(eq(supplierOrders.orderId, order.id));
+          const supOrder = await tx.supplierOrder.findFirst({
+            where: { orderId: order.id },
+          });
+
+          if (supOrder) {
+            await tx.supplierOrder.update({
+              where: { id: supOrder.id },
+              data: {
+                supplierTotal: this.toDecimal(newSupplierTotal),
+                supplierRemaining: this.toDecimal(Math.max(0, newSupplierTotal - supplierPaid)),
+                updatedAt: new Date(),
+              },
+            });
+          }
         }
       }
 
-      await tx.update(orders).set(updateData).where(eq(orders.id, order.id));
+      await tx.order.update({
+        where: { id: order.id },
+        data: updateData,
+      });
 
-      await tx.insert(auditLogs).values({
-        userName: adminUsername,
-        action: 'ORDER_DETAILS_UPDATED',
-        entity: 'orders',
-        entityId: String(order.id),
-        oldData,
-        newData: details,
-        ip,
+      await tx.auditLog.create({
+        data: {
+          userName: adminUsername,
+          action: 'ORDER_DETAILS_UPDATED',
+          entity: 'orders',
+          entityId: String(order.id),
+          oldData,
+          newData: details,
+          ip,
+        },
       });
 
       return { success: true };

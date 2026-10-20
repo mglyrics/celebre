@@ -1,7 +1,8 @@
-import { PrismaClient } from "@prisma/client";
-import crypto from "crypto";
+import * as dotenv from "dotenv";
+dotenv.config();
 
-const prisma = new PrismaClient();
+import { prisma } from "../src/lib/prisma.ts";
+import crypto from "crypto";
 
 const OFFICIAL_18_MEALS = [
   {
@@ -311,7 +312,7 @@ async function main() {
     { name: "VIEWER", description: "صلاحية مشاهدة واستعراض تقارير فقط" }
   ];
 
-  const roleMap = new Map<string, string>();
+  const roleMap = new Map<string, number>();
   for (const r of roles) {
     const roleRecord = await prisma.role.upsert({
       where: { name: r.name },
@@ -323,12 +324,12 @@ async function main() {
   console.log(`✅ Roles seeded (${roles.length} roles)`);
 
   // 2. Seed Permissions
-  const permMap = new Map<string, string>();
+  const permMap = new Map<string, number>();
   for (const p of PERMISSIONS_LIST) {
     const permRecord = await prisma.permission.upsert({
-      where: { permissionKey: p.key },
-      update: { description: p.desc },
-      create: { permissionKey: p.key, description: p.desc }
+      where: { code: p.key },
+      update: { name: p.desc, module: "general" },
+      create: { code: p.key, name: p.desc, module: "general" }
     });
     permMap.set(p.key, permRecord.id);
   }
@@ -338,42 +339,42 @@ async function main() {
   const superAdminRoleId = roleMap.get("SUPER_ADMIN");
   if (superAdminRoleId) {
     for (const permId of permMap.values()) {
-      await prisma.rolePermission.upsert({
+      const existing = await prisma.rolePermission.findFirst({
         where: {
-          roleId_permissionId: {
-            roleId: superAdminRoleId,
-            permissionId: permId
-          }
-        },
-        update: {},
-        create: {
           roleId: superAdminRoleId,
           permissionId: permId
         }
       });
+      if (!existing) {
+        await prisma.rolePermission.create({
+          data: {
+            roleId: superAdminRoleId,
+            permissionId: permId
+          }
+        });
+      }
     }
   }
 
   // 3. Seed Primary Supplier (Requested: Celebre Factory)
-  const defaultSupplier = await prisma.supplier.upsert({
-    where: { id: "supplier-celebre-factory" },
-    update: {
-      name: "Celebre Factory",
-      companyName: "Celebre Central Production & Catering Factory"
-    },
-    create: {
-      id: "supplier-celebre-factory",
-      name: "Celebre Factory",
-      companyName: "Celebre Central Production & Catering Factory",
-      phone: "01284484868",
-      whatsapp: "01284484868",
-      email: "factory@celebre-eg.com",
-      address: "المنطقة الصناعية - شرق النيل - محافظة بني سويف",
-      taxNumber: "EG-784-938-2026",
-      notes: "المورد والمصنع المركزي المعتمد لتجهيز علب كاترنج سيلبر الفاخرة",
-      isActive: true
-    }
+  let defaultSupplier = await prisma.supplier.findFirst({
+    where: { name: "Celebre Factory" }
   });
+  if (!defaultSupplier) {
+    defaultSupplier = await prisma.supplier.create({
+      data: {
+        name: "Celebre Factory",
+        companyName: "Celebre Central Production & Catering Factory",
+        phone: "01284484868",
+        whatsapp: "01284484868",
+        email: "factory@celebre-eg.com",
+        address: "المنطقة الصناعية - شرق النيل - محافظة بني سويف",
+        taxNumber: "EG-784-938-2026",
+        notes: "المورد والمصنع المركزي المعتمد لتجهيز علب كاترنج سيلبر الفاخرة",
+        isActive: true
+      }
+    });
+  }
   console.log(`✅ Primary Supplier seeded: "${defaultSupplier.name}"`);
 
   // 4. Seed the 18 Official Catering Meals & Components

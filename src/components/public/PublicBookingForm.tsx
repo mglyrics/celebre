@@ -33,6 +33,9 @@ export const PublicBookingForm: React.FC<PublicBookingFormProps> = ({
   const [pickupTime, setPickupTime] = useState("المغرب 06:30 م");
   const [customTime, setCustomTime] = useState("");
   const [pickupLocation, setPickupLocation] = useState("");
+  const [venueType, setVenueType] = useState<string>("قاعة");
+  const [occasion, setOccasion] = useState<string>("عقد قران");
+  const [arrivalInstructions, setArrivalInstructions] = useState("");
   const [notes, setNotes] = useState("");
   const [drinkOption, setDrinkOption] = useState<"included" | "exclude_juice" | "replace_pepsi">("included");
 
@@ -139,6 +142,9 @@ export const PublicBookingForm: React.FC<PublicBookingFormProps> = ({
           pickupDate,
           pickupTime: finalTime,
           pickupLocation: pickupLocation.trim(),
+          venueType,
+          occasion,
+          arrivalInstructions: arrivalInstructions.trim(),
           notes: notes.trim(),
           drinkOption,
         }),
@@ -346,6 +352,23 @@ export const PublicBookingForm: React.FC<PublicBookingFormProps> = ({
                   <p className="text-xs text-[#6B5E55] line-clamp-2">
                     {selectedItem.description}
                   </p>
+                  {selectedItem.components && selectedItem.components.length > 0 && (
+                    <div className="pt-2 border-t border-[#E8DFD1]/60">
+                      <span className="text-[11px] font-bold text-[#8C6D28] block mb-1">
+                        مكونات ومحتويات الوجبة المعتمدة:
+                      </span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {selectedItem.components.map((comp, idx) => (
+                          <span
+                            key={idx}
+                            className="inline-flex items-center bg-white border border-[#D6C7B7] text-[#4A3E38] text-[10px] sm:text-[11px] px-2 py-0.5 rounded-lg shadow-2xs font-semibold"
+                          >
+                            {comp.quantity} {comp.unit} {comp.name}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   <div className="text-xs font-bold text-[#8C6D28] pt-1">
                     سعر الوجبة الأساسي للعميل: <span className="text-sm font-black text-[#721832]">{selectedItem.distributorPrice}</span> ج.م
                   </div>
@@ -488,10 +511,51 @@ export const PublicBookingForm: React.FC<PublicBookingFormProps> = ({
           <div className="space-y-4">
             <h3 className="text-base font-black text-[#5C1027] flex items-center gap-2 border-b border-[#E8DFD1] pb-2">
               <MapPin className="w-4 h-4 text-[#C89B3C]" />
-              <span>4. تفاصيل وموعد ومكان الاستلام</span>
+              <span>4. تفاصيل المناسبة وموعد ومكان الاستلام</span>
             </h3>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Occasion Selection */}
+              <div>
+                <label className="block text-xs font-bold text-[#221B17] mb-1.5">
+                  نوع المناسبة <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={occasion}
+                  onChange={(e) => setOccasion(e.target.value)}
+                  className="w-full bg-[#FAF7F2] border border-[#D6C7B7] rounded-xl px-4 py-2.5 text-xs sm:text-sm font-bold text-[#221B17] focus:outline-none focus:ring-2 focus:ring-[#721832] focus:bg-white"
+                >
+                  <option value="عقد قران">عقد قران (كتب كتاب)</option>
+                  <option value="زفاف">حفل زفاف (فرح)</option>
+                  <option value="خطوبة">خطوبة</option>
+                  <option value="عيد ميلاد">عيد ميلاد</option>
+                  <option value="تخرج">حفل تخرج</option>
+                  <option value="احتفال">احتفال / تكريم</option>
+                  <option value="ندوة">ندوة</option>
+                  <option value="ورشة عمل">ورشة عمل / تدريب</option>
+                  <option value="أخرى">مناسبة أخرى...</option>
+                </select>
+              </div>
+
+              {/* Venue Type Selection */}
+              <div>
+                <label className="block text-xs font-bold text-[#221B17] mb-1.5">
+                  مكان المناسبة <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={venueType}
+                  onChange={(e) => setVenueType(e.target.value)}
+                  className="w-full bg-[#FAF7F2] border border-[#D6C7B7] rounded-xl px-4 py-2.5 text-xs sm:text-sm font-bold text-[#221B17] focus:outline-none focus:ring-2 focus:ring-[#721832] focus:bg-white"
+                >
+                  <option value="قاعة">قاعة (أفراح / مناسبات)</option>
+                  <option value="مسجد">مسجد / دار مناسبات</option>
+                  <option value="فندق">فندق</option>
+                  <option value="منزل">منزل / فيلا خاصة</option>
+                  <option value="حديقة عامة">حديقة عامة / نادي</option>
+                  <option value="مكان آخر">مكان آخر...</option>
+                </select>
+              </div>
+
               <div>
                 <label className="block text-xs font-bold text-[#221B17] mb-1.5">
                   تاريخ الاستلام (يوم المناسبة) <span className="text-red-500">*</span>
@@ -536,14 +600,27 @@ export const PublicBookingForm: React.FC<PublicBookingFormProps> = ({
 
               <div className="sm:col-span-2">
                 <label className="block text-xs font-bold text-[#221B17] mb-1.5">
-                  مكان الاستلام أو عنوان القاعة / المسجد <span className="text-red-500">*</span>
+                  اسم المكان وعنوانه بالتفصيل <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
                   required
                   value={pickupLocation}
                   onChange={(e) => setPickupLocation(e.target.value)}
-                  placeholder="مثال: القاهرة، التجمع الخامس - مسجد الشرطة، قاعة الفردوس (أو بني سويف، قاعة النيل)"
+                  placeholder="مثال: القاهرة، التجمع الخامس - مسجد الشرطة، قاعة الفردوس (أو بني سويف، كورنيش النيل، قاعة النيل)"
+                  className="w-full bg-[#FAF7F2] border border-[#D6C7B7] rounded-xl px-4 py-2.5 text-xs sm:text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#721832] focus:bg-white"
+                />
+              </div>
+
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-bold text-[#221B17] mb-1.5">
+                  تفاصيل الوصول وإرشادات التسليم (اختياري)
+                </label>
+                <input
+                  type="text"
+                  value={arrivalInstructions}
+                  onChange={(e) => setArrivalInstructions(e.target.value)}
+                  placeholder="مثال: الدخول من البوابة رقم 2، الطابق الأرضي، تسليم للأستاذ محمد"
                   className="w-full bg-[#FAF7F2] border border-[#D6C7B7] rounded-xl px-4 py-2.5 text-xs sm:text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#721832] focus:bg-white"
                 />
               </div>
@@ -553,7 +630,7 @@ export const PublicBookingForm: React.FC<PublicBookingFormProps> = ({
                   ملاحظات أو طلبات خاصة (اختياري)
                 </label>
                 <textarea
-                  rows={3}
+                  rows={2}
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   placeholder="أي تفاصيل ترغب في إضافتها بخصوص التغليف أو كروت التهنئة أو مواعيد التسليم..."
@@ -563,33 +640,46 @@ export const PublicBookingForm: React.FC<PublicBookingFormProps> = ({
             </div>
           </div>
 
-          {/* Live Price Summary Box */}
-          <div className="bg-[#FAF7F2] rounded-2xl p-5 border border-[#C89B3C]/30 shadow-inner space-y-3">
-            <h4 className="font-bold text-sm text-[#5C1027] flex items-center justify-between border-b border-[#E8DFD1] pb-2">
-              <span>ملخص التكلفة التقديرية للحجز المبدئي:</span>
-              <span className="text-xs text-[#8C6D28]">تحديث حي مباشر</span>
-            </h4>
+          {/* Delivery Disclaimer & Live Price Summary */}
+          <div className="space-y-3">
+            {/* Delivery Disclaimer Banner */}
+            <div className="bg-amber-50/80 border border-amber-200/80 rounded-2xl p-3.5 sm:p-4 flex items-center gap-3 text-xs text-amber-900">
+              <span className="p-1.5 bg-amber-200/60 rounded-xl text-amber-800 shrink-0 font-bold">
+                ⚠️
+              </span>
+              <div className="leading-relaxed">
+                <strong className="font-bold">تنبيه هام بخصوص التوصيل:</strong> التوصيل <span className="underline decoration-amber-600 font-black">غير مشمول</span> في أسعار الوجبات أعلاه، ويتم التنسيق بشأنه واحتسابه لاحقاً حسب عنوان ومحافظة المناسبة.
+              </div>
+            </div>
 
-            <div className="space-y-1.5 text-xs text-[#4A3E38]">
-              <div className="flex justify-between">
-                <span>سعر الوجبة الأساسي ({menuCode}):</span>
-                <span className="font-bold">{basePrice} ج.م</span>
-              </div>
-              <div className="flex justify-between">
-                <span>تعديل المشروب ({drinkOption === "included" ? "عصير مشمول" : drinkOption === "exclude_juice" ? "استبعاد العصير" : "استبدال ببيبسي"}):</span>
-                <span className={`font-bold ${drinkAdjustment < 0 ? "text-[#721832]" : drinkAdjustment > 0 ? "text-[#0066cc]" : ""}`}>
-                  {drinkAdjustment === 0 ? "0 ج.م" : `${drinkAdjustment > 0 ? "+" : ""}${drinkAdjustment} ج.م`}
-                </span>
-              </div>
-              <div className="flex justify-between font-bold text-[#221B17] pt-1 border-t border-[#E8DFD1]/60">
-                <span>سعر الوجبة الصافي للعميل:</span>
-                <span className="text-sm font-black text-[#5C1027]">{effectiveMealPrice} ج.م</span>
-              </div>
-              <div className="flex justify-between items-baseline pt-2 border-t border-[#E8DFD1] text-[#721832]">
-                <span className="font-black text-sm sm:text-base">إجمالي قيمة الحجز ({quantity} وجبة):</span>
-                <div className="flex items-baseline gap-1">
-                  <span className="text-2xl sm:text-3xl font-black">{totalAmount}</span>
-                  <span className="text-xs font-bold text-[#221B17]">جنيه مصري</span>
+            {/* Live Price Summary Box */}
+            <div className="bg-[#FAF7F2] rounded-2xl p-5 border border-[#C89B3C]/30 shadow-inner space-y-3">
+              <h4 className="font-bold text-sm text-[#5C1027] flex items-center justify-between border-b border-[#E8DFD1] pb-2">
+                <span>ملخص التكلفة التقديرية للحجز المبدئي:</span>
+                <span className="text-xs text-[#8C6D28]">تحديث حي مباشر</span>
+              </h4>
+
+              <div className="space-y-1.5 text-xs text-[#4A3E38]">
+                <div className="flex justify-between">
+                  <span>سعر الوجبة الأساسي ({menuCode}):</span>
+                  <span className="font-bold">{basePrice} ج.م</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>تعديل المشروب ({drinkOption === "included" ? "عصير مشمول" : drinkOption === "exclude_juice" ? "استبعاد العصير" : "استبدال ببيبسي"}):</span>
+                  <span className={`font-bold ${drinkAdjustment < 0 ? "text-[#721832]" : drinkAdjustment > 0 ? "text-[#0066cc]" : ""}`}>
+                    {drinkAdjustment === 0 ? "0 ج.م" : `${drinkAdjustment > 0 ? "+" : ""}${drinkAdjustment} ج.م`}
+                  </span>
+                </div>
+                <div className="flex justify-between font-bold text-[#221B17] pt-1 border-t border-[#E8DFD1]/60">
+                  <span>سعر الوجبة الصافي للعميل:</span>
+                  <span className="text-sm font-black text-[#5C1027]">{effectiveMealPrice} ج.م</span>
+                </div>
+                <div className="flex justify-between items-baseline pt-2 border-t border-[#E8DFD1] text-[#721832]">
+                  <span className="font-black text-sm sm:text-base">إجمالي قيمة الحجز ({quantity} وجبة):</span>
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-2xl sm:text-3xl font-black">{totalAmount}</span>
+                    <span className="text-xs font-bold text-[#221B17]">جنيه مصري</span>
+                  </div>
                 </div>
               </div>
             </div>

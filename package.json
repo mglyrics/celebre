@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "tsx server.ts",
     "build": "vite build && esbuild server.ts --bundle --platform=node --format=esm --outfile=dist/server.js --external:vite --external:express --external:dotenv --external:@google/genai",
+    "vercel-build": "prisma generate && vite build",
     "start": "node dist/server.js",
     "seed": "tsx src/db/seed.ts",
     "prisma:generate": "prisma generate",

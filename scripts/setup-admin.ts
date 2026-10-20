@@ -3,9 +3,7 @@ import bcrypt from 'bcryptjs';
 import * as dotenv from 'dotenv';
 dotenv.config();
 
-import { db } from '../src/db/index.ts';
-import { adminUsers, roles, auditLogs } from '../src/db/schema.ts';
-import { eq } from 'drizzle-orm';
+import { prisma } from '../src/lib/prisma.ts';
 
 async function setupAdmin() {
   console.log('🛡️ [Celebre Catering] Admin User Setup & Verification');
@@ -15,29 +13,26 @@ async function setupAdmin() {
   const envPassword = process.env.ADMIN_INITIAL_PASSWORD?.trim();
 
   // Ensure SUPER_ADMIN role exists
-  let superAdminRole = await db.select().from(roles).where(eq(roles.name, 'SUPER_ADMIN')).limit(1);
-  let superAdminRoleId = superAdminRole[0]?.id;
-
-  if (!superAdminRoleId) {
-    const [newRole] = await db
-      .insert(roles)
-      .values({
+  let superAdminRole = await prisma.role.findUnique({ where: { name: 'SUPER_ADMIN' } });
+  if (!superAdminRole) {
+    superAdminRole = await prisma.role.create({
+      data: {
         name: 'SUPER_ADMIN',
         description: 'المدير العام والمالك - صلاحيات كاملة للنظام',
-      })
-      .returning();
-    superAdminRoleId = newRole.id;
+      },
+    });
     console.log('✅ Created SUPER_ADMIN role');
   }
+  const superAdminRoleId = superAdminRole.id;
 
   // Check if admin user already exists
-  const existing = await db.select().from(adminUsers).where(eq(adminUsers.username, username)).limit(1);
+  const existing = await prisma.adminUser.findUnique({ where: { username } });
 
   let finalPassword = envPassword;
   let isGenerated = false;
 
   if (!finalPassword) {
-    if (existing.length > 0) {
+    if (existing) {
       console.log(`ℹ️ Admin user "${username}" already exists. (Password unchanged)`);
       console.log(`💡 To update password, set ADMIN_INITIAL_PASSWORD in .env or run with ADMIN_INITIAL_PASSWORD=yourpass npm run admin:setup`);
       return;
@@ -51,10 +46,10 @@ async function setupAdmin() {
   // Hash with bcrypt (10 rounds)
   const passwordHash = bcrypt.hashSync(finalPassword, 10);
 
-  if (existing.length > 0) {
-    await db
-      .update(adminUsers)
-      .set({
+  if (existing) {
+    await prisma.adminUser.update({
+      where: { username },
+      data: {
         passwordHash,
         salt: '',
         email,
@@ -62,23 +57,22 @@ async function setupAdmin() {
         isActive: true,
         failedAttempts: 0,
         roleId: superAdminRoleId,
-        updatedAt: new Date(),
-      })
-      .where(eq(adminUsers.username, username));
+      },
+    });
 
-    await db.insert(auditLogs).values({
-      userName: username,
-      action: 'ADMIN_CREDENTIALS_RESET_CLI',
-      entity: 'admin_users',
-      entityId: String(existing[0].id),
-      details: 'Password reset securely via CLI script',
+    await prisma.auditLog.create({
+      data: {
+        userName: username,
+        action: 'ADMIN_CREDENTIALS_RESET_CLI',
+        entity: 'admin_users',
+        entityId: String(existing.id),
+      },
     });
 
     console.log(`✅ Admin user "${username}" credentials updated successfully.`);
   } else {
-    const [created] = await db
-      .insert(adminUsers)
-      .values({
+    const created = await prisma.adminUser.create({
+      data: {
         username,
         email,
         fullName: 'إدارة سيلبر كاترنج المركزية',
@@ -89,15 +83,16 @@ async function setupAdmin() {
         isActive: true,
         isLocked: false,
         failedAttempts: 0,
-      })
-      .returning();
+      },
+    });
 
-    await db.insert(auditLogs).values({
-      userName: username,
-      action: 'ADMIN_CREATED_CLI',
-      entity: 'admin_users',
-      entityId: String(created.id),
-      details: 'Initial admin created securely via CLI script',
+    await prisma.auditLog.create({
+      data: {
+        userName: username,
+        action: 'ADMIN_CREATED_CLI',
+        entity: 'admin_users',
+        entityId: String(created.id),
+      },
     });
 
     console.log(`✅ Admin user "${username}" created successfully.`);
@@ -114,11 +109,13 @@ async function setupAdmin() {
 }
 
 setupAdmin()
-  .then(() => {
+  .then(async () => {
     console.log('✨ Admin setup finished.');
+    await prisma.$disconnect();
     process.exit(0);
   })
-  .catch((err) => {
+  .catch(async (err) => {
     console.error('❌ Admin setup error:', err);
+    await prisma.$disconnect();
     process.exit(1);
   });

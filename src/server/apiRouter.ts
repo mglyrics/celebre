@@ -1,29 +1,12 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
-import { db } from '../db/index.ts';
-import {
-  orders,
-  orderItems,
-  orderItemOptions,
-  customers,
-  menuItems,
-  menuItemComponents,
-  menuPriceHistory,
-  suppliers,
-  supplierOrders,
-  customerPayments,
-  supplierPayments,
-  auditLogs,
-  appSettings,
-  adminUsers,
-  roles,
-  permissions,
-  rolePermissions,
-  otpTokens,
-} from '../db/schema.ts';
-import { eq, desc, and, sql, gte, lte, like, or, inArray, gt } from 'drizzle-orm';
+import { prisma } from '../lib/prisma.ts';
+import { Prisma } from '@prisma/client';
 import { OrderService } from '../services/orderService.ts';
 import { AuthService, type AdminSession } from '../services/authService.ts';
 import { WhatsAppService } from '../services/whatsappService.ts';
+import { OFFICIAL_18_MENU_ITEMS } from '../data/fallbackMenu.ts';
+import { AccountingService } from '../services/accountingService.ts';
+import { MessengerService } from '../services/messengerService.ts';
 
 export const apiRouter = Router();
 
@@ -76,65 +59,119 @@ export const requirePermission = (permissionCode: string) => {
    PUBLIC APIS (Safe for public website - No leaks of factory costs or profit)
    ========================================================================== */
 
+// Cache in-memory for fast delivery & resilient fallback during high traffic or DB restarts
+let cachedPublicMenu: any[] | null = null;
+let lastMenuFetchTime = 0;
+const MENU_CACHE_TTL_MS = 30 * 1000; // 30 seconds
+
+export const invalidatePublicMenuCache = () => {
+  cachedPublicMenu = null;
+  lastMenuFetchTime = 0;
+};
+
 // 1. Public Menu: The 18 Catering packages with items (strictly omits supplier_price)
 apiRouter.get('/public/menu', async (_req: Request, res: Response) => {
+  const now = Date.now();
+  if (cachedPublicMenu && cachedPublicMenu.length > 0 && now - lastMenuFetchTime < MENU_CACHE_TTL_MS) {
+    return res.json({ success: true, menu: cachedPublicMenu, source: 'cache' });
+  }
+
   try {
-    const items = await db
-      .select({
-        id: menuItems.id,
-        code: menuItems.code,
-        name: menuItems.name,
-        description: menuItems.description,
-        distributorPrice: menuItems.distributorPrice,
-        sortOrder: menuItems.sortOrder,
-      })
-      .from(menuItems)
-      .where(eq(menuItems.isActive, true))
-      .orderBy(menuItems.sortOrder);
-
-    const components = await db.select().from(menuItemComponents).orderBy(menuItemComponents.sortOrder);
-
-    const itemsWithComponents = items.map((item) => {
-      const itemComps = components
-        .filter((c) => c.menuItemId === item.id)
-        .map((c) => ({
-          name: c.componentName,
-          quantity: c.quantity,
-          unit: c.unit,
-        }));
-      return {
-        ...item,
-        distributorPrice: parseFloat(item.distributorPrice),
-        components: itemComps,
-      };
+    const items = await prisma.menuItem.findMany({
+      where: { isActive: true },
+      orderBy: { sortOrder: 'asc' },
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        description: true,
+        distributorPrice: true,
+        sortOrder: true,
+        components: {
+          orderBy: { sortOrder: 'asc' },
+          select: {
+            componentName: true,
+            quantity: true,
+            unit: true,
+          },
+        },
+      },
     });
 
-    res.json({ success: true, menu: itemsWithComponents });
+    if (items && items.length > 0) {
+      const itemsWithComponents = items.map((item) => ({
+        id: item.id,
+        code: item.code,
+        name: item.name,
+        description: item.description,
+        distributorPrice: Number(item.distributorPrice),
+        sortOrder: item.sortOrder,
+        components: item.components.map((c) => ({
+          name: c.componentName,
+          quantity: Number(c.quantity),
+          unit: c.unit,
+        })),
+      }));
+
+      cachedPublicMenu = itemsWithComponents;
+      lastMenuFetchTime = now;
+      return res.json({ success: true, menu: itemsWithComponents, source: 'database' });
+    }
   } catch (error: any) {
-    console.error('Error fetching public menu:', error);
-    res.status(500).json({ success: false, message: 'فشل تحميل قائمة الوجبات' });
+    console.warn('Prisma query for public menu encountered an issue, serving resilient fallback menu:', error?.message || error);
   }
+
+  // Graceful resilient fallback if database is cold-starting or pool is busy
+  if (cachedPublicMenu && cachedPublicMenu.length > 0) {
+    return res.json({ success: true, menu: cachedPublicMenu, source: 'stale_cache' });
+  }
+
+  const fallbackItems = OFFICIAL_18_MENU_ITEMS.map((item) => ({
+    id: item.id,
+    code: item.code,
+    name: item.name,
+    description: item.description,
+    distributorPrice: Number(item.distributorPrice),
+    sortOrder: item.sortOrder,
+    components: item.components.map((c: any) => ({
+      name: c.name || c.componentName,
+      quantity: Number(c.quantity),
+      unit: c.unit,
+    })),
+  }));
+
+  return res.json({ success: true, menu: fallbackItems, source: 'official_fallback' });
 });
 
 // 2. Public Settings: Drink rules & contact info
 apiRouter.get('/public/settings', async (_req: Request, res: Response) => {
   try {
-    const settings = await db.select().from(appSettings);
+    const settings = await prisma.appSetting.findMany();
     const config: Record<string, string> = {};
     for (const s of settings) {
       config[s.key] = s.value;
     }
-    res.json({
+    return res.json({
       success: true,
       settings: {
-        juiceExclusionDiscount: parseFloat(config['juice_exclusion_discount'] || '5'),
-        pepsiReplacementMarkup: parseFloat(config['pepsi_replacement_markup'] || '10'),
+        juiceExclusionDiscount: parseFloat(config['juice_exclusion_discount'] || config['REMOVE_JUICE'] || '5'),
+        pepsiReplacementMarkup: parseFloat(config['pepsi_replacement_markup'] || config['REPLACE_JUICE_WITH_PEPSI'] || '10'),
         minOrderQuantity: parseInt(config['min_order_quantity'] || '50', 10),
         officialWhatsappAdmin: config['official_whatsapp_admin'] || '01284484868',
       },
     });
   } catch (error: any) {
-    res.status(500).json({ success: false, message: 'فشل تحميل الإعدادات' });
+    console.warn('Error fetching public settings, using robust defaults:', error?.message || error);
+    return res.json({
+      success: true,
+      settings: {
+        juiceExclusionDiscount: 5,
+        pepsiReplacementMarkup: 10,
+        minOrderQuantity: 50,
+        officialWhatsappAdmin: '01284484868',
+      },
+      source: 'fallback',
+    });
   }
 });
 
@@ -147,11 +184,15 @@ apiRouter.post('/public/bookings', async (req: Request, res: Response) => {
       whatsapp,
       menuCode,
       quantity,
+      items,
       pickupDate,
       pickupTime,
       pickupLocation,
       notes,
       drinkOption,
+      venueType,
+      occasion,
+      arrivalInstructions,
     } = req.body;
 
     const ip = req.ip || req.socket.remoteAddress || 'unknown';
@@ -162,27 +203,40 @@ apiRouter.post('/public/bookings', async (req: Request, res: Response) => {
       phone,
       whatsapp,
       menuCode,
-      quantity: Number(quantity),
+      quantity: quantity ? Number(quantity) : undefined,
+      items: Array.isArray(items) && items.length > 0 ? items : undefined,
       pickupDate,
       pickupTime,
       pickupLocation,
       notes,
       drinkOption: drinkOption || 'included',
+      venueType,
+      occasion,
+      arrivalInstructions,
+      skipSupplierOrderCreation: true, // Public booking does NOT auto-create factory order until admin review
       ip,
       userAgent,
     });
+
+    const totalQuantity = (result.items && result.items.length > 0)
+      ? result.items.reduce((s: number, i: any) => s + i.quantity, 0)
+      : (Number(quantity) || 0);
+
+    const itemsSummary = (result.items && result.items.length > 0)
+      ? result.items.map((it: any) => `• ${it.menuName} (${it.menuCode}): ${it.quantity} وجبة`).join('\n')
+      : `• ${result.menuItem?.name || ''} (${result.menuItem?.code || ''}): ${totalQuantity} وجبة`;
 
     const msgPayload = {
       orderNumber: result.order.orderNumber,
       customerName: result.customerName,
       customerPhone: result.phone,
-      menuCode: result.menuItem.code,
-      menuName: result.menuItem.name,
-      quantity: Number(quantity),
+      menuCode: result.menuItem?.code || '',
+      menuName: result.menuItem?.name || '',
+      quantity: totalQuantity,
       pickupDate,
       pickupTime,
-      pickupLocation,
-      notes,
+      pickupLocation: result.order.pickupLocation,
+      notes: result.order.customerNotes || notes,
       modifications: result.optionName,
       customerTotal: result.customerTotal,
       customerPaid: 0,
@@ -193,9 +247,21 @@ apiRouter.post('/public/bookings', async (req: Request, res: Response) => {
     const customerMessage = WhatsAppService.generateCustomerBookingMessage(msgPayload);
     const adminAlertMessage = WhatsAppService.generateAdminNewBookingAlert(msgPayload);
 
-    // Deep link to open WhatsApp with official admin
+    // Deep link for client to contact official admin via WhatsApp
     const adminPhone = '01284484868';
-    const whatsappLink = WhatsAppService.createDeepLink(adminPhone, customerMessage);
+    const clientIntroText = `السلام عليكم ورحمة الله، قمت بعمل حجز مبدئي عبر الموقع لكاترنج سيليبر:
+📋 رقم الحجز: ${result.order.orderNumber}
+👤 اسم العميل: ${result.customerName}
+🍱 تفاصيل الوجبات:
+${itemsSummary}
+📦 إجمالي الوجبات: ${totalQuantity} وجبة
+📅 موعد الاستلام: ${pickupDate} (${pickupTime})
+📍 مكان الاستلام: ${result.order.pickupLocation}
+💰 إجمالي التكلفة التقديرية: ${result.customerTotal} ج.م
+
+أرجو مراجعة وتأكيد الحجز والتنسيق بخصوص الموعد وطريقة الدفع.`;
+
+    const whatsappLink = WhatsAppService.createDeepLink(adminPhone, clientIntroText);
 
     res.json({
       success: true,
@@ -205,16 +271,17 @@ apiRouter.post('/public/bookings', async (req: Request, res: Response) => {
         orderNumber: result.order.orderNumber,
         customerName: result.customerName,
         phone: result.phone,
-        menuCode: result.menuItem.code,
-        menuName: result.menuItem.name,
-        quantity: Number(quantity),
+        menuCode: result.menuItem?.code,
+        menuName: result.menuItem?.name,
+        quantity: totalQuantity,
+        items: result.items,
         pickupDate,
         pickupTime,
-        pickupLocation,
+        pickupLocation: result.order.pickupLocation,
         customerTotal: result.customerTotal,
         customerPaid: 0,
         customerRemaining: result.customerTotal,
-        orderStatus: 'PENDING_BOOKING',
+        orderStatus: result.order.orderStatus,
       },
       whatsappLink,
       customerMessage,
@@ -226,12 +293,44 @@ apiRouter.post('/public/bookings', async (req: Request, res: Response) => {
   }
 });
 
+// 3b. Facebook Messenger Integration Endpoints
+apiRouter.get('/public/messenger-config', (_req: Request, res: Response) => {
+  res.json({
+    success: true,
+    config: MessengerService.getConfig(),
+  });
+});
+
+apiRouter.get('/messenger/webhook', (req: Request, res: Response) => {
+  const mode = req.query['hub.mode'] as string | undefined;
+  const token = req.query['hub.verify_token'] as string | undefined;
+  const challenge = req.query['hub.challenge'] as string | undefined;
+
+  const result = MessengerService.verifyWebhookChallenge(mode, token, challenge);
+  if (result.isValid && result.challenge) {
+    return res.status(200).send(result.challenge);
+  }
+  return res.status(403).json({ success: false, message: 'فشل التحقق من Webhook Token لماسنجر' });
+});
+
+apiRouter.post('/messenger/webhook', async (req: Request, res: Response) => {
+  const result = await MessengerService.handleWebhookEvent(req.body);
+  return res.status(200).json(result);
+});
+
+apiRouter.get('/admin/messenger-settings', requireAdminAuth, (_req: AuthenticatedRequest, res: Response) => {
+  res.json({
+    success: true,
+    settings: MessengerService.getConfig(),
+  });
+});
+
 /* ==========================================================================
    ADMIN AUTH APIS (Username + Password + WhatsApp 2FA OTP)
    ========================================================================== */
 
 // Admin Login Step 1: Check Username + Password -> Trigger WhatsApp OTP
-apiRouter.post('/admin/auth/login', async (req: Request, res: Response) => {
+apiRouter.post(['/admin/auth/login', '/admin/login'], async (req: Request, res: Response) => {
   try {
     const { username, password } = req.body;
     if (!username || !password) {
@@ -262,25 +361,13 @@ apiRouter.post('/admin/auth/login', async (req: Request, res: Response) => {
 // Admin Login Step 2: Verify OTP -> Receive Session Token
 apiRouter.post('/admin/auth/verify-otp', async (req: Request, res: Response) => {
   try {
-    let { userId, otp } = req.body;
+    const { userId, otp } = req.body;
     if (!otp) {
       return res.status(400).json({ success: false, message: 'رمز OTP مطلوب' });
     }
 
     if (!userId) {
-      // Find user with active pending OTP token
-      const recentOtp = await db
-        .select()
-        .from(otpTokens)
-        .where(and(eq(otpTokens.isUsed, false), gt(otpTokens.expiresAt, new Date())))
-        .orderBy(desc(otpTokens.id))
-        .limit(1);
-
-      if (recentOtp.length > 0 && recentOtp[0].userId) {
-        userId = recentOtp[0].userId;
-      } else {
-        userId = 1; // Default to primary admin
-      }
+      return res.status(400).json({ success: false, message: 'معرف المستخدم (userId) مطلوب لإتمام التحقق الثنائي' });
     }
 
     const ip = req.ip || req.socket.remoteAddress || 'unknown';
@@ -304,6 +391,40 @@ apiRouter.post('/admin/auth/verify-otp', async (req: Request, res: Response) => 
     });
   } catch (error: any) {
     res.status(401).json({ success: false, message: error.message || 'فشل التحقق من رمز OTP' });
+  }
+});
+
+// Admin Login: Resend OTP (with 60s cooldown & rate limiting)
+apiRouter.post('/admin/auth/resend-otp', async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.body;
+    if (!userId) {
+      return res.status(400).json({ success: false, message: 'معرف المستخدم (userId) مطلوب لإعادة إرسال رمز التحقق' });
+    }
+
+    const user = await prisma.adminUser.findUnique({ where: { id: Number(userId) } });
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'حساب المستخدم غير موجود' });
+    }
+    if (user.isLocked) {
+      return res.status(403).json({ success: false, message: 'تم قفل الحساب لتجاوز المحاولات الخاطئة. يرجى مراجعة الإدارة العليا.' });
+    }
+    if (!user.isActive) {
+      return res.status(403).json({ success: false, message: 'هذا الحساب موقوف حالياً.' });
+    }
+
+    const ip = req.ip || req.socket.remoteAddress || 'unknown';
+    const otpResult = await AuthService.generateAndDispatchOtp(user.id, user.phone, ip);
+
+    res.json({
+      success: true,
+      phone: user.phone,
+      whatsappLink: otpResult.whatsappLink,
+      expiresIn: 300,
+      message: `تم إعادة إصدار رمز التحقق الثنائي (OTP) إلى هاتف الإدارة المسجل (${user.phone}). الرمز صالح لمدة 5 دقائق.`,
+    });
+  } catch (error: any) {
+    res.status(400).json({ success: false, message: error.message || 'فشل إعادة إرسال رمز التحقق' });
   }
 });
 
@@ -402,53 +523,58 @@ apiRouter.get('/admin/orders', requireAdminAuth, requirePermission('orders.view'
   try {
     const { search, status, sort_by = 'created_at', sort_order = 'desc', limit = 100, offset = 0 } = req.query;
 
-    const allOrders = await db
-      .select({
-        id: orders.id,
-        orderNumber: orders.orderNumber,
-        customerId: orders.customerId,
-        customerName: customers.fullName,
-        customerPhone: customers.phone,
-        customerWhatsapp: customers.whatsapp,
-        orderStatus: orders.orderStatus,
-        cancelReason: orders.cancelReason,
-        pickupDate: orders.pickupDate,
-        pickupTime: orders.pickupTime,
-        pickupLocation: orders.pickupLocation,
-        customerNotes: orders.customerNotes,
-        totalAmount: orders.totalAmount,
-        customerPaid: orders.customerPaid,
-        customerRemaining: orders.customerRemaining,
-        supplierTotal: orders.supplierTotal,
-        supplierPaid: orders.supplierPaid,
-        supplierRemaining: orders.supplierRemaining,
-        distributorProfit: orders.distributorProfit,
-        createdAt: orders.createdAt,
-      })
-      .from(orders)
-      .innerJoin(customers, eq(orders.customerId, customers.id))
-      .orderBy(desc(orders.id));
-
-    // Get order items for each order
-    const items = await db.select().from(orderItems);
+    const allOrders = await prisma.order.findMany({
+      orderBy: { id: 'desc' },
+      include: {
+        customer: {
+          select: {
+            fullName: true,
+            phone: true,
+            whatsapp: true,
+          },
+        },
+        items: {
+          select: {
+            id: true,
+            orderId: true,
+            menuCode: true,
+            menuName: true,
+            quantity: true,
+            supplierUnitPrice: true,
+            distributorUnitPrice: true,
+          },
+        },
+      },
+    });
 
     let filtered = allOrders.map((o) => {
-      const orderItemList = items.filter((it) => it.orderId === o.id);
-      const firstItem = orderItemList[0];
+      const firstItem = o.items[0];
       return {
-        ...o,
-        totalAmount: parseFloat(o.totalAmount),
-        customerPaid: parseFloat(o.customerPaid),
-        customerRemaining: parseFloat(o.customerRemaining),
-        supplierTotal: parseFloat(o.supplierTotal),
-        supplierPaid: parseFloat(o.supplierPaid),
-        supplierRemaining: parseFloat(o.supplierRemaining),
-        distributorProfit: parseFloat(o.distributorProfit),
+        id: o.id,
+        orderNumber: o.orderNumber,
+        customerId: o.customerId,
+        customerName: o.customer?.fullName || '',
+        customerPhone: o.customer?.phone || '',
+        customerWhatsapp: o.customer?.whatsapp || null,
+        orderStatus: o.orderStatus,
+        cancelReason: o.cancelReason,
+        pickupDate: o.pickupDate,
+        pickupTime: o.pickupTime,
+        pickupLocation: o.pickupLocation,
+        customerNotes: o.customerNotes,
+        totalAmount: Number(o.totalAmount),
+        customerPaid: Number(o.customerPaid),
+        customerRemaining: Number(o.customerRemaining),
+        supplierTotal: Number(o.supplierTotal),
+        supplierPaid: Number(o.supplierPaid),
+        supplierRemaining: Number(o.supplierRemaining),
+        distributorProfit: Number(o.distributorProfit),
+        createdAt: o.createdAt,
         menuCode: firstItem?.menuCode || 'Sale',
         menuName: firstItem?.menuName || 'عرض كاترنج',
         quantity: firstItem?.quantity || 100,
-        supplierUnitPrice: firstItem ? parseFloat(firstItem.supplierUnitPrice) : 0,
-        distributorUnitPrice: firstItem ? parseFloat(firstItem.distributorUnitPrice) : 0,
+        supplierUnitPrice: firstItem ? Number(firstItem.supplierUnitPrice) : 0,
+        distributorUnitPrice: firstItem ? Number(firstItem.distributorUnitPrice) : 0,
       };
     });
 
@@ -490,16 +616,28 @@ export async function resolveOrderRecord(idOrNumber: string | number) {
   if (!str) return null;
   const isPureInt = /^\d+$/.test(str);
   const upperStr = str.toUpperCase();
-  const list = await db
-    .select()
-    .from(orders)
-    .where(
-      isPureInt
-        ? or(eq(orders.id, parseInt(str, 10)), eq(orders.orderNumber, str), eq(orders.orderNumber, upperStr))
-        : or(eq(orders.orderNumber, str), eq(orders.orderNumber, upperStr))
-    )
-    .limit(1);
-  return list.length ? list[0] : null;
+
+  if (isPureInt) {
+    const numId = parseInt(str, 10);
+    return await prisma.order.findFirst({
+      where: {
+        OR: [
+          { id: numId },
+          { orderNumber: str },
+          { orderNumber: upperStr },
+        ],
+      },
+    });
+  }
+
+  return await prisma.order.findFirst({
+    where: {
+      OR: [
+        { orderNumber: str },
+        { orderNumber: upperStr },
+      ],
+    },
+  });
 }
 
 // 3. Single Order Details (Divided visually into Customer, Celebre, Factory, Payments, Audit)
@@ -512,34 +650,53 @@ apiRouter.get('/admin/orders/:id', requireAdminAuth, requirePermission('orders.v
     if (!order) return res.status(404).json({ success: false, message: 'الطلب غير موجود' });
 
     const orderId = order.id;
-    const customer = (await db.select().from(customers).where(eq(customers.id, order.customerId)).limit(1))[0];
-    const items = await db.select().from(orderItems).where(eq(orderItems.orderId, orderId));
-    const options = items.length
-      ? await db.select().from(orderItemOptions).where(eq(orderItemOptions.orderItemId, items[0].id))
-      : [];
-    const supOrders = await db.select().from(supplierOrders).where(eq(supplierOrders.orderId, orderId));
-    const cPayments = await db.select().from(customerPayments).where(eq(customerPayments.orderId, orderId));
-    const sPayments = supOrders.length
-      ? await db.select().from(supplierPayments).where(eq(supplierPayments.supplierOrderId, supOrders[0].id))
-      : [];
+    const fullOrder = await prisma.order.findUnique({
+      where: { id: orderId },
+      include: {
+        customer: true,
+        items: {
+          include: {
+            options: true,
+          },
+        },
+        supplierOrders: true,
+        customerPayments: {
+          orderBy: { paidAt: 'desc' },
+        },
+        supplierPayments: {
+          orderBy: { paidAt: 'desc' },
+        },
+      },
+    });
+
+    if (!fullOrder) return res.status(404).json({ success: false, message: 'الطلب غير موجود' });
+
+    const customer = fullOrder.customer;
+    const items = fullOrder.items;
+    const options = items.length ? items[0].options : [];
+    const supOrders = fullOrder.supplierOrders;
+    const cPayments = fullOrder.customerPayments;
+    const sPayments = fullOrder.supplierPayments;
+
     const cPaymentIds = cPayments.map((p) => String(p.id));
     const sPaymentIds = sPayments.map((p) => String(p.id));
 
-    const auditConditions = [
-      and(eq(auditLogs.entity, 'orders'), eq(auditLogs.entityId, String(orderId)))
+    const auditOrConditions: Prisma.AuditLogWhereInput[] = [
+      { entity: 'orders', entityId: String(orderId) },
     ];
     if (cPaymentIds.length > 0) {
-      auditConditions.push(and(eq(auditLogs.entity, 'customer_payments'), inArray(auditLogs.entityId, cPaymentIds)));
+      auditOrConditions.push({ entity: 'customer_payments', entityId: { in: cPaymentIds } });
     }
     if (sPaymentIds.length > 0) {
-      auditConditions.push(and(eq(auditLogs.entity, 'supplier_payments'), inArray(auditLogs.entityId, sPaymentIds)));
+      auditOrConditions.push({ entity: 'supplier_payments', entityId: { in: sPaymentIds } });
     }
 
-    const logs = await db
-      .select()
-      .from(auditLogs)
-      .where(or(...auditConditions))
-      .orderBy(desc(auditLogs.createdAt));
+    const logs = await prisma.auditLog.findMany({
+      where: {
+        OR: auditOrConditions,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
 
     // Pre-generate WhatsApp message texts and deep links
     const firstItem = items[0];
@@ -556,13 +713,13 @@ apiRouter.get('/admin/orders/:id', requireAdminAuth, requirePermission('orders.v
       pickupLocation: order.pickupLocation,
       notes: order.customerNotes || undefined,
       modifications: options.map((op) => op.optionName).join(' + ') || undefined,
-      customerTotal: parseFloat(order.totalAmount),
-      customerPaid: parseFloat(order.customerPaid),
-      customerRemaining: parseFloat(order.customerRemaining),
-      supplierUnitPrice: firstItem ? parseFloat(firstItem.supplierUnitPrice) : 0,
-      supplierTotal: parseFloat(order.supplierTotal),
-      supplierPaid: parseFloat(order.supplierPaid),
-      supplierRemaining: parseFloat(order.supplierRemaining),
+      customerTotal: Number(order.totalAmount),
+      customerPaid: Number(order.customerPaid),
+      customerRemaining: Number(order.customerRemaining),
+      supplierUnitPrice: firstItem ? Number(firstItem.supplierUnitPrice) : 0,
+      supplierTotal: Number(order.supplierTotal),
+      supplierPaid: Number(order.supplierPaid),
+      supplierRemaining: Number(order.supplierRemaining),
       orderStatus: order.orderStatus,
     };
 
@@ -580,39 +737,40 @@ apiRouter.get('/admin/orders/:id', requireAdminAuth, requirePermission('orders.v
       success: true,
       order: {
         ...order,
-        totalAmount: parseFloat(order.totalAmount),
-        customerPaid: parseFloat(order.customerPaid),
-        customerRemaining: parseFloat(order.customerRemaining),
-        supplierTotal: parseFloat(order.supplierTotal),
-        supplierPaid: parseFloat(order.supplierPaid),
-        supplierRemaining: parseFloat(order.supplierRemaining),
-        distributorProfit: parseFloat(order.distributorProfit),
+        totalAmount: Number(order.totalAmount),
+        customerPaid: Number(order.customerPaid),
+        customerRemaining: Number(order.customerRemaining),
+        customerDepositRequired: Math.round(Number(order.totalAmount) * 0.5 * 100) / 100,
+        supplierTotal: Number(order.supplierTotal),
+        supplierPaid: Number(order.supplierPaid),
+        supplierRemaining: Number(order.supplierRemaining),
+        distributorProfit: Number(order.distributorProfit),
       },
       customer,
       items: items.map((it) => ({
         ...it,
-        distributorUnitPrice: parseFloat(it.distributorUnitPrice),
-        supplierUnitPrice: parseFloat(it.supplierUnitPrice),
-        distributorTotal: parseFloat(it.distributorTotal),
-        supplierTotal: parseFloat(it.supplierTotal),
-        customerTotal: parseFloat(it.customerTotal),
-        supplierTotalFinal: parseFloat(it.supplierTotalFinal),
-        profit: parseFloat(it.profit),
+        distributorUnitPrice: Number(it.distributorUnitPrice),
+        supplierUnitPrice: Number(it.supplierUnitPrice),
+        distributorTotal: Number(it.distributorTotal),
+        supplierTotal: Number(it.supplierTotal),
+        customerTotal: Number(it.customerTotal),
+        supplierTotalFinal: Number(it.supplierTotalFinal),
+        profit: Number(it.profit),
       })),
       options,
       supplierOrders: supOrders.map((s) => ({
         ...s,
-        supplierTotal: parseFloat(s.supplierTotal),
-        supplierPaid: parseFloat(s.supplierPaid),
-        supplierRemaining: parseFloat(s.supplierRemaining),
+        supplierTotal: Number(s.supplierTotal),
+        supplierPaid: Number(s.supplierPaid),
+        supplierRemaining: Number(s.supplierRemaining),
       })),
       customerPayments: cPayments.map((p) => ({
         ...p,
-        amount: parseFloat(p.amount),
+        amount: Number(p.amount),
       })),
       supplierPayments: sPayments.map((p) => ({
         ...p,
-        amount: parseFloat(p.amount),
+        amount: Number(p.amount),
       })),
       auditLogs: logs,
       whatsapp: {
@@ -748,6 +906,114 @@ apiRouter.put('/admin/orders/:id/status', requireAdminAuth, requirePermission('o
     res.status(400).json({ success: false, message: error.message || 'فشل تحديث الحالة' });
   }
 });
+
+// 4b. Accept Preliminary Booking (AWAITING_CUSTOMER_DEPOSIT)
+apiRouter.post(
+  '/admin/orders/:id/accept',
+  requireAdminAuth,
+  requirePermission('orders.edit'),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const order = await resolveOrderRecord(req.params.id);
+      if (!order) return res.status(404).json({ success: false, message: 'الطلب غير موجود' });
+      const adminUser = req.adminSession?.username || 'admin';
+      const ip = req.ip || req.socket.remoteAddress || 'unknown';
+
+      const updated = await OrderService.acceptPreliminaryBooking(order.id, adminUser, ip);
+      res.json({
+        success: true,
+        message: 'تمت الموافقة المبدئية على الحجز بنجاح، والحالة الآن: بانتظار سداد عربون العميل (50%)',
+        order: updated,
+      });
+    } catch (error: any) {
+      res.status(400).json({ success: false, message: error.message || 'فشل قبول الحجز' });
+    }
+  }
+);
+
+// 4c. Reject Preliminary Booking (REJECTED with reason)
+apiRouter.post(
+  '/admin/orders/:id/reject',
+  requireAdminAuth,
+  requirePermission('orders.edit'),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const order = await resolveOrderRecord(req.params.id);
+      if (!order) return res.status(404).json({ success: false, message: 'الطلب غير موجود' });
+      const { reason } = req.body;
+      const adminUser = req.adminSession?.username || 'admin';
+      const ip = req.ip || req.socket.remoteAddress || 'unknown';
+
+      const updated = await OrderService.rejectPreliminaryBooking(order.id, reason, adminUser, ip);
+      res.json({
+        success: true,
+        message: 'تم رفض الحجز وتوثيق سبب الرفض في السجل بنجاح',
+        order: updated,
+      });
+    } catch (error: any) {
+      res.status(400).json({ success: false, message: error.message || 'فشل رفض الحجز' });
+    }
+  }
+);
+
+// 4d. Create Independent Factory Order (SupplierOrder)
+apiRouter.post(
+  '/admin/orders/:id/supplier-order',
+  requireAdminAuth,
+  requirePermission('orders.edit'),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const order = await resolveOrderRecord(req.params.id);
+      if (!order) return res.status(404).json({ success: false, message: 'الطلب غير موجود' });
+      const adminUser = req.adminSession?.username || 'admin';
+      const ip = req.ip || req.socket.remoteAddress || 'unknown';
+
+      const supOrder = await OrderService.createSupplierOrder(order.id, adminUser, ip);
+      res.json({
+        success: true,
+        message: `تم إنشاء أمر توريد المصنع المستقل بنجاح برقم: ${supOrder.supplierOrderNumber}`,
+        supplierOrder: {
+          ...supOrder,
+          supplierTotal: Number(supOrder.supplierTotal),
+          supplierPaid: Number(supOrder.supplierPaid),
+          supplierRemaining: Number(supOrder.supplierRemaining),
+        },
+      });
+    } catch (error: any) {
+      res.status(400).json({ success: false, message: error.message || 'فشل إنشاء طلب المصنع' });
+    }
+  }
+);
+
+// 4e. Update Supplier Order Status
+apiRouter.put(
+  '/admin/supplier-orders/:id/status',
+  requireAdminAuth,
+  requirePermission('orders.edit'),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const supOrderId = Number(req.params.id);
+      const { status, reason } = req.body;
+      const adminUser = req.adminSession?.username || 'admin';
+      const ip = req.ip || req.socket.remoteAddress || 'unknown';
+
+      const updated = await OrderService.updateSupplierOrderStatus(
+        supOrderId,
+        status,
+        reason,
+        adminUser,
+        ip
+      );
+      res.json({
+        success: true,
+        message: 'تم تحديث حالة طلب المصنع وتوثيق الإجراء بنجاح',
+        supplierOrder: updated,
+      });
+    } catch (error: any) {
+      res.status(400).json({ success: false, message: error.message || 'فشل تحديث حالة أمر التوريد' });
+    }
+  }
+);
 
 // 5. Update Order Operational Details
 apiRouter.put('/admin/orders/:id/details', requireAdminAuth, requirePermission('orders.edit'), async (req: AuthenticatedRequest, res: Response) => {
@@ -921,13 +1187,18 @@ apiRouter.get(
       const order = await resolveOrderRecord(req.params.id);
       if (!order) return res.status(404).json({ success: false, message: 'الطلب غير موجود' });
       const orderId = order.id;
-      const history = await db
-        .select()
-        .from(customerPayments)
-        .where(eq(customerPayments.orderId, orderId))
-        .orderBy(desc(customerPayments.paidAt));
+      const history = await prisma.customerPayment.findMany({
+        where: { orderId },
+        orderBy: { paidAt: 'desc' },
+      });
 
-      res.json({ success: true, payments: history });
+      res.json({
+        success: true,
+        payments: history.map((p) => ({
+          ...p,
+          amount: Number(p.amount),
+        })),
+      });
     } catch (error: any) {
       res.status(500).json({ success: false, message: 'فشل تحميل سجل دفعات العميل' });
     }
@@ -948,13 +1219,15 @@ apiRouter.post(
       const adminUser = req.adminSession?.username || 'admin';
       const ip = req.ip || req.socket.remoteAddress || 'unknown';
 
-      const supOrders = await db.select().from(supplierOrders).where(eq(supplierOrders.orderId, orderId)).limit(1);
-      if (!supOrders.length) {
+      const supOrder = await prisma.supplierOrder.findFirst({
+        where: { orderId },
+      });
+      if (!supOrder) {
         return res.status(404).json({ success: false, message: 'أمر التوريد الخاص بالمصنع غير موجود' });
       }
 
       const result = await OrderService.recordSupplierPayment(
-        supOrders[0].id,
+        supOrder.id,
         parseFloat(amount),
         paymentMethod || 'BANK_TRANSFER',
         reference || '',
@@ -1019,51 +1292,205 @@ apiRouter.get(
       const order = await resolveOrderRecord(req.params.id);
       if (!order) return res.status(404).json({ success: false, message: 'الطلب غير موجود' });
       const orderId = order.id;
-      const history = await db
-        .select()
-        .from(supplierPayments)
-        .where(eq(supplierPayments.orderId, orderId))
-        .orderBy(desc(supplierPayments.paidAt));
+      const history = await prisma.supplierPayment.findMany({
+        where: { orderId },
+        orderBy: { paidAt: 'desc' },
+      });
 
-      res.json({ success: true, payments: history });
+      res.json({
+        success: true,
+        payments: history.map((p) => ({
+          ...p,
+          amount: Number(p.amount),
+        })),
+      });
     } catch (error: any) {
       res.status(500).json({ success: false, message: 'فشل تحميل سجل دفعات المصنع' });
     }
   }
 );
 
+/* =========================================================================
+   PHASE 6: COMPREHENSIVE ACCOUNTING & FINANCIAL TRANSACTIONS ENDPOINTS
+   ========================================================================= */
+
+// 1. Customer Account Statement
+apiRouter.get('/admin/accounting/customer-statement/:id', requireAdminAuth, requirePermission('customer_payments.view'), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const statement = await AccountingService.getCustomerAccountStatement(req.params.id);
+    res.json({ success: true, statement });
+  } catch (error: any) {
+    res.status(400).json({ success: false, message: error.message || 'فشل تحميل كشف حساب العميل' });
+  }
+});
+
+// 2. Factory Account Statement
+apiRouter.get('/admin/accounting/factory-statement/:id', requireAdminAuth, requirePermission('supplier_payments.view'), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const statement = await AccountingService.getFactoryAccountStatement(req.params.id);
+    res.json({ success: true, statement });
+  } catch (error: any) {
+    res.status(400).json({ success: false, message: error.message || 'فشل تحميل كشف حساب المصنع' });
+  }
+});
+
+// 3. Booking Profitability & Cash Flow Breakdown
+apiRouter.get('/admin/accounting/profitability/:id', requireAdminAuth, requirePermission('orders.view'), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const profitability = await AccountingService.getBookingProfitability(req.params.id);
+    res.json({ success: true, profitability });
+  } catch (error: any) {
+    res.status(400).json({ success: false, message: error.message || 'فشل حساب ربحية الحجز' });
+  }
+});
+
+// 4. Unified Financial Transactions Ledger
+apiRouter.get('/admin/accounting/transactions', requireAdminAuth, requirePermission('customer_payments.view'), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { orderNumber, entityType, movementType, from_date, to_date } = req.query as any;
+    const transactions = await AccountingService.getFinancialTransactionsList({
+      orderNumber,
+      entityType,
+      movementType,
+      from_date,
+      to_date,
+    });
+    res.json({ success: true, count: transactions.length, transactions });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: 'فشل تحميل سجل الحركات المالية' });
+  }
+});
+
+// 5. Record Customer Transaction (Collection, Refund, or Correction)
+apiRouter.post('/admin/accounting/customer-transaction', requireAdminAuth, requirePermission('customer_payments.create'), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { orderId, amount, movementType, paymentMethod, referenceNumber, notes, relatedPaymentId, reason } = req.body;
+    const adminUsername = req.adminSession?.username || 'admin';
+    const result = await AccountingService.recordCustomerTransaction({
+      orderId,
+      amount: Number(amount),
+      movementType: movementType || 'COLLECTION',
+      paymentMethod: paymentMethod || 'INSTAPAY',
+      referenceNumber,
+      notes,
+      adminUsername,
+      relatedPaymentId: relatedPaymentId ? Number(relatedPaymentId) : undefined,
+      reason,
+      ip: req.ip,
+    });
+    res.json({ success: true, message: 'تم تسجيل الحركة المالية للعميل بنجاح', result });
+  } catch (error: any) {
+    res.status(400).json({ success: false, message: error.message || 'فشل تسجيل الحركة المالية للعميل' });
+  }
+});
+
+// 6. Record Factory Transaction (Payout, Refund, or Correction)
+apiRouter.post('/admin/accounting/factory-transaction', requireAdminAuth, requirePermission('supplier_payments.create'), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { orderId, supplierOrderId, amount, movementType, paymentMethod, referenceNumber, notes, relatedPaymentId, reason } = req.body;
+    const adminUsername = req.adminSession?.username || 'admin';
+    const result = await AccountingService.recordFactoryTransaction({
+      orderId,
+      supplierOrderId: supplierOrderId ? Number(supplierOrderId) : undefined,
+      amount: Number(amount),
+      movementType: movementType || 'PAYOUT',
+      paymentMethod: paymentMethod || 'BANK_TRANSFER',
+      referenceNumber,
+      notes,
+      adminUsername,
+      relatedPaymentId: relatedPaymentId ? Number(relatedPaymentId) : undefined,
+      reason,
+    });
+    res.json({ success: true, message: 'تم تسجيل معاملة المصنع المالية بنجاح', result });
+  } catch (error: any) {
+    res.status(400).json({ success: false, message: error.message || 'فشل تسجيل معاملة المصنع' });
+  }
+});
+
+// 7. Record Booking Operational Expense
+apiRouter.post('/admin/accounting/expense', requireAdminAuth, requirePermission('orders.edit'), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { orderId, amount, category, description, receiptRef } = req.body;
+    const adminUsername = req.adminSession?.username || 'admin';
+    const result = await AccountingService.recordBookingExpense({
+      orderId,
+      amount: Number(amount),
+      category: category || 'مصروف تشغيل',
+      description,
+      receiptRef,
+      adminUsername,
+    });
+    res.json({ success: true, message: 'تم تسجيل المصروف التشغيلي للحجز بنجاح', result });
+  } catch (error: any) {
+    res.status(400).json({ success: false, message: error.message || 'فشل تسجيل المصروف' });
+  }
+});
+
+// 8. Record Approved Booking Addition / Adjustment
+apiRouter.post('/admin/accounting/adjustment', requireAdminAuth, requirePermission('orders.edit'), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { orderId, additionAmount, reason } = req.body;
+    const adminUsername = req.adminSession?.username || 'admin';
+    const result = await AccountingService.recordBookingAdjustment({
+      orderId,
+      additionAmount: Number(additionAmount),
+      reason: reason || 'إضافة مالية معتمدة',
+      adminUsername,
+    });
+    res.json({ success: true, message: 'تم تحديث التعديل المالي للحجز وتوثيقه بسجل التدقيق', result });
+  } catch (error: any) {
+    res.status(400).json({ success: false, message: error.message || 'فشل تسجيل التعديل المالي' });
+  }
+});
+
+// 9. Comprehensive Multi-Period Accounting Reports (with Egypt Timezone)
+apiRouter.get('/admin/accounting/reports', requireAdminAuth, requirePermission('reports.view'), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { period, from_date, to_date, orderNumber } = req.query as any;
+    const reports = await AccountingService.getAccountingReports({
+      period,
+      from_date,
+      to_date,
+      orderNumber,
+    });
+    res.json({ success: true, reports });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: 'فشل استخراج التقارير المحاسبية' });
+  }
+});
+
 // 8. Financial Report
 apiRouter.get('/admin/reports/financial', requireAdminAuth, requirePermission('reports.view'), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { period = 'this_month', from_date, to_date } = req.query;
 
-    const allOrders = await db
-      .select({
-        id: orders.id,
-        orderNumber: orders.orderNumber,
-        pickupDate: orders.pickupDate,
-        totalAmount: orders.totalAmount,
-        customerPaid: orders.customerPaid,
-        customerRemaining: orders.customerRemaining,
-        supplierTotal: orders.supplierTotal,
-        supplierPaid: orders.supplierPaid,
-        supplierRemaining: orders.supplierRemaining,
-        distributorProfit: orders.distributorProfit,
-        orderStatus: orders.orderStatus,
-        createdAt: orders.createdAt,
-      })
-      .from(orders);
+    const allOrders = await prisma.order.findMany({
+      select: {
+        id: true,
+        orderNumber: true,
+        pickupDate: true,
+        totalAmount: true,
+        customerPaid: true,
+        customerRemaining: true,
+        supplierTotal: true,
+        supplierPaid: true,
+        supplierRemaining: true,
+        distributorProfit: true,
+        orderStatus: true,
+        createdAt: true,
+      },
+    });
 
     const activeOrders = allOrders.filter((o) => o.orderStatus !== 'CANCELLED');
 
     const summary = {
-      totalSales: activeOrders.reduce((sum, o) => sum + parseFloat(o.totalAmount), 0),
-      totalCustomerPaid: activeOrders.reduce((sum, o) => sum + parseFloat(o.customerPaid), 0),
-      totalCustomerRemaining: activeOrders.reduce((sum, o) => sum + parseFloat(o.customerRemaining), 0),
-      totalSupplierCost: activeOrders.reduce((sum, o) => sum + parseFloat(o.supplierTotal), 0),
-      totalSupplierPaid: activeOrders.reduce((sum, o) => sum + parseFloat(o.supplierPaid), 0),
-      totalSupplierRemaining: activeOrders.reduce((sum, o) => sum + parseFloat(o.supplierRemaining), 0),
-      totalGrossProfit: activeOrders.reduce((sum, o) => sum + parseFloat(o.distributorProfit), 0),
+      totalSales: activeOrders.reduce((sum, o) => sum + Number(o.totalAmount), 0),
+      totalCustomerPaid: activeOrders.reduce((sum, o) => sum + Number(o.customerPaid), 0),
+      totalCustomerRemaining: activeOrders.reduce((sum, o) => sum + Number(o.customerRemaining), 0),
+      totalSupplierCost: activeOrders.reduce((sum, o) => sum + Number(o.supplierTotal), 0),
+      totalSupplierPaid: activeOrders.reduce((sum, o) => sum + Number(o.supplierPaid), 0),
+      totalSupplierRemaining: activeOrders.reduce((sum, o) => sum + Number(o.supplierRemaining), 0),
+      totalGrossProfit: activeOrders.reduce((sum, o) => sum + Number(o.distributorProfit), 0),
       ordersCount: activeOrders.length,
     };
 
@@ -1079,30 +1506,38 @@ apiRouter.get('/admin/reports/financial', requireAdminAuth, requirePermission('r
 // 8.1. Dashboard Real-Time Executive Overview Stats
 apiRouter.get('/admin/dashboard/stats', requireAdminAuth, requirePermission('orders.view'), async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const rawOrders = await db
-      .select({
-        id: orders.id,
-        orderNumber: orders.orderNumber,
-        customerId: orders.customerId,
-        orderStatus: orders.orderStatus,
-        cancelReason: orders.cancelReason,
-        pickupDate: orders.pickupDate,
-        pickupTime: orders.pickupTime,
-        pickupLocation: orders.pickupLocation,
-        totalAmount: orders.totalAmount,
-        customerPaid: orders.customerPaid,
-        customerRemaining: orders.customerRemaining,
-        supplierTotal: orders.supplierTotal,
-        supplierPaid: orders.supplierPaid,
-        supplierRemaining: orders.supplierRemaining,
-        distributorProfit: orders.distributorProfit,
-        createdAt: orders.createdAt,
-        customerName: customers.fullName,
-        customerPhone: customers.phone,
-      })
-      .from(orders)
-      .leftJoin(customers, eq(orders.customerId, customers.id))
-      .orderBy(desc(orders.id));
+    const ordersList = await prisma.order.findMany({
+      orderBy: { id: 'desc' },
+      include: {
+        customer: {
+          select: {
+            fullName: true,
+            phone: true,
+          },
+        },
+      },
+    });
+
+    const rawOrders = ordersList.map((o) => ({
+      id: o.id,
+      orderNumber: o.orderNumber,
+      customerId: o.customerId,
+      orderStatus: o.orderStatus,
+      cancelReason: o.cancelReason,
+      pickupDate: o.pickupDate,
+      pickupTime: o.pickupTime,
+      pickupLocation: o.pickupLocation,
+      totalAmount: String(o.totalAmount),
+      customerPaid: String(o.customerPaid),
+      customerRemaining: String(o.customerRemaining),
+      supplierTotal: String(o.supplierTotal),
+      supplierPaid: String(o.supplierPaid),
+      supplierRemaining: String(o.supplierRemaining),
+      distributorProfit: String(o.distributorProfit),
+      createdAt: o.createdAt,
+      customerName: o.customer?.fullName || '',
+      customerPhone: o.customer?.phone || '',
+    }));
 
     const todayStr = new Date().toISOString().slice(0, 10);
 
@@ -1284,30 +1719,38 @@ apiRouter.get('/admin/reports/comprehensive', requireAdminAuth, requirePermissio
     }
 
     // 1. Fetch all orders with customers
-    const rawOrders = await db
-      .select({
-        id: orders.id,
-        orderNumber: orders.orderNumber,
-        customerId: orders.customerId,
-        orderStatus: orders.orderStatus,
-        cancelReason: orders.cancelReason,
-        pickupDate: orders.pickupDate,
-        pickupTime: orders.pickupTime,
-        pickupLocation: orders.pickupLocation,
-        totalAmount: orders.totalAmount,
-        customerPaid: orders.customerPaid,
-        customerRemaining: orders.customerRemaining,
-        supplierTotal: orders.supplierTotal,
-        supplierPaid: orders.supplierPaid,
-        supplierRemaining: orders.supplierRemaining,
-        distributorProfit: orders.distributorProfit,
-        createdAt: orders.createdAt,
-        customerName: customers.fullName,
-        customerPhone: customers.phone,
-      })
-      .from(orders)
-      .leftJoin(customers, eq(orders.customerId, customers.id))
-      .orderBy(desc(orders.id));
+    const compOrdersList = await prisma.order.findMany({
+      orderBy: { id: 'desc' },
+      include: {
+        customer: {
+          select: {
+            fullName: true,
+            phone: true,
+          },
+        },
+      },
+    });
+
+    const rawOrders = compOrdersList.map((o) => ({
+      id: o.id,
+      orderNumber: o.orderNumber,
+      customerId: o.customerId,
+      orderStatus: o.orderStatus,
+      cancelReason: o.cancelReason,
+      pickupDate: o.pickupDate,
+      pickupTime: o.pickupTime,
+      pickupLocation: o.pickupLocation,
+      totalAmount: String(o.totalAmount),
+      customerPaid: String(o.customerPaid),
+      customerRemaining: String(o.customerRemaining),
+      supplierTotal: String(o.supplierTotal),
+      supplierPaid: String(o.supplierPaid),
+      supplierRemaining: String(o.supplierRemaining),
+      distributorProfit: String(o.distributorProfit),
+      createdAt: o.createdAt,
+      customerName: o.customer?.fullName || '',
+      customerPhone: o.customer?.phone || '',
+    }));
 
     // Filter orders by date range (using pickupDate or createdAt)
     const filteredOrders = rawOrders.filter((o) => {
@@ -1353,20 +1796,20 @@ apiRouter.get('/admin/reports/comprehensive', requireAdminAuth, requirePermissio
     // Active (Non-cancelled) Orders in period for financials
     const activeFiltered = filteredOrders.filter((o) => o.orderStatus !== 'CANCELLED');
 
-    const customerSales = activeFiltered.reduce((sum, o) => sum + parseFloat(o.totalAmount), 0);
-    const customerPaid = activeFiltered.reduce((sum, o) => sum + parseFloat(o.customerPaid), 0);
-    const customerRemaining = activeFiltered.reduce((sum, o) => sum + parseFloat(o.customerRemaining), 0);
+    const customerSales = activeFiltered.reduce((sum, o) => sum + Number(o.totalAmount), 0);
+    const customerPaid = activeFiltered.reduce((sum, o) => sum + Number(o.customerPaid), 0);
+    const customerRemaining = activeFiltered.reduce((sum, o) => sum + Number(o.customerRemaining), 0);
 
-    const supplierCost = activeFiltered.reduce((sum, o) => sum + parseFloat(o.supplierTotal), 0);
-    const supplierPaid = activeFiltered.reduce((sum, o) => sum + parseFloat(o.supplierPaid), 0);
-    const supplierRemaining = activeFiltered.reduce((sum, o) => sum + parseFloat(o.supplierRemaining), 0);
+    const supplierCost = activeFiltered.reduce((sum, o) => sum + Number(o.supplierTotal), 0);
+    const supplierPaid = activeFiltered.reduce((sum, o) => sum + Number(o.supplierPaid), 0);
+    const supplierRemaining = activeFiltered.reduce((sum, o) => sum + Number(o.supplierRemaining), 0);
 
     // CRITICAL: Profit is strictly Customer Total - Supplier Total (NOT payments)
     const grossProfit = customerSales - supplierCost;
 
     // 2. Breakdown by Sale Code
-    const allMenuItems = await db.select().from(menuItems).orderBy(menuItems.sortOrder);
-    const allOrderItems = await db.select().from(orderItems);
+    const allMenuItems = await prisma.menuItem.findMany({ orderBy: { sortOrder: 'asc' } });
+    const allOrderItems = await prisma.orderItem.findMany();
 
     const bySaleCode = allMenuItems.map((m) => {
       const matchedItems = allOrderItems.filter((it) => it.menuItemId === m.id && filteredOrderIds.has(it.orderId));
@@ -1379,8 +1822,8 @@ apiRouter.get('/admin/reports/comprehensive', requireAdminAuth, requirePermissio
       });
 
       const totalQuantity = matchedItems.reduce((sum, it) => sum + it.quantity, 0);
-      const itemCustomerSales = activeMatched.reduce((sum, it) => sum + parseFloat(it.customerTotal), 0);
-      const itemSupplierCost = activeMatched.reduce((sum, it) => sum + parseFloat(it.supplierTotalFinal), 0);
+      const itemCustomerSales = activeMatched.reduce((sum, it) => sum + Number(it.customerTotal), 0);
+      const itemSupplierCost = activeMatched.reduce((sum, it) => sum + Number(it.supplierTotalFinal), 0);
       const itemProfit = itemCustomerSales - itemSupplierCost;
 
       const completedCount = matchedOrders.filter((o) => o.orderStatus === 'COMPLETED' || o.orderStatus === 'DELIVERED').length;
@@ -1450,8 +1893,8 @@ apiRouter.get('/admin/reports/comprehensive', requireAdminAuth, requirePermissio
       .sort((a, b) => b.customerSales - a.customerSales);
 
     // 4. Breakdown by Supplier
-    const allSuppliers = await db.select().from(suppliers);
-    const allSupplierOrders = await db.select().from(supplierOrders);
+    const allSuppliers = await prisma.supplier.findMany();
+    const allSupplierOrders = await prisma.supplierOrder.findMany();
 
     const bySupplier = allSuppliers.map((s) => {
       const supOrdersInPeriod = allSupplierOrders.filter((so) => filteredOrderIds.has(so.orderId) && so.supplierId === s.id);
@@ -1462,9 +1905,9 @@ apiRouter.get('/admin/reports/comprehensive', requireAdminAuth, requirePermissio
         return parentOrder && parentOrder.orderStatus !== 'CANCELLED';
       });
 
-      const supplierTotal = activeSupOrders.reduce((sum, so) => sum + parseFloat(so.supplierTotal), 0);
-      const supplierPaid = activeSupOrders.reduce((sum, so) => sum + parseFloat(so.supplierPaid), 0);
-      const supplierRemaining = activeSupOrders.reduce((sum, so) => sum + parseFloat(so.supplierRemaining), 0);
+      const supplierTotal = activeSupOrders.reduce((sum, so) => sum + Number(so.supplierTotal), 0);
+      const supplierPaid = activeSupOrders.reduce((sum, so) => sum + Number(so.supplierPaid), 0);
+      const supplierRemaining = activeSupOrders.reduce((sum, so) => sum + Number(so.supplierRemaining), 0);
 
       const completedCount = associatedParentOrders.filter((o) => o.orderStatus === 'COMPLETED' || o.orderStatus === 'DELIVERED').length;
       const cancelledCount = associatedParentOrders.filter((o) => o.orderStatus === 'CANCELLED').length;
@@ -1489,7 +1932,7 @@ apiRouter.get('/admin/reports/comprehensive', requireAdminAuth, requirePermissio
     });
 
     // 5. Breakdown by Payment Method
-    const allCustomerPayments = await db.select().from(customerPayments);
+    const allCustomerPayments = await prisma.customerPayment.findMany();
     const paymentsInPeriod = allCustomerPayments.filter((p) => {
       if (!filteredOrderIds.has(p.orderId)) return false;
       return p.paymentStatus === 'VERIFIED';
@@ -1507,7 +1950,7 @@ apiRouter.get('/admin/reports/comprehensive', requireAdminAuth, requirePermissio
       const matchedOrderIds = new Set(matched.map((p) => p.orderId));
       const methodOrders = filteredOrders.filter((o) => matchedOrderIds.has(o.id));
 
-      const totalAmount = matched.reduce((sum, p) => sum + parseFloat(p.amount), 0);
+      const totalAmount = matched.reduce((sum, p) => sum + Number(p.amount), 0);
       const completedCount = methodOrders.filter((o) => o.orderStatus === 'COMPLETED' || o.orderStatus === 'DELIVERED').length;
       const cancelledCount = methodOrders.filter((o) => o.orderStatus === 'CANCELLED').length;
       const pendingCount = methodOrders.filter((o) => o.orderStatus === 'PENDING_BOOKING').length;
@@ -1698,31 +2141,29 @@ apiRouter.get('/admin/reports/comprehensive', requireAdminAuth, requirePermissio
     ];
 
     // 7. Detailed Customer Payments for Sheet 'Customer Payments'
-    const detailedCustomerPayments = await db
-      .select({
-        id: customerPayments.id,
-        orderId: customerPayments.orderId,
-        orderNumber: orders.orderNumber,
-        customerName: customers.fullName,
-        customerPhone: customers.phone,
-        amount: customerPayments.amount,
-        paymentMethod: customerPayments.paymentMethod,
-        paymentStatus: customerPayments.paymentStatus,
-        paymentReference: customerPayments.paymentReference,
-        notes: customerPayments.notes,
-        receivedBy: customerPayments.receivedBy,
-        paidAt: customerPayments.paidAt,
-      })
-      .from(customerPayments)
-      .leftJoin(orders, eq(customerPayments.orderId, orders.id))
-      .leftJoin(customers, eq(customerPayments.customerId, customers.id))
-      .orderBy(desc(customerPayments.paidAt));
+    const detailedCustomerPayments = await prisma.customerPayment.findMany({
+      include: {
+        order: { select: { orderNumber: true } },
+        customer: { select: { fullName: true, phone: true } },
+      },
+      orderBy: { paidAt: 'desc' },
+    });
 
     const reportCustomerPayments = detailedCustomerPayments
       .filter((p) => p.orderId && filteredOrderIds.has(p.orderId))
       .map((p) => ({
-        ...p,
-        amount: parseFloat(p.amount),
+        id: p.id,
+        orderId: p.orderId,
+        orderNumber: p.order?.orderNumber || '',
+        customerName: p.customer?.fullName || '',
+        customerPhone: p.customer?.phone || '',
+        amount: Number(p.amount),
+        paymentMethod: p.paymentMethod,
+        paymentStatus: p.paymentStatus,
+        paymentReference: p.paymentReference,
+        notes: p.notes,
+        receivedBy: p.receivedBy,
+        paidAt: p.paidAt,
       }));
 
     // 8. Check User Permissions for Factory & Profit Visibility
@@ -1736,30 +2177,28 @@ apiRouter.get('/admin/reports/comprehensive', requireAdminAuth, requirePermissio
     // 9. Detailed Supplier Payments for Sheet 'Supplier Payments' (STRICTLY IF AUTHORIZED)
     let reportSupplierPayments: any[] = [];
     if (canViewFactory) {
-      const detailedSupplierPayments = await db
-        .select({
-          id: supplierPayments.id,
-          orderId: supplierPayments.orderId,
-          orderNumber: orders.orderNumber,
-          supplierId: supplierPayments.supplierId,
-          supplierName: suppliers.name,
-          amount: supplierPayments.amount,
-          paymentMethod: supplierPayments.paymentMethod,
-          reference: supplierPayments.reference,
-          notes: supplierPayments.notes,
-          paidBy: supplierPayments.paidBy,
-          paidAt: supplierPayments.paidAt,
-        })
-        .from(supplierPayments)
-        .leftJoin(orders, eq(supplierPayments.orderId, orders.id))
-        .leftJoin(suppliers, eq(supplierPayments.supplierId, suppliers.id))
-        .orderBy(desc(supplierPayments.paidAt));
+      const detailedSupplierPayments = await prisma.supplierPayment.findMany({
+        include: {
+          order: { select: { orderNumber: true } },
+          supplier: { select: { name: true } },
+        },
+        orderBy: { paidAt: 'desc' },
+      });
 
       reportSupplierPayments = detailedSupplierPayments
         .filter((sp) => sp.orderId && filteredOrderIds.has(sp.orderId))
         .map((sp) => ({
-          ...sp,
-          amount: parseFloat(sp.amount),
+          id: sp.id,
+          orderId: sp.orderId,
+          orderNumber: sp.order?.orderNumber || '',
+          supplierId: sp.supplierId,
+          supplierName: sp.supplier?.name || '',
+          amount: Number(sp.amount),
+          paymentMethod: sp.paymentMethod,
+          reference: sp.reference,
+          notes: sp.notes,
+          paidBy: sp.paidBy,
+          paidAt: sp.paidAt,
         }));
     }
 
@@ -1878,20 +2317,22 @@ apiRouter.post('/admin/reports/export-audit', requireAdminAuth, requirePermissio
     const adminUser = req.adminSession?.username || 'admin';
     const ip = req.ip || req.socket.remoteAddress || 'unknown';
 
-    await db.insert(auditLogs).values({
-      userId: req.adminSession?.userId,
-      userName: adminUser,
-      action: `REPORT_EXPORTED_${String(format || 'UNKNOWN').toUpperCase()}`,
-      entity: 'reports',
-      entityId: String(period || 'custom'),
-      newData: {
-        format,
-        period,
-        dateRange,
-        title,
-        exportedAt: new Date().toISOString(),
+    await prisma.auditLog.create({
+      data: {
+        userId: req.adminSession?.userId,
+        userName: adminUser,
+        action: `REPORT_EXPORTED_${String(format || 'UNKNOWN').toUpperCase()}`,
+        entity: 'reports',
+        entityId: String(period || 'custom'),
+        newData: {
+          format,
+          period,
+          dateRange,
+          title,
+          exportedAt: new Date().toISOString(),
+        },
+        ip,
       },
-      ip,
     });
 
     res.json({ success: true, message: 'تم توثيق وتصريح تصدير التقرير بنجاح' });
@@ -1903,23 +2344,26 @@ apiRouter.post('/admin/reports/export-audit', requireAdminAuth, requirePermissio
 // 9. Report by Catering Meal (Sale-01 to Sale-18)
 apiRouter.get('/admin/reports/sales-by-item', requireAdminAuth, requirePermission('reports.view'), async (_req: AuthenticatedRequest, res: Response) => {
   try {
-    const menuList = await db.select().from(menuItems).orderBy(menuItems.sortOrder);
-    const items = await db.select().from(orderItems);
-    const activeOrders = await db.select().from(orders).where(sql`${orders.orderStatus} != 'CANCELLED'`);
+    const menuList = await prisma.menuItem.findMany({ orderBy: { sortOrder: 'asc' } });
+    const items = await prisma.orderItem.findMany();
+    const activeOrders = await prisma.order.findMany({
+      where: { orderStatus: { not: 'CANCELLED' } },
+      select: { id: true },
+    });
     const activeOrderIds = new Set(activeOrders.map((o) => o.id));
 
     const breakdown = menuList.map((m) => {
       const matched = items.filter((it) => it.menuItemId === m.id && activeOrderIds.has(it.orderId));
       const totalUnits = matched.reduce((sum, it) => sum + it.quantity, 0);
-      const totalCustomerSales = matched.reduce((sum, it) => sum + parseFloat(it.customerTotal), 0);
-      const totalSupplierCost = matched.reduce((sum, it) => sum + parseFloat(it.supplierTotalFinal), 0);
-      const totalProfit = matched.reduce((sum, it) => sum + parseFloat(it.profit), 0);
+      const totalCustomerSales = matched.reduce((sum, it) => sum + parseFloat(String(it.customerTotal)), 0);
+      const totalSupplierCost = matched.reduce((sum, it) => sum + parseFloat(String(it.supplierTotalFinal)), 0);
+      const totalProfit = matched.reduce((sum, it) => sum + parseFloat(String(it.profit)), 0);
 
       return {
         code: m.code,
         name: m.name,
-        distributorPrice: parseFloat(m.distributorPrice),
-        supplierPrice: parseFloat(m.supplierPrice),
+        distributorPrice: parseFloat(String(m.distributorPrice)),
+        supplierPrice: parseFloat(String(m.supplierPrice)),
         ordersCount: matched.length,
         totalUnits,
         totalCustomerSales,
@@ -1937,7 +2381,10 @@ apiRouter.get('/admin/reports/sales-by-item', requireAdminAuth, requirePermissio
 // 10. Audit Logs List
 apiRouter.get('/admin/audit-logs', requireAdminAuth, requirePermission('audit_logs.view'), async (_req: AuthenticatedRequest, res: Response) => {
   try {
-    const logs = await db.select().from(auditLogs).orderBy(desc(auditLogs.createdAt)).limit(200);
+    const logs = await prisma.auditLog.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 200,
+    });
     res.json({ success: true, logs });
   } catch (error: any) {
     res.status(500).json({ success: false, message: 'فشل تحميل سجل التدقيق' });
@@ -1947,9 +2394,21 @@ apiRouter.get('/admin/audit-logs', requireAdminAuth, requirePermission('audit_lo
 // 11. Admin Menu Management (View & Update Prices)
 apiRouter.get('/admin/menu', requireAdminAuth, requirePermission('menu.view'), async (_req: AuthenticatedRequest, res: Response) => {
   try {
-    const items = await db.select().from(menuItems).orderBy(menuItems.sortOrder);
-    const history = await db.select().from(menuPriceHistory).orderBy(desc(menuPriceHistory.createdAt));
-    res.json({ success: true, menu: items, priceHistory: history });
+    const items = await prisma.menuItem.findMany({ orderBy: { sortOrder: 'asc' } });
+    const history = await prisma.menuPriceHistory.findMany({ orderBy: { createdAt: 'desc' } });
+    res.json({
+      success: true,
+      menu: items.map((it) => ({
+        ...it,
+        distributorPrice: Number(it.distributorPrice),
+        supplierPrice: Number(it.supplierPrice),
+      })),
+      priceHistory: history.map((h) => ({
+        ...h,
+        distributorPrice: Number(h.distributorPrice),
+        supplierPrice: Number(h.supplierPrice),
+      })),
+    });
   } catch (error: any) {
     res.status(500).json({ success: false, message: 'فشل تحميل قائمة الوجبات للإدارة' });
   }
@@ -1961,38 +2420,43 @@ apiRouter.put('/admin/menu/:id/prices', requireAdminAuth, requirePermission('pri
     const { distributorPrice, supplierPrice } = req.body;
     const adminUser = req.adminSession?.username || 'admin';
 
-    const existing = await db.select().from(menuItems).where(eq(menuItems.id, itemId)).limit(1);
-    if (!existing.length) return res.status(404).json({ success: false, message: 'الوجبة غير موجودة' });
-
-    await db
-      .update(menuItems)
-      .set({
-        distributorPrice: Number(distributorPrice).toFixed(2),
-        supplierPrice: Number(supplierPrice).toFixed(2),
-        updatedAt: new Date(),
-      })
-      .where(eq(menuItems.id, itemId));
-
-    // Record price history
-    await db.insert(menuPriceHistory).values({
-      menuItemId: itemId,
-      distributorPrice: Number(distributorPrice).toFixed(2),
-      supplierPrice: Number(supplierPrice).toFixed(2),
-      createdBy: adminUser,
+    const existing = await prisma.menuItem.findUnique({
+      where: { id: itemId },
     });
+    if (!existing) return res.status(404).json({ success: false, message: 'الوجبة غير موجودة' });
 
-    // Audit log
-    await db.insert(auditLogs).values({
-      userName: adminUser,
-      action: 'MENU_PRICE_UPDATED',
-      entity: 'menu_items',
-      entityId: String(itemId),
-      oldData: {
-        distributorPrice: existing[0].distributorPrice,
-        supplierPrice: existing[0].supplierPrice,
-      },
-      newData: { distributorPrice, supplierPrice },
-    });
+    await prisma.$transaction([
+      prisma.menuItem.update({
+        where: { id: itemId },
+        data: {
+          distributorPrice: Number(distributorPrice),
+          supplierPrice: Number(supplierPrice),
+        },
+      }),
+      prisma.menuPriceHistory.create({
+        data: {
+          menuItemId: itemId,
+          distributorPrice: Number(distributorPrice),
+          supplierPrice: Number(supplierPrice),
+          createdBy: adminUser,
+        },
+      }),
+      prisma.auditLog.create({
+        data: {
+          userName: adminUser,
+          action: 'MENU_PRICE_UPDATED',
+          entity: 'menu_items',
+          entityId: String(itemId),
+          oldData: {
+            distributorPrice: Number(existing.distributorPrice),
+            supplierPrice: Number(existing.supplierPrice),
+          },
+          newData: { distributorPrice: Number(distributorPrice), supplierPrice: Number(supplierPrice) },
+        },
+      }),
+    ]);
+
+    invalidatePublicMenuCache();
 
     res.json({ success: true, message: 'تم تحديث السعر وتوثيقه في سجل أسعار المنيو بنجاح' });
   } catch (error: any) {
@@ -2003,17 +2467,17 @@ apiRouter.put('/admin/menu/:id/prices', requireAdminAuth, requirePermission('pri
 // 12. Suppliers List
 apiRouter.get('/admin/suppliers', requireAdminAuth, requirePermission('suppliers.view'), async (_req: AuthenticatedRequest, res: Response) => {
   try {
-    const supList = await db.select().from(suppliers);
-    const supOrders = await db.select().from(supplierOrders);
+    const supList = await prisma.supplier.findMany();
+    const supOrders = await prisma.supplierOrder.findMany();
 
     const suppliersWithTotals = supList.map((s) => {
       const ordersForSup = supOrders.filter((so) => so.supplierId === s.id);
       return {
         ...s,
         totalOrdersCount: ordersForSup.length,
-        totalPayable: ordersForSup.reduce((sum, o) => sum + parseFloat(o.supplierTotal), 0),
-        totalPaid: ordersForSup.reduce((sum, o) => sum + parseFloat(o.supplierPaid), 0),
-        totalRemaining: ordersForSup.reduce((sum, o) => sum + parseFloat(o.supplierRemaining), 0),
+        totalPayable: ordersForSup.reduce((sum, o) => sum + Number(o.supplierTotal), 0),
+        totalPaid: ordersForSup.reduce((sum, o) => sum + Number(o.supplierPaid), 0),
+        totalRemaining: ordersForSup.reduce((sum, o) => sum + Number(o.supplierRemaining), 0),
       };
     });
 
@@ -2093,18 +2557,25 @@ apiRouter.put('/admin/users/:id/disable', requireAdminAuth, requirePermission('u
 // 14. Roles & Permissions List
 apiRouter.get('/admin/roles', requireAdminAuth, requirePermission('users.view'), async (_req: AuthenticatedRequest, res: Response) => {
   try {
-    const roleList = await db.select().from(roles).orderBy(roles.id);
-    const permList = await db.select().from(permissions).orderBy(permissions.code);
-    const rolePermList = await db.select().from(rolePermissions);
-
-    const rolesWithPerms = roleList.map((r) => {
-      const assignedPermIds = rolePermList.filter((rp) => rp.roleId === r.id).map((rp) => rp.permissionId);
-      const assignedPerms = permList.filter((p) => assignedPermIds.includes(p.id));
-      return {
-        ...r,
-        permissions: assignedPerms,
-      };
+    const roleList = await prisma.role.findMany({
+      orderBy: { id: 'asc' },
+      include: {
+        permissions: {
+          include: {
+            permission: true,
+          },
+        },
+      },
     });
+    const permList = await prisma.permission.findMany({ orderBy: { code: 'asc' } });
+
+    const rolesWithPerms = roleList.map((r) => ({
+      id: r.id,
+      name: r.name,
+      description: r.description,
+      createdAt: r.createdAt,
+      permissions: r.permissions.map((rp) => rp.permission),
+    }));
 
     res.json({ success: true, roles: rolesWithPerms, allPermissions: permList });
   } catch (error: any) {
@@ -2115,7 +2586,7 @@ apiRouter.get('/admin/roles', requireAdminAuth, requirePermission('users.view'),
 // 15. Customers List & Edit (customers.view, customers.edit)
 apiRouter.get('/admin/customers', requireAdminAuth, requirePermission('customers.view'), async (_req: AuthenticatedRequest, res: Response) => {
   try {
-    const custList = await db.select().from(customers).orderBy(desc(customers.id));
+    const custList = await prisma.customer.findMany({ orderBy: { id: 'desc' } });
     res.json({ success: true, customers: custList });
   } catch (error: any) {
     res.status(500).json({ success: false, message: 'فشل تحميل بيانات العملاء' });
@@ -2127,17 +2598,16 @@ apiRouter.put('/admin/customers/:id', requireAdminAuth, requirePermission('custo
     const custId = Number(req.params.id);
     const { fullName, phone, whatsapp, email, notes } = req.body;
 
-    await db
-      .update(customers)
-      .set({
+    await prisma.customer.update({
+      where: { id: custId },
+      data: {
         fullName,
         phone,
         whatsapp,
         email,
         notes,
-        updatedAt: new Date(),
-      })
-      .where(eq(customers.id, custId));
+      },
+    });
 
     res.json({ success: true, message: 'تم تحديث بيانات العميل بنجاح' });
   } catch (error: any) {
@@ -2168,7 +2638,7 @@ apiRouter.post('/admin/orders/:id/cancel', requireAdminAuth, requirePermission('
 // 17. System Settings (settings.edit)
 apiRouter.get('/admin/settings', requireAdminAuth, requirePermission('settings.edit'), async (_req: AuthenticatedRequest, res: Response) => {
   try {
-    const allSettings = await db.select().from(appSettings).orderBy(appSettings.key);
+    const allSettings = await prisma.appSetting.findMany({ orderBy: { key: 'asc' } });
     res.json({ success: true, settings: allSettings });
   } catch (error: any) {
     res.status(500).json({ success: false, message: 'فشل تحميل الإعدادات' });
@@ -2182,12 +2652,18 @@ apiRouter.put('/admin/settings', requireAdminAuth, requirePermission('settings.e
       return res.status(400).json({ success: false, message: 'مفتاح وقيمة الإعداد مطلوبان' });
     }
 
-    const existing = await db.select().from(appSettings).where(eq(appSettings.key, key)).limit(1);
-    if (existing.length > 0) {
-      await db.update(appSettings).set({ value: String(value), updatedAt: new Date() }).where(eq(appSettings.key, key));
-    } else {
-      await db.insert(appSettings).values({ key, value: String(value), description: description || '' });
-    }
+    await prisma.appSetting.upsert({
+      where: { key },
+      update: {
+        value: String(value),
+        updatedAt: new Date(),
+      },
+      create: {
+        key,
+        value: String(value),
+        description: description || '',
+      },
+    });
 
     res.json({ success: true, message: `تم تحديث الإعداد ${key} بنجاح` });
   } catch (error: any) {
@@ -2198,31 +2674,29 @@ apiRouter.put('/admin/settings', requireAdminAuth, requirePermission('settings.e
 // 18. Customer Payments & Supplier Payments Lists & Payment Audit Logs
 apiRouter.get('/admin/customer-payments', requireAdminAuth, requirePermission('customer_payments.view'), async (_req: AuthenticatedRequest, res: Response) => {
   try {
-    const rawPayments = await db
-      .select({
-        id: customerPayments.id,
-        orderId: customerPayments.orderId,
-        customerId: customerPayments.customerId,
-        amount: customerPayments.amount,
-        paymentMethod: customerPayments.paymentMethod,
-        paymentStatus: customerPayments.paymentStatus,
-        paymentReference: customerPayments.paymentReference,
-        notes: customerPayments.notes,
-        receivedBy: customerPayments.receivedBy,
-        paidAt: customerPayments.paidAt,
-        createdAt: customerPayments.createdAt,
-        orderNumber: orders.orderNumber,
-        customerName: customers.fullName,
-        customerPhone: customers.phone,
-      })
-      .from(customerPayments)
-      .leftJoin(orders, eq(customerPayments.orderId, orders.id))
-      .leftJoin(customers, eq(customerPayments.customerId, customers.id))
-      .orderBy(desc(customerPayments.paidAt), desc(customerPayments.id));
+    const rawPayments = await prisma.customerPayment.findMany({
+      include: {
+        order: { select: { orderNumber: true } },
+        customer: { select: { fullName: true, phone: true } },
+      },
+      orderBy: [{ paidAt: 'desc' }, { id: 'desc' }],
+    });
 
     const payments = rawPayments.map((p) => ({
-      ...p,
-      amount: parseFloat(p.amount),
+      id: p.id,
+      orderId: p.orderId,
+      customerId: p.customerId,
+      amount: Number(p.amount),
+      paymentMethod: p.paymentMethod,
+      paymentStatus: p.paymentStatus,
+      paymentReference: p.paymentReference,
+      notes: p.notes,
+      receivedBy: p.receivedBy,
+      paidAt: p.paidAt,
+      createdAt: p.createdAt,
+      orderNumber: p.order?.orderNumber || '',
+      customerName: p.customer?.fullName || '',
+      customerPhone: p.customer?.phone || '',
     }));
 
     res.json({ success: true, payments });
@@ -2233,32 +2707,30 @@ apiRouter.get('/admin/customer-payments', requireAdminAuth, requirePermission('c
 
 apiRouter.get('/admin/supplier-payments', requireAdminAuth, requirePermission('supplier_payments.view'), async (_req: AuthenticatedRequest, res: Response) => {
   try {
-    const rawPayments = await db
-      .select({
-        id: supplierPayments.id,
-        supplierOrderId: supplierPayments.supplierOrderId,
-        supplierId: supplierPayments.supplierId,
-        orderId: supplierPayments.orderId,
-        amount: supplierPayments.amount,
-        paymentMethod: supplierPayments.paymentMethod,
-        reference: supplierPayments.reference,
-        notes: supplierPayments.notes,
-        paidBy: supplierPayments.paidBy,
-        paidAt: supplierPayments.paidAt,
-        createdAt: supplierPayments.createdAt,
-        orderNumber: orders.orderNumber,
-        supplierOrderNumber: supplierOrders.supplierOrderNumber,
-        supplierName: suppliers.name,
-      })
-      .from(supplierPayments)
-      .leftJoin(orders, eq(supplierPayments.orderId, orders.id))
-      .leftJoin(supplierOrders, eq(supplierPayments.supplierOrderId, supplierOrders.id))
-      .leftJoin(suppliers, eq(supplierPayments.supplierId, suppliers.id))
-      .orderBy(desc(supplierPayments.paidAt), desc(supplierPayments.id));
+    const rawPayments = await prisma.supplierPayment.findMany({
+      include: {
+        order: { select: { orderNumber: true } },
+        supplierOrder: { select: { supplierOrderNumber: true } },
+        supplier: { select: { name: true } },
+      },
+      orderBy: [{ paidAt: 'desc' }, { id: 'desc' }],
+    });
 
     const payments = rawPayments.map((p) => ({
-      ...p,
-      amount: parseFloat(p.amount),
+      id: p.id,
+      supplierOrderId: p.supplierOrderId,
+      supplierId: p.supplierId,
+      orderId: p.orderId,
+      amount: Number(p.amount),
+      paymentMethod: p.paymentMethod,
+      reference: p.reference,
+      notes: p.notes,
+      paidBy: p.paidBy,
+      paidAt: p.paidAt,
+      createdAt: p.createdAt,
+      orderNumber: p.order?.orderNumber || '',
+      supplierOrderNumber: p.supplierOrder?.supplierOrderNumber || '',
+      supplierName: p.supplier?.name || '',
     }));
 
     res.json({ success: true, payments });
@@ -2269,16 +2741,17 @@ apiRouter.get('/admin/supplier-payments', requireAdminAuth, requirePermission('s
 
 apiRouter.get('/admin/payment-audit-logs', requireAdminAuth, requirePermission('audit_logs.view'), async (_req: AuthenticatedRequest, res: Response) => {
   try {
-    const logs = await db
-      .select()
-      .from(auditLogs)
-      .where(or(
-        eq(auditLogs.entity, 'customer_payments'),
-        eq(auditLogs.entity, 'supplier_payments'),
-        like(auditLogs.action, '%PAYMENT%')
-      ))
-      .orderBy(desc(auditLogs.createdAt))
-      .limit(200);
+    const logs = await prisma.auditLog.findMany({
+      where: {
+        OR: [
+          { entity: 'customer_payments' },
+          { entity: 'supplier_payments' },
+          { action: { contains: 'PAYMENT' } },
+        ],
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 200,
+    });
 
     res.json({ success: true, logs });
   } catch (error: any) {
