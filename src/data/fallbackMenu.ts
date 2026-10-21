@@ -1,4 +1,4 @@
-import { PublicMenuItem } from '../types/publicMenu.ts';
+import type { PublicMenuItem } from '../types/publicMenu.ts';
 
 export const OFFICIAL_18_MENU_ITEMS: PublicMenuItem[] = [
   {

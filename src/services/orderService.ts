@@ -211,12 +211,39 @@ export class OrderService {
     let orderGrossProfit = 0;
 
     for (const rawItem of rawItems) {
-      const menuItem = await prisma.menuItem.findUnique({
-        where: { code: rawItem.menuCode },
+      const cleanCode = (rawItem.menuCode || '').trim();
+      const match = cleanCode.match(/^sale\s*[-_ ]\s*(\d+)$/i);
+      const normalizedCode = match ? `Sale-${String(parseInt(match[1], 10)).padStart(2, '0')}` : cleanCode;
+
+      let menuItem = await prisma.menuItem.findUnique({
+        where: { code: cleanCode },
         include: {
           components: { orderBy: { sortOrder: 'asc' } },
         },
       });
+
+      if (!menuItem && normalizedCode !== cleanCode) {
+        menuItem = await prisma.menuItem.findUnique({
+          where: { code: normalizedCode },
+          include: {
+            components: { orderBy: { sortOrder: 'asc' } },
+          },
+        });
+      }
+
+      if (!menuItem) {
+        menuItem = await prisma.menuItem.findFirst({
+          where: {
+            OR: [
+              { code: { equals: normalizedCode, mode: 'insensitive' } },
+              { code: { equals: cleanCode, mode: 'insensitive' } },
+            ],
+          },
+          include: {
+            components: { orderBy: { sortOrder: 'asc' } },
+          },
+        });
+      }
 
       if (!menuItem) {
         throw new Error(`الوجبة المختارة (${rawItem.menuCode}) غير متوفرة حالياً`);
