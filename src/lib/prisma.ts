@@ -49,7 +49,7 @@ declare global {
 
 const dbUrl = getDatabaseUrl();
 
-export const prisma =
+const basePrisma =
   globalThis.prismaGlobal ||
   new PrismaClient({
     datasources: dbUrl ? { db: { url: dbUrl } } : undefined,
@@ -57,7 +57,38 @@ export const prisma =
   });
 
 if (!globalThis.prismaGlobal) {
-  globalThis.prismaGlobal = prisma;
+  globalThis.prismaGlobal = basePrisma;
 }
 
+export const prisma = basePrisma.$extends({
+  query: {
+    $allModels: {
+      async $allOperations({ operation, model, args, query }) {
+        try {
+          return await query(args);
+        } catch (err: any) {
+          const msg = (err && err.message) || '';
+          const isClosed =
+            msg.includes('Closed') ||
+            msg.includes('closed') ||
+            msg.includes('Connection') ||
+            msg.includes('broken pipe') ||
+            msg.includes('ECONNRESET') ||
+            err?.code === 'P1001' ||
+            err?.code === 'P1017';
+
+          if (isClosed) {
+            console.warn(`[PRISMA_RECONNECT] Reconnecting on ${model}.${operation} after connection drop...`);
+            await basePrisma.$disconnect().catch(() => {});
+            await basePrisma.$connect().catch(() => {});
+            return await query(args);
+          }
+          throw err;
+        }
+      },
+    },
+  },
+});
+
 export default prisma;
+

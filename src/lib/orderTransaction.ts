@@ -21,7 +21,7 @@ export interface CreateOrderInput {
 /**
  * Generates a formatted chronological order number: CB-YYYYMMDD-XXXX
  */
-export async function generateOrderNumber(tx: Prisma.TransactionClient): Promise<string> {
+export async function generateOrderNumber(tx: any): Promise<string> {
   const today = new Date();
   const yyyy = today.getFullYear();
   const mm = String(today.getMonth() + 1).padStart(2, '0');
