@@ -164,9 +164,12 @@ app.use("/api", (req, res, next) => {
 app.use('/api', apiRouter);
 
 // Persistent Admin Credentials, Sessions, and Audit Logs Files Path
-const ADMIN_CONFIG_FILE = path.resolve(process.cwd(), ".admin-credentials.json");
-const ADMIN_SESSIONS_FILE = path.resolve(process.cwd(), ".admin-sessions.json");
-const ADMIN_AUDIT_LOGS_FILE = path.resolve(process.cwd(), ".admin-audit-logs.json");
+const isServerless = Boolean(process.env.VERCEL || process.env.VERCEL_ENV || process.env.AWS_LAMBDA_FUNCTION_NAME);
+const baseStorageDir = isServerless ? "/tmp" : process.cwd();
+
+const ADMIN_CONFIG_FILE = path.resolve(baseStorageDir, ".admin-credentials.json");
+const ADMIN_SESSIONS_FILE = path.resolve(baseStorageDir, ".admin-sessions.json");
+const ADMIN_AUDIT_LOGS_FILE = path.resolve(baseStorageDir, ".admin-audit-logs.json");
 
 // In-memory orders store
 interface CateringOrder {
@@ -200,7 +203,7 @@ interface CateringOrder {
   createdAt: string;
 }
 
-const ORDERS_FILE = path.resolve(process.cwd(), "celebre-orders.json");
+const ORDERS_FILE = path.resolve(baseStorageDir, "celebre-orders.json");
 
 const SEED_CEL_9386: CateringOrder = {
   id: "CEL-9386",
@@ -240,7 +243,9 @@ function loadOrders(): CateringOrder[] {
       if (Array.isArray(parsed)) {
         if (!parsed.some((o: any) => o && o.id === "CEL-9386")) {
           parsed.unshift(SEED_CEL_9386);
-          fs.writeFileSync(ORDERS_FILE, JSON.stringify(parsed, null, 2), "utf-8");
+          try {
+            fs.writeFileSync(ORDERS_FILE, JSON.stringify(parsed, null, 2), "utf-8");
+          } catch {}
         }
         return parsed;
       }
@@ -477,7 +482,7 @@ interface AdminBookingRecord {
   updatedAt: string;
 }
 
-const ADMIN_BOOKINGS_FILE = path.join(process.cwd(), "celebre-admin-bookings.json");
+const ADMIN_BOOKINGS_FILE = path.join(baseStorageDir, "celebre-admin-bookings.json");
 
 const SEED_ADMIN_CEL_9386: AdminBookingRecord = {
   id: "CEL-9386",
@@ -528,7 +533,9 @@ function loadAdminBookings(): AdminBookingRecord[] {
         if (!realBookings.some((b: any) => b.id === "CEL-9386")) {
           realBookings.unshift(SEED_ADMIN_CEL_9386);
         }
-        fs.writeFileSync(ADMIN_BOOKINGS_FILE, JSON.stringify(realBookings, null, 2), "utf-8");
+        try {
+          fs.writeFileSync(ADMIN_BOOKINGS_FILE, JSON.stringify(realBookings, null, 2), "utf-8");
+        } catch {}
         return realBookings;
       }
     }

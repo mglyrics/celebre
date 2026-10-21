@@ -1,4 +1,5 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
+import crypto from 'node:crypto';
 import { prisma } from '../lib/prisma.ts';
 import { Prisma } from '@prisma/client';
 import { OrderService } from '../services/orderService.ts';
@@ -177,8 +178,20 @@ apiRouter.get('/public/settings', async (_req: Request, res: Response) => {
 
 // 3. Public Preliminary Booking (NO online payment!)
 apiRouter.post('/public/bookings', async (req: Request, res: Response) => {
+  const startTime = Date.now();
+  const traceId = (req.headers['x-trace-id'] as string) || `trc_${Date.now().toString(36)}_${crypto.randomBytes(3).toString('hex')}`;
+  res.setHeader('x-trace-id', traceId);
+  res.setHeader('Content-Type', 'application/json');
+
+  const method = req.method;
+  const pathUrl = req.originalUrl || req.url;
+  const isProbe = req.body?.dryRun === true || req.headers['x-probe-test'] === 'true';
+
+  console.log(`[BOOKING_API][RECEIVE] traceId=${traceId} method=${method} path=${pathUrl} isProbe=${isProbe}`);
+
+  let stage = 'validation';
+
   try {
-    res.setHeader('Content-Type', 'application/json');
     const body = req.body || {};
     const {
       customerName,
@@ -197,8 +210,48 @@ apiRouter.post('/public/bookings', async (req: Request, res: Response) => {
       arrivalInstructions,
     } = body;
 
+    // 1. Safe Diagnostic Probe / Dry-Run (Proves deployment & DB health without persisting orders or altering accounting)
+    if (isProbe) {
+      stage = 'probe_db_check';
+      console.log(`[BOOKING_API][PROBE_CHECK] traceId=${traceId}`);
+      
+      const cleanCode = (menuCode || (items && items[0]?.menuCode) || 'Sale-01').trim();
+      const match = cleanCode.match(/^sale\s*[-_ ]\s*(\d+)$/i);
+      const normalizedCode = match ? `Sale-${String(parseInt(match[1], 10)).padStart(2, '0')}` : cleanCode;
+
+      const menuItem = await prisma.menuItem.findFirst({
+        where: {
+          OR: [
+            { code: cleanCode },
+            { code: normalizedCode },
+            { code: { equals: normalizedCode, mode: 'insensitive' } },
+          ],
+        },
+        select: { id: true, code: true, name: true, distributorPrice: true },
+      });
+
+      const durationMs = Date.now() - startTime;
+      console.log(`[BOOKING_API][PROBE_COMPLETE] traceId=${traceId} status=200 durationMs=${durationMs}`);
+      return res.status(200).json({
+        success: true,
+        dryRun: true,
+        traceId,
+        stage: 'complete',
+        dbConnected: true,
+        itemFound: Boolean(menuItem),
+        menuCode: menuItem?.code || normalizedCode,
+        durationMs,
+        message: 'نقطة النهاية المنشورة متصلة بالخادم وقاعدة البيانات بنجاح (فحص تشخيصي آمن بدون إنشاء حجز).',
+      });
+    }
+
+    // 2. Real Booking Execution (ACID PostgreSQL Transaction via OrderService)
+    stage = 'validation';
     const ip = req.ip || req.socket.remoteAddress || 'unknown';
-    const userAgent = req.headers['user-agent'] || 'unknown';
+    const userAgent = (req.headers['user-agent'] || 'unknown').substring(0, 150);
+
+    stage = 'database_transaction';
+    console.log(`[BOOKING_API][DB_PERSIST] traceId=${traceId}`);
 
     const result = await OrderService.createPreliminaryBooking({
       customerName,
@@ -220,6 +273,7 @@ apiRouter.post('/public/bookings', async (req: Request, res: Response) => {
       userAgent,
     });
 
+    stage = 'complete';
     const totalQuantity = (result.items && result.items.length > 0)
       ? result.items.reduce((s: number, i: any) => s + i.quantity, 0)
       : (Number(quantity) || 0);
@@ -264,9 +318,14 @@ ${itemsSummary}
 أرجو مراجعة وتأكيد الحجز والتنسيق بخصوص الموعد وطريقة الدفع.`;
 
     const whatsappLink = WhatsAppService.createDeepLink(adminPhone, clientIntroText);
+    const durationMs = Date.now() - startTime;
+    console.log(`[BOOKING_API][SUCCESS] traceId=${traceId} orderNumber=${result.order.orderNumber} status=200 durationMs=${durationMs}`);
 
-    res.json({
+    return res.status(200).json({
       success: true,
+      traceId,
+      stage: 'complete',
+      durationMs,
       message: 'تم استلام طلب الحجز المبدئي وسيتم التواصل معك عبر واتساب لتأكيد الحجز وتفاصيل الدفع.',
       order: {
         id: result.order.id,
@@ -290,19 +349,27 @@ ${itemsSummary}
       adminAlertMessage,
     });
   } catch (error: any) {
-    console.error('Error creating public booking:', error);
+    const durationMs = Date.now() - startTime;
+    const isClientError =
+      error.message &&
+      (error.message.includes('يرجى') ||
+        error.message.includes('الحد الأدنى') ||
+        error.message.includes('غير متوفرة') ||
+        error.message.includes('الكمية') ||
+        error.message.includes('رقم هاتف'));
+    const statusCode = isClientError ? 400 : 500;
+    const errorType = isClientError ? 'VALIDATION_ERROR' : (stage === 'database_transaction' ? 'DATABASE_ERROR' : 'INTERNAL_SERVER_ERROR');
+
+    console.error(`[BOOKING_API][FAIL] traceId=${traceId} stage=${stage} errorType=${errorType} status=${statusCode} durationMs=${durationMs}`);
+
     if (!res.headersSent) {
       res.setHeader('Content-Type', 'application/json');
-      const isClientError =
-        error.message &&
-        (error.message.includes('يرجى') ||
-          error.message.includes('الحد الأدنى') ||
-          error.message.includes('غير متوفرة') ||
-          error.message.includes('الكمية') ||
-          error.message.includes('رقم هاتف'));
-      const statusCode = isClientError ? 400 : 500;
       return res.status(statusCode).json({
         success: false,
+        traceId,
+        stage,
+        durationMs,
+        errorType,
         message: error.message || 'فشل تسجيل طلب الحجز المبدئي. يرجى المحاولة مرة أخرى.',
       });
     }

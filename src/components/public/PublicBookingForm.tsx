@@ -166,11 +166,14 @@ export const PublicBookingForm: React.FC<PublicBookingFormProps> = ({
       }
 
       if (!response.ok || !data || !data.success || !data.order?.orderNumber) {
-        const errDesc = data?.message || (
-          response.status >= 500
-            ? "تعذر الاتصال بخادم الحجوزات مؤقتاً. يرجى المحاولة مرة أخرى أو التواصل عبر واتساب لتأكيد الحجز."
-            : "فشل تسجيل طلب الحجز وحفظه في قاعدة البيانات. يرجى التأكد من صحة البيانات والمحاولة ثانية."
-        );
+        const traceTag = data?.traceId ? ` [كود التتبع: ${data.traceId}]` : "";
+        const errDesc = data?.message
+          ? `${data.message}${traceTag}`
+          : (
+            response.status >= 500
+              ? `تعذر الاتصال بخادم الحجوزات مؤقتاً. يرجى المحاولة مرة أخرى أو التواصل عبر واتساب لتأكيد الحجز.${traceTag}`
+              : `فشل تسجيل طلب الحجز وحفظه في قاعدة البيانات. يرجى التأكد من صحة البيانات والمحاولة ثانية.${traceTag}`
+          );
         throw new Error(errDesc);
       }
 

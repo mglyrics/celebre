@@ -44,11 +44,15 @@ export default function handler(req: any, res: any) {
     // 3. Delegate to Express application
     return app(req, res);
   } catch (err: any) {
-    console.error('Unhandled Vercel Serverless Function Error:', err);
+    const traceId = (req.headers && req.headers['x-trace-id']) || `trc_lambda_${Date.now().toString(36)}`;
+    console.error(`[VERCEL_HANDLER_ERROR] traceId=${traceId}:`, err);
     if (!res.headersSent) {
       res.setHeader('Content-Type', 'application/json');
+      res.setHeader('x-trace-id', traceId);
       return res.status(500).json({
         success: false,
+        traceId,
+        stage: 'serverless_invocation',
         message: 'حدث خطأ في الخادم أثناء معالجة الطلب. يرجى المحاولة مرة أخرى.',
       });
     }
