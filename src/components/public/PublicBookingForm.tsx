@@ -150,10 +150,28 @@ export const PublicBookingForm: React.FC<PublicBookingFormProps> = ({
         }),
       });
 
-      const data = await response.json();
+      let data: any = null;
+      const contentType = response.headers.get("content-type") || "";
 
-      if (!response.ok || !data.success || !data.order?.orderNumber) {
-        throw new Error(data.message || "فشل تسجيل طلب الحجز وحفظه في قاعدة البيانات");
+      if (contentType.includes("application/json")) {
+        try {
+          data = await response.json();
+        } catch (jsonErr) {
+          console.error("Failed to parse JSON response:", jsonErr);
+          data = null;
+        }
+      } else {
+        const rawText = await response.text().catch(() => "");
+        console.warn("Non-JSON response received:", response.status, rawText.slice(0, 150));
+      }
+
+      if (!response.ok || !data || !data.success || !data.order?.orderNumber) {
+        const errDesc = data?.message || (
+          response.status >= 500
+            ? "تعذر الاتصال بخادم الحجوزات مؤقتاً. يرجى المحاولة مرة أخرى أو التواصل عبر واتساب لتأكيد الحجز."
+            : "فشل تسجيل طلب الحجز وحفظه في قاعدة البيانات. يرجى التأكد من صحة البيانات والمحاولة ثانية."
+        );
+        throw new Error(errDesc);
       }
 
       // Successfully saved on server & database!

@@ -279,10 +279,30 @@ export const OrderPage: React.FC<OrderPageProps> = ({
         }),
       });
 
-      const data = await res.json();
+      let data: any = null;
+      const contentType = res.headers.get("content-type") || "";
 
-      if (!res.ok || !data.success) {
-        throw new Error(data.message || "فشل تسجيل طلب الحجز المبدئي");
+      if (contentType.includes("application/json")) {
+        try {
+          data = await res.json();
+        } catch (jsonErr) {
+          console.error("Failed to parse server JSON response:", jsonErr);
+          data = null;
+        }
+      } else {
+        const rawText = await res.text().catch(() => "");
+        console.warn("Server returned non-JSON response:", res.status, rawText.slice(0, 150));
+      }
+
+      if (!res.ok || !data || !data.success) {
+        const serverErrorMsg = data?.message || (
+          res.status >= 500
+            ? "تعذر الاتصال بخادم الحجوزات مؤقتاً. يرجى المحاولة مرة أخرى، أو التواصل مباشرة عبر واتساب لتأكيد طلبك."
+            : res.status === 404
+            ? "خدمة الحجز المباشر قيد التحديث المؤقت. يرجى التواصل عبر واتساب لتسجيل طلبك فوراً."
+            : "فشل تسجيل طلب الحجز المبدئي، يرجى التأكد من صحة البيانات المدخلة والمحاولة ثانية."
+        );
+        throw new Error(serverErrorMsg);
       }
 
       setCompletedOrder(data.order);

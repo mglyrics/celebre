@@ -178,6 +178,8 @@ apiRouter.get('/public/settings', async (_req: Request, res: Response) => {
 // 3. Public Preliminary Booking (NO online payment!)
 apiRouter.post('/public/bookings', async (req: Request, res: Response) => {
   try {
+    res.setHeader('Content-Type', 'application/json');
+    const body = req.body || {};
     const {
       customerName,
       phone,
@@ -193,7 +195,7 @@ apiRouter.post('/public/bookings', async (req: Request, res: Response) => {
       venueType,
       occasion,
       arrivalInstructions,
-    } = req.body;
+    } = body;
 
     const ip = req.ip || req.socket.remoteAddress || 'unknown';
     const userAgent = req.headers['user-agent'] || 'unknown';
@@ -289,7 +291,21 @@ ${itemsSummary}
     });
   } catch (error: any) {
     console.error('Error creating public booking:', error);
-    res.status(400).json({ success: false, message: error.message || 'فشل تسجيل الحجز المبدئي' });
+    if (!res.headersSent) {
+      res.setHeader('Content-Type', 'application/json');
+      const isClientError =
+        error.message &&
+        (error.message.includes('يرجى') ||
+          error.message.includes('الحد الأدنى') ||
+          error.message.includes('غير متوفرة') ||
+          error.message.includes('الكمية') ||
+          error.message.includes('رقم هاتف'));
+      const statusCode = isClientError ? 400 : 500;
+      return res.status(statusCode).json({
+        success: false,
+        message: error.message || 'فشل تسجيل طلب الحجز المبدئي. يرجى المحاولة مرة أخرى.',
+      });
+    }
   }
 });
 

@@ -16,6 +16,45 @@ dotenv.config();
 const app = express();
 const PORT = 3000;
 
+export function getClientIp(req: any): string {
+  try {
+    const xff = req.headers?.["x-forwarded-for"];
+    if (xff) {
+      const ip = Array.isArray(xff) ? xff[0] : String(xff).split(",")[0];
+      if (ip) return ip.trim();
+    }
+    const realIp = req.headers?.["x-real-ip"];
+    if (realIp) return String(realIp).trim();
+    if (req.socket?.remoteAddress) return req.socket.remoteAddress;
+    if (req.connection?.remoteAddress) return req.connection.remoteAddress;
+    return typeof req.ip === "string" ? req.ip : "client_ip";
+  } catch {
+    return "client_ip";
+  }
+}
+
+// 1. Serverless Environment Normalization:
+// Ensure req.socket/req.connection exist and handle pre-parsed bodies from @vercel/node runtime
+app.use((req: any, _res: any, next: any) => {
+  if (!req.socket) {
+    req.socket = { remoteAddress: req.headers?.["x-forwarded-for"] || "127.0.0.1" };
+  }
+  if (!req.connection) {
+    req.connection = req.socket;
+  }
+  if (req.body !== undefined && req.body !== null && typeof req.body === "object") {
+    req._body = true;
+    if (!req.rawBody) {
+      try {
+        req.rawBody = Buffer.from(JSON.stringify(req.body));
+      } catch {
+        // ignore
+      }
+    }
+  }
+  next();
+});
+
 app.use(
   express.json({
     verify: (req: any, _res, buf) => {
@@ -29,10 +68,10 @@ app.use((req, _res, next) => {
   const xMatched = req.headers["x-matched-path"] as string;
   const queryPath = (req.query?.path as string) || "";
   
-  if (queryPath) {
-    req.url = "/api/" + queryPath.replace(/^\/+/, "");
-  } else if (req.url.startsWith("/api/index") || req.url.startsWith("/index") || req.url.startsWith("/?path=")) {
-    if (xMatched && xMatched.startsWith("/api") && !xMatched.includes("/api/index")) {
+  if (req.url.startsWith("/api/index") || req.url.startsWith("/index") || req.url.startsWith("/?path=")) {
+    if (queryPath) {
+      req.url = "/api/" + queryPath.replace(/^\/+/, "");
+    } else if (xMatched && xMatched.startsWith("/api") && !xMatched.includes("/api/index")) {
       req.url = xMatched;
     }
   }
@@ -78,7 +117,7 @@ app.use((_req, res, next) => {
 const globalApiRateMap = new Map<string, { count: number; resetTime: number }>();
 app.use("/api", (req, res, next) => {
   if (req.method === "OPTIONS") return next();
-  const ip = req.ip || req.socket.remoteAddress || "client_ip";
+  const ip = getClientIp(req);
   const now = Date.now();
   let record = globalApiRateMap.get(ip);
   if (!record || now > record.resetTime) {
@@ -1964,9 +2003,28 @@ app.use("/api", (_req, res) => {
   });
 });
 
+// Global JSON error handler for all unhandled errors in /api - guarantees Express never returns HTML or plain text error pages
+app.use((err: any, _req: express.Request, res: express.Response, next: express.NextFunction) => {
+  if (res.headersSent) {
+    return next(err);
+  }
+  console.error("Global Express API Error Handler:", err);
+  const status =
+    typeof err.status === "number" && err.status >= 400 && err.status < 600
+      ? err.status
+      : typeof err.statusCode === "number" && err.statusCode >= 400 && err.statusCode < 600
+      ? err.statusCode
+      : 500;
+
+  res.status(status).json({
+    success: false,
+    message: err.userMessage || (status === 500 ? "حدث خطأ في الخادم أثناء معالجة الطلب. يرجى المحاولة مرة أخرى." : err.message),
+  });
+});
+
 async function startServer() {
   // Do not run background server or static serving in Vercel Serverless Function environment
-  if (process.env.VERCEL) {
+  if (process.env.VERCEL || process.env.VERCEL_ENV || process.env.AWS_LAMBDA_FUNCTION_NAME) {
     return;
   }
 
@@ -1989,8 +2047,18 @@ async function startServer() {
   });
 }
 
-// Start the server if in standalone node environment
-startServer();
+const isDirectRun = Boolean(
+  process.argv[1] &&
+  (process.argv[1].endsWith("/server.ts") ||
+   process.argv[1].endsWith("/server.js") ||
+   process.argv[1].endsWith("server.ts") ||
+   process.argv[1].endsWith("server.js"))
+);
+
+// Start the server only in standalone node environment (not when imported in serverless functions or tests)
+if (isDirectRun && !process.env.VERCEL && !process.env.VERCEL_ENV && !process.env.AWS_LAMBDA_FUNCTION_NAME) {
+  startServer();
+}
 
 export default app;
 export { app };
